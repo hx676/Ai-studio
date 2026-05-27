@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>SynCanvasLauncher</AssemblyName>
+    <RootNamespace>SynCanvasLauncher</RootNamespace>
+    <!-- 设置生成的 app.ico 作为应用程序图标 / Set app.ico as application icon -->
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="banner.png" />
+    <!-- 将 app.ico 作为资源打包以供 XAML 窗口引用 / Pack app.ico as resource for XAML -->
+    <Resource Include="app.ico" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,28 @@
+"""Runtime state facade for the staged backend split."""
+
+from app.legacy import (
+    BACKEND_LOCAL_LOAD,
+    CANVAS_LOCK,
+    CANVAS_TASK_LOCK,
+    CANVAS_TASKS,
+    CONVERSATION_LOCK,
+    DIGITAL_HUMAN_CONFIG_LOCK,
+    DIGITAL_HUMAN_LIBRARY_LOCK,
+    DIGITAL_HUMAN_TASKS,
+    DIGITAL_HUMAN_TASK_LOCK,
+    GLOBAL_CONFIG_LOCK,
+    GLOBAL_LOOP,
+    HEYGEM_GENERATION_LOCK,
+    HISTORY_LOCK,
+    LOAD_LOCK,
+    NEXT_TASK_ID,
+    QUEUE,
+    QUEUE_LOCK,
+    TTS_GENERATION_LOCK,
+    TTS_LAST_ERROR,
+    TTS_PROCESS,
+    TTS_SERVICE_LOCK,
+    UPDATE_LOCK,
+    ConnectionManager,
+    manager,
+)

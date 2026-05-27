@@ -1,0 +1,1457 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/static/images/logo.png" type="image/png">
+    <title>Flux Modern Gallery | Unified Console</title>
+    <script>
+        (function(){
+            try {
+                var theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
+                if(theme === 'dark') {
+                    document.documentElement.classList.add('studio-theme-dark');
+                    document.documentElement.classList.add('theme-dark');
+                }
+            } catch(e) {}
+        })();
+    </script>
+    <script src="/static/vendor/js/tailwindcss-cdn.js?v=2026.05.25.7"></script>
+    <script src="/static/vendor/js/lucide.js?v=2026.05.25.7"></script>
+    <script src="/static/js/theme.js?v=2026.05.25.7"></script>
+    <script src="/static/js/i18n.js?v=2026.05.25.7"></script>
+    <script src="/static/js/image-preview.js?v=2026.05.25.7"></script>
+    <script src="/static/js/history-bulk-manager.js?v=2026.05.25.7"></script>
+    <style>
+        :root {
+            --bg-base: #f8f8f8;
+            --text-main: #1a1a1a;
+            --max-w: 1280px;
+            --easing: cubic-bezier(0.4, 0, 0.2, 1);
+            --accent: #000000;
+        }
+
+        /* --- 极简悬浮浅灰滚动条 (无底色/左移) --- */
+        *::-webkit-scrollbar {
+            width: 10px !important;
+            height: 10px !important;
+            background: transparent !important;
+        }
+
+        *::-webkit-scrollbar-track {
+            background: transparent !important;
+            border: none !important;
+        }
+
+        *::-webkit-scrollbar-thumb {
+            background-color: #d8d8d8 !important;
+            border: 3px solid transparent !important;
+            border-right-width: 5px !important;
+            /* 增加右侧间距，使滚动条向左位移 */
+            background-clip: padding-box !important;
+            border-radius: 10px !important;
+        }
+
+        *::-webkit-scrollbar-thumb:hover {
+            background-color: #c0c0c0 !important;
+        }
+
+        *::-webkit-scrollbar-corner {
+            background: transparent !important;
+        }
+
+        * {
+            scrollbar-width: thin !important;
+            scrollbar-color: #d8d8d8 transparent !important;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            font-family: "Inter", -apple-system, "PingFang SC", sans-serif;
+            color: var(--text-main);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .layout-container {
+            max-width: var(--max-w);
+            margin: 0 auto;
+            padding: 0 40px;
+        }
+
+        .console-card {
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+        }
+
+        /* 复合切换组件样式 */
+        .api-select {
+            min-width: 132px;
+            height: 32px;
+            border: 1px solid #e5e7eb;
+            border-radius: 11px;
+            background: #fff;
+            color: #111827;
+            padding: 0 28px 0 10px;
+            font-size: 11px;
+            font-weight: 800;
+            outline: none;
+        }
+
+        .size-controls {
+            min-width: min(520px, 100%);
+        }
+
+        .size-chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .size-chip {
+            height: 26px;
+            min-width: 48px;
+            padding: 0 9px;
+            border: 1px solid #e5e7eb;
+            border-radius: 9px;
+            background: #fff;
+            color: #6b7280;
+            font-size: 10px;
+            font-weight: 900;
+            line-height: 1;
+            transition: all .16s var(--easing);
+        }
+
+        .size-chip:hover {
+            border-color: #cbd5e1;
+            color: #111827;
+        }
+
+        .size-chip.active {
+            background: #111827;
+            border-color: #111827;
+            color: #fff;
+        }
+
+        .resolution-row .size-chip {
+            min-width: 44px;
+        }
+
+        .provider-badge {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 10;
+            min-height: 22px;
+            max-width: 150px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: rgba(255,255,255,.92);
+            box-shadow: 0 4px 12px rgba(15,23,42,.12);
+            color: #111827;
+            font-size: 9px;
+            font-weight: 900;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            overflow: hidden;
+        }
+
+        .provider-badge img {
+            max-width: 118px;
+            max-height: 16px;
+            width: auto;
+            object-fit: contain;
+            display: block;
+        }
+
+        .reference-strip {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 64px;
+            margin-top: 18px;
+            padding: 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            background: rgba(255,255,255,.7);
+        }
+
+        .reference-slot {
+            position: relative;
+            width: 44px;
+            height: 44px;
+            flex: 0 0 44px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #fff;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+            transition: all .16s var(--easing);
+        }
+
+        .reference-strip.drag-over,
+        .reference-slot:hover {
+            border-color: #111827;
+            color: #111827;
+        }
+
+        .reference-slot img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .reference-slot.empty-extra {
+            display: none;
+        }
+
+        .reference-strip.has-open-slot .reference-slot.empty-extra {
+            display: flex;
+        }
+
+        .reference-slot:not(.has-image) {
+            border-style: dashed;
+        }
+
+        .reference-slot .slot-label {
+            display: none;
+        }
+
+        .reference-remove {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            z-index: 3;
+            width: 18px;
+            height: 18px;
+            border-radius: 999px;
+            background: rgba(17,24,39,.86);
+            color: #fff;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(15,23,42,.18);
+        }
+
+        .reference-slot.has-image .reference-remove {
+            display: flex;
+        }
+
+        .reference-add-main {
+            width: auto;
+            min-width: 128px;
+            padding: 0 12px;
+            gap: 8px;
+            flex-direction: row;
+        }
+
+        .reference-add-main .slot-label {
+            display: inline;
+            margin: 0;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 0;
+            text-transform: none;
+            white-space: nowrap;
+        }
+
+        .history-refs {
+            display: flex;
+            gap: 8px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+
+        .history-ref-thumb {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            object-fit: cover;
+            border: 1px solid #e5e7eb;
+            background: #f8fafc;
+        }
+
+        .masonry-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .masonry-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        .masonry-item {
+            aspect-ratio: 1 / 1;
+            border-radius: 24px;
+            overflow: hidden;
+            background: #eee;
+            border: 1px solid #f1f5f9;
+            transition: all 0.5s var(--easing);
+            position: relative;
+        }
+
+        .masonry-item:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+        }
+
+        .history-delete-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 32px;
+            height: 32px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.92);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.18);
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+            opacity: 0;
+            transform: translateY(-4px);
+            transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+            z-index: 5;
+            cursor: pointer;
+        }
+
+        .masonry-item:hover .history-delete-btn,
+        .history-delete-btn:focus-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .history-delete-btn:hover {
+            background: #fff;
+        }
+
+        body.history-bulk-selecting .history-delete-btn {
+            display: none;
+        }
+
+        .z-dialog-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 120;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+
+        .z-dialog-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, .52);
+            backdrop-filter: blur(3px);
+        }
+
+        .z-dialog {
+            position: relative;
+            width: min(420px, calc(100vw - 32px));
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #fff;
+            color: #111827;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, .22);
+        }
+
+        .z-dialog-head,
+        .z-dialog-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px;
+        }
+
+        .z-dialog-head {
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .z-dialog-title {
+            margin: 0;
+            font-size: 16px;
+            line-height: 1.35;
+            font-weight: 800;
+        }
+
+        .z-dialog-close {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #e5e7eb;
+            border-radius: 7px;
+            background: #fff;
+            color: #111827;
+            font-size: 22px;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .z-dialog-close:hover {
+            background: #f8fafc;
+        }
+
+        .z-dialog-body {
+            padding: 16px;
+        }
+
+        .z-dialog-description {
+            margin: 0;
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+
+        .z-dialog-foot {
+            justify-content: flex-end;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .z-dialog-btn {
+            height: 34px;
+            min-width: 76px;
+            border-radius: 7px;
+            border: 1px solid #e5e7eb;
+            padding: 0 14px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .z-dialog-btn.secondary {
+            background: #fff;
+            color: #111827;
+        }
+
+        .z-dialog-btn.secondary:hover {
+            background: #f8fafc;
+        }
+
+        .z-dialog-btn.danger {
+            border-color: #ef4444;
+            background: #ef4444;
+            color: #fff;
+        }
+
+        .z-dialog-btn.danger:hover {
+            background: #dc2626;
+        }
+
+        html.studio-theme-dark .z-dialog,
+        html.theme-dark .z-dialog {
+            border-color: rgba(148, 163, 184, .22);
+            background: #111827;
+            color: #f8fafc;
+        }
+
+        html.studio-theme-dark .z-dialog-head,
+        html.studio-theme-dark .z-dialog-foot,
+        html.theme-dark .z-dialog-head,
+        html.theme-dark .z-dialog-foot {
+            border-color: rgba(148, 163, 184, .22);
+        }
+
+        html.studio-theme-dark .z-dialog-description,
+        html.theme-dark .z-dialog-description {
+            color: #94a3b8;
+        }
+
+        html.studio-theme-dark .z-dialog-close,
+        html.studio-theme-dark .z-dialog-btn.secondary,
+        html.theme-dark .z-dialog-close,
+        html.theme-dark .z-dialog-btn.secondary {
+            border-color: rgba(148, 163, 184, .22);
+            background: #0f172a;
+            color: #f8fafc;
+        }
+
+        html.studio-theme-dark .z-dialog-close:hover,
+        html.studio-theme-dark .z-dialog-btn.secondary:hover,
+        html.theme-dark .z-dialog-close:hover,
+        html.theme-dark .z-dialog-btn.secondary:hover {
+            background: #1f2937;
+        }
+
+        .gallery-lightbox {
+            background: rgba(255, 255, 255, 0.99);
+        }
+
+        .btn-render {
+            background: #000;
+            color: #fff;
+            transition: all 0.3s ease;
+        }
+
+        .btn-render:hover {
+            transform: translateY(-1px);
+            background: #222;
+        }
+
+        .btn-render:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        input::-webkit-inner-spin-button {
+            display: none;
+        }
+    </style>
+    <link rel="stylesheet" href="/static/css/theme.css?v=2026.05.25.7">
+</head>
+
+<body class="antialiased">
+
+    <header class="pt-20 pb-12">
+        <div class="layout-container">
+            <div class="console-card rounded-3xl p-1.5">
+                <div class="bg-gray-50/50 rounded-[22px] p-8">
+                    <div class="flex justify-between items-center mb-6">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest" data-i18n="studio.unifiedConsole">Unified Art
+                            Console</span>
+                        <div id="statusDot" class="flex items-center gap-2">
+                            <span id="statusText" class="text-[9px] font-bold text-gray-500 uppercase" data-i18n="studio.ready">System
+                                Ready</span>
+                            <div id="dotColor" class="w-1.5 h-1.5 bg-black rounded-full"></div>
+                        </div>
+                    </div>
+                    <textarea id="prompt" rows="2"
+                        class="w-full bg-transparent text-2xl font-medium outline-none placeholder:text-gray-200 text-black resize-none leading-relaxed"
+                        placeholder="Describe your vision..." data-i18n-placeholder="studio.describeVision"></textarea>
+                    <div class="reference-strip" id="referenceStrip">
+                        <div id="refSlot1" class="reference-slot reference-add-main cursor-pointer" onclick="openReferencePicker(1)" title="添加参考图">
+                            <input type="file" id="refFile1" accept="image/*" class="hidden" onchange="handleReferenceFile(this.files[0], 1)">
+                            <i data-lucide="image-plus" class="w-4 h-4"></i>
+                            <span class="slot-label">添加参考图</span>
+                            <img id="refPreview1" class="hidden" alt="reference 1">
+                            <button type="button" id="refRemove1" class="reference-remove" onclick="clearReferenceSlot(1, event)">
+                                <i data-lucide="x" class="w-3 h-3"></i>
+                            </button>
+                        </div>
+                        <div id="refSlot2" class="reference-slot empty-extra cursor-pointer" onclick="openReferencePicker(2)" title="添加参考图">
+                            <input type="file" id="refFile2" accept="image/*" class="hidden" onchange="handleReferenceFile(this.files[0], 2)">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            <span class="slot-label">Reference 2</span>
+                            <img id="refPreview2" class="hidden" alt="reference 2">
+                            <button type="button" id="refRemove2" class="reference-remove" onclick="clearReferenceSlot(2, event)">
+                                <i data-lucide="x" class="w-3 h-3"></i>
+                            </button>
+                        </div>
+                        <div id="refSlot3" class="reference-slot empty-extra cursor-pointer" onclick="openReferencePicker(3)" title="添加参考图">
+                            <input type="file" id="refFile3" accept="image/*" class="hidden" onchange="handleReferenceFile(this.files[0], 3)">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            <span class="slot-label">Reference 3</span>
+                            <img id="refPreview3" class="hidden" alt="reference 3">
+                            <button type="button" id="refRemove3" class="reference-remove" onclick="clearReferenceSlot(3, event)">
+                                <i data-lucide="x" class="w-3 h-3"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row items-center justify-between p-4 px-6 gap-6">
+                    <div class="flex flex-wrap items-center gap-8">
+                        <div class="flex flex-col">
+                            <span class="text-[9px] font-bold text-gray-400 uppercase mb-1" data-i18n="online.model">??</span>
+                            <div class="flex items-center gap-2">
+                                <select id="providerSelect" class="api-select" onchange="setApiProvider(this.value)"></select>
+                                <select id="modelSelect" class="api-select" onchange="setApiModel(this.value)"></select>
+                            </div>
+                        </div>
+
+                        <div class="h-8 w-px bg-gray-100"></div>
+
+<div class="size-controls flex flex-col gap-2">
+                            <div class="flex flex-col gap-1">
+                                <span class="text-[9px] font-bold text-gray-400 uppercase" data-i18n="studio.aspectRatio">Aspect Ratio</span>
+                                <div id="ratioOptions" class="size-chip-row"></div>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <span class="text-[9px] font-bold text-gray-400 uppercase" data-i18n="studio.resolution">Resolution</span>
+                                <div id="resolutionOptions" class="size-chip-row resolution-row"></div>
+                            </div>
+                        </div>
+
+
+                    </div>
+
+                    <button id="mainGenBtn" onclick="handleRender()"
+                        class="w-full md:w-56 h-12 btn-render rounded-xl font-bold text-[11px] uppercase flex items-center justify-center gap-3">
+                        <i data-lucide="zap" id="btnIcon" class="w-4 h-4 text-yellow-400"></i>
+                        <span id="btnText" data-i18n="studio.renderArt">Render Art</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="pb-24">
+        <div class="layout-container">
+            <div id="masonry" class="masonry-grid"></div>
+            <div id="loadMoreTrigger"
+                class="py-12 text-center text-gray-300 text-[10px] font-bold uppercase tracking-widest cursor-pointer hidden">
+                <span data-i18n="studio.loadMore">Load More Archive</span>
+            </div>
+        </div>
+    </main>
+
+    <div id="lightbox" onclick="handleOutsideClick(event)"
+        class="hidden fixed inset-0 z-50 gallery-lightbox flex flex-col items-center justify-center p-8">
+        <button onclick="closeLightbox()" class="absolute top-10 right-10 text-gray-400 hover:text-black"><i
+                data-lucide="x" class="w-8 h-8"></i></button>
+        <div class="w-full flex flex-col items-center pointer-events-none" style="max-width:min(1280px, 92vw)">
+            <div id="lightboxFrame" class="studio-preview-frame pointer-events-auto">
+                <img id="lightboxImg" src="" class="studio-preview-img" alt="preview">
+                <div data-no-pan
+                    class="absolute top-6 left-6 bg-black/50 backdrop-blur-md text-white px-3 py-1.5 rounded-xl text-[10px] font-black tracking-widest shadow-2xl pointer-events-auto z-10">
+                    <span id="lightboxRes">0x0</span>
+                </div>
+                <button onclick="downloadImage()" data-no-pan
+                    class="absolute top-6 right-6 bg-black text-white w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl hover:scale-105 transition-transform pointer-events-auto z-10">
+                    <i data-lucide="download" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div id="lightboxCard"
+                class="w-full mt-16 pointer-events-auto bg-white border border-gray-100 rounded-[2rem] p-8 shadow-sm flex justify-between items-center gap-8">
+                <div class="flex-1">
+                    <span class="text-[9px] font-black text-gray-300 uppercase tracking-widest block mb-2" data-i18n="studio.promptExecution">Prompt
+                        Execution</span>
+                    <p id="lightboxPrompt" class="text-gray-700 text-sm leading-relaxed max-h-32 overflow-y-auto pr-2">
+                    </p>
+                    <div id="lightboxRefs" class="history-refs"></div>
+                </div>
+                <button onclick="applySameStyle()"
+                    class="bg-black text-white px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                    <i data-lucide="copy" class="w-3 h-3"></i>
+                    <span data-i18n="studio.replicate">Replicate</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        function tr(key){ return window.StudioI18n ? StudioI18n.t(key) : key; }
+        function applyLanguage(lang){
+            if(lang && window.StudioI18n) StudioI18n.set(lang);
+            document.title = tr('nav.textToImage');
+            const trigger = document.getElementById('loadMoreTrigger');
+            if(trigger && !isLoading) trigger.innerText = tr('studio.loadMore');
+        }
+        window.addEventListener('message', event => {
+            if(event.data?.type === 'studio-lang') applyLanguage(event.data.lang);
+        });
+        window.addEventListener('studio-lang-change', () => { document.title = tr('nav.textToImage'); });
+
+        function generateUUID() {
+            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                try { return crypto.randomUUID(); } catch (e) { }
+            }
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+        const CLIENT_ID = localStorage.getItem("client_id") || generateUUID();
+        localStorage.setItem("client_id", CLIENT_ID);
+
+        let allHistory = [];
+        let currentIndex = 0;
+        const PAGE_SIZE = 15;
+        let isLoading = false;
+
+        // WebSocket 
+        const socket = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/stats?client_id=${encodeURIComponent(CLIENT_ID)}`);
+        socket.onmessage = (e) => {
+            try {
+                const msg = JSON.parse(e.data);
+                if (msg.type === 'new_image' && msg.data?.type === 'zimage') {
+                    if (!document.getElementById(`history-${msg.data.timestamp}`)) {
+                        allHistory.unshift(msg.data);
+                        renderImageCard(msg.data, true);
+                        currentIndex++;
+                    }
+                }
+            } catch (err) { }
+        };
+
+        let apiProviders = [];
+        let selectedProviderId = '';
+        let selectedModel = '';
+        let lastApiProvidersRefreshAt = 0;
+        let apiProvidersRefreshPromise = null;
+        let selectedRatio = '1:1';
+        let selectedResolution = '1k';
+        const referenceImages = {1:null, 2:null, 3:null};
+        const referenceUploadPromises = {1:null, 2:null, 3:null};
+        const referenceUploadErrors = {1:null, 2:null, 3:null};
+        const referenceUploadTokens = {1:0, 2:0, 3:0};
+        const API_PROVIDER_KEY = 'zimage_api_provider';
+        const API_MODEL_KEY = 'zimage_api_model';
+        const RATIO_OPTIONS = ['1:1','3:2','2:3','5:4','4:5','4:3','3:4','16:9','9:16','21:9','9:21','2:1','1:2','3:1','1:3'];
+        const RESOLUTION_OPTIONS = [
+            { value:'1k', label:'1K' },
+            { value:'2k', label:'2K' },
+            { value:'4k', label:'4K' }
+        ];
+        const SIZE_MAP = {
+            '1:1': { '1k':'1024x1024', '2k':'2048x2048', '4k':'2880x2880' },
+            '3:2': { '1k':'1536x1024', '2k':'2016x1344', '4k':'3504x2336' },
+            '2:3': { '1k':'1024x1536', '2k':'1344x2016', '4k':'2336x3504' },
+            '5:4': { '1k':'1280x1024', '2k':'2000x1600', '4k':'3200x2560' },
+            '4:5': { '1k':'1024x1280', '2k':'1600x2000', '4k':'2560x3200' },
+            '4:3': { '1k':'1344x1008', '2k':'2048x1536', '4k':'3264x2448' },
+            '3:4': { '1k':'1008x1344', '2k':'1536x2048', '4k':'2448x3264' },
+            '16:9': { '1k':'1280x720', '2k':'2048x1152', '4k':'3840x2160' },
+            '9:16': { '1k':'720x1280', '2k':'1152x2048', '4k':'2160x3840' },
+            '21:9': { '1k':'1456x624', '2k':'2016x864', '4k':'3808x1632' },
+            '9:21': { '1k':'624x1456', '2k':'864x2016', '4k':'1632x3808' },
+            '2:1': { '1k':'1536x768', '2k':'2048x1024', '4k':'3840x1920' },
+            '1:2': { '1k':'768x1536', '2k':'1024x2048', '4k':'1920x3840' },
+            '3:1': { '1k':'1536x512', '2k':'2016x672', '4k':'3840x1280' },
+            '1:3': { '1k':'512x1536', '2k':'672x2016', '4k':'1280x3840' }
+        };
+
+        function escapeHtml(str){
+            return String(str || '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+        }
+        function escapeAttr(str){ return escapeHtml(str).replace(/`/g, '&#96;'); }
+        function parseSizeValue(value){
+            const match = String(value || '').trim().match(/^(\d+)\s*[xX*]\s*(\d+)$/);
+            return match ? { width: Number(match[1]), height: Number(match[2]) } : { width: 1024, height: 1024 };
+        }
+        function currentSize(){
+            return SIZE_MAP[selectedRatio]?.[selectedResolution] || SIZE_MAP['1:1']['1k'];
+        }
+        function currentResolutionLabel(){
+            return String(selectedResolution || '1k').toUpperCase();
+        }
+        function currentDimensions(){
+            return parseSizeValue(currentSize());
+        }
+        function isBananaModel(model){
+            return /^nano-banana(?:$|[-_])/i.test(String(model || '').trim());
+        }
+        function selectedReferenceImages(){
+            return [1,2,3].map(id => referenceImages[id])
+                .filter(ref => ref && (ref.url || ref.data_url))
+                .map(ref => ({
+                    url: ref.url || '',
+                    name: ref.name || '',
+                    role: ref.role || '',
+                    data_url: ref.data_url || ''
+                }));
+        }
+        function pendingReferenceUploads(){
+            return [1,2,3].map(id => referenceUploadPromises[id]).filter(Boolean);
+        }
+        async function waitForReferenceUploads(){
+            const pending = pendingReferenceUploads();
+            if(pending.length) await Promise.all(pending);
+            const error = [1,2,3].map(id => referenceUploadErrors[id]).find(Boolean);
+            if(error) throw error;
+        }
+        function setReferenceUploading(index, uploading){
+            const slot = document.getElementById(`refSlot${index}`);
+            if(!slot) return;
+            slot.classList.toggle('opacity-60', uploading);
+        }
+        function readReferenceDataUrl(file, index, token){
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const value = String(e.target?.result || '');
+                    updateReferencePreview(index, value);
+                    if(referenceUploadTokens[index] === token && value.startsWith('data:image/')){
+                        referenceImages[index] = {
+                            ...(referenceImages[index] || {}),
+                            url: referenceImages[index]?.url || '',
+                            name: referenceImages[index]?.name || file.name || `reference-${index}`,
+                            role: referenceImages[index]?.role || '',
+                            local_data_url: value,
+                            data_url: value
+                        };
+                        syncReferenceStrip();
+                    }
+                    resolve(value);
+                };
+                reader.onerror = () => reject(new Error('Reference image preview failed'));
+                reader.readAsDataURL(file);
+            });
+        }
+        function syncReferenceStrip(){
+            const strip = document.getElementById('referenceStrip');
+            if(!strip) return;
+            const hasOpenSlot = selectedReferenceImages().length > 0 && selectedReferenceImages().length < 3;
+            strip.classList.toggle('has-open-slot', hasOpenSlot);
+        }
+        function renderSizeControls(){
+            const ratioWrap = document.getElementById('ratioOptions');
+            const resolutionWrap = document.getElementById('resolutionOptions');
+            if(ratioWrap){
+                ratioWrap.innerHTML = RATIO_OPTIONS.map(ratio => `
+                    <button type="button" class="size-chip ${ratio === selectedRatio ? 'active' : ''}" onclick="setRatio('${escapeAttr(ratio)}')">${escapeHtml(ratio)}</button>
+                `).join('');
+            }
+            if(resolutionWrap){
+                resolutionWrap.innerHTML = RESOLUTION_OPTIONS.map(item => `
+                    <button type="button" class="size-chip ${item.value === selectedResolution ? 'active' : ''}" onclick="setResolution('${escapeAttr(item.value)}')">${escapeHtml(item.label)}</button>
+                `).join('');
+            }
+        }
+        function setRatio(next){
+            if(!RATIO_OPTIONS.includes(next)) return;
+            selectedRatio = next;
+            renderSizeControls();
+        }
+        function setResolution(next){
+            if(!RESOLUTION_OPTIONS.some(item => item.value === next)) return;
+            selectedResolution = next;
+            renderSizeControls();
+        }
+        function uniqueModels(list){
+            const seen = new Set();
+            return (list || []).map(item => String(item || '').trim()).filter(item => item && !seen.has(item) && seen.add(item));
+        }
+        function imageProviders(){
+            return (apiProviders || []).filter(p => p.enabled !== false && (p.image_models || []).length);
+        }
+        function providerById(id){
+            return imageProviders().find(p => p.id === id) || imageProviders()[0];
+        }
+        function defaultApiProvider(){
+            const providers = imageProviders();
+            return providers.find(p => p.primary)
+                || providers.find(p => p.id !== 'modelscope')
+                || providers[0]
+                || null;
+        }
+        function providerModels(id){
+            return uniqueModels(providerById(id)?.image_models || []);
+        }
+        function persistProviderSelection(){
+            if(selectedProviderId){
+                localStorage.setItem(API_PROVIDER_KEY, selectedProviderId);
+            } else {
+                localStorage.removeItem(API_PROVIDER_KEY);
+            }
+            if(selectedModel){
+                localStorage.setItem(API_MODEL_KEY, selectedModel);
+            } else {
+                localStorage.removeItem(API_MODEL_KEY);
+            }
+        }
+        function syncProviderSelection(){
+            const providers = imageProviders();
+            if(!providers.length){
+                selectedProviderId = '';
+                selectedModel = '';
+                persistProviderSelection();
+                return false;
+            }
+            if(!providers.some(p => p.id === selectedProviderId)){
+                selectedProviderId = defaultApiProvider()?.id || providers[0].id;
+            }
+            const models = providerModels(selectedProviderId);
+            if(!models.includes(selectedModel)){
+                selectedModel = models[0] || '';
+            }
+            persistProviderSelection();
+            return Boolean(selectedProviderId && selectedModel);
+        }
+        function renderProviderControls(){
+            const providerSelect = document.getElementById('providerSelect');
+            const modelSelect = document.getElementById('modelSelect');
+            if(!providerSelect || !modelSelect) return;
+            const providers = imageProviders();
+            syncProviderSelection();
+            if(!providers.length){
+                providerSelect.innerHTML = `<option value="">${escapeHtml(tr('studio.noApiImageProviders'))}</option>`;
+                modelSelect.innerHTML = `<option value="">${escapeHtml(tr('api.noModels'))}</option>`;
+                return;
+            }
+            const models = providerModels(selectedProviderId);
+            providerSelect.innerHTML = providers.map(p => `<option value="${escapeAttr(p.id)}" ${p.id === selectedProviderId ? 'selected' : ''}>${escapeHtml(p.name || p.id)}</option>`).join('');
+            modelSelect.innerHTML = models.map(m => `<option value="${escapeAttr(m)}" ${m === selectedModel ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('');
+        }
+        async function loadApiProviders(force = false){
+            if(apiProvidersRefreshPromise) return apiProvidersRefreshPromise;
+            if(!force && Date.now() - lastApiProvidersRefreshAt < 800){
+                renderProviderControls();
+                return syncProviderSelection();
+            }
+            apiProvidersRefreshPromise = (async () => {
+                lastApiProvidersRefreshAt = Date.now();
+                try {
+                    const cfg = await fetch('/api/config', { cache: 'no-store' }).then(r => r.json());
+                    apiProviders = Array.isArray(cfg.api_providers) ? cfg.api_providers : [];
+                    selectedProviderId = localStorage.getItem(API_PROVIDER_KEY) || defaultApiProvider()?.id || '';
+                    selectedModel = localStorage.getItem(API_MODEL_KEY) || providerModels(selectedProviderId)[0] || '';
+                } catch(e) {
+                    apiProviders = [];
+                    selectedProviderId = '';
+                    selectedModel = '';
+                }
+                renderProviderControls();
+                apiProvidersRefreshPromise = null;
+                return syncProviderSelection();
+            })();
+            return apiProvidersRefreshPromise;
+        }
+        async function refreshApiProvidersFromSettings(){
+            return loadApiProviders(true);
+        }
+        async function ensureCurrentProviderAvailable(){
+            await loadApiProviders(true);
+            return syncProviderSelection();
+        }
+        function setupApiProviderSync(){
+            try {
+                const apiChannel = new BroadcastChannel('studio-api');
+                apiChannel.onmessage = event => {
+                    if(event.data?.type === 'providers-changed') refreshApiProvidersFromSettings();
+                };
+            } catch(e) {}
+            window.addEventListener('message', event => {
+                if(event.data?.type === 'providers-changed') refreshApiProvidersFromSettings();
+            });
+            window.addEventListener('focus', () => {
+                if(Date.now() - lastApiProvidersRefreshAt > 1200) refreshApiProvidersFromSettings();
+            });
+            document.addEventListener('visibilitychange', () => {
+                if(!document.hidden) refreshApiProvidersFromSettings();
+            });
+        }
+        function setApiProvider(next){
+            selectedProviderId = next;
+            selectedModel = providerModels(selectedProviderId)[0] || '';
+            persistProviderSelection();
+            renderProviderControls();
+        }
+        function setApiModel(next){
+            selectedModel = next;
+            if(!providerModels(selectedProviderId).includes(selectedModel)){
+                selectedModel = providerModels(selectedProviderId)[0] || '';
+            }
+            persistProviderSelection();
+        }
+
+        function openReferencePicker(index){
+            document.getElementById(`refFile${index}`)?.click();
+        }
+        function firstEmptyReferenceSlot(){
+            return [1,2,3].find(id => !referenceImages[id]) || 1;
+        }
+        function updateReferencePreview(index, src){
+            const slot = document.getElementById(`refSlot${index}`);
+            const prev = document.getElementById(`refPreview${index}`);
+            const input = document.getElementById(`refFile${index}`);
+            if(!slot || !prev) return;
+            if(src){
+                prev.src = src;
+                prev.classList.remove('hidden');
+                slot.classList.add('has-image');
+                slot.classList.remove('reference-add-main');
+            } else {
+                prev.src = '';
+                prev.classList.add('hidden');
+                slot.classList.remove('has-image');
+                slot.classList.toggle('reference-add-main', index === 1);
+                if(input) input.value = '';
+            }
+            syncReferenceStrip();
+            lucide.createIcons();
+        }
+        async function handleReferenceFile(file, index){
+            if(!file || !file.type.startsWith('image/')) return;
+            const token = ++referenceUploadTokens[index];
+            referenceImages[index] = null;
+            referenceUploadErrors[index] = null;
+            setReferenceUploading(index, true);
+            const dataUrlPromise = readReferenceDataUrl(file, index, token);
+            const form = new FormData();
+            form.append('files', file);
+            const serverUploadPromise = fetch('/api/ai/upload', {method:'POST', body:form}).then(async r => {
+                const body = await r.json();
+                if(!r.ok) throw new Error(body.detail || 'Reference image upload failed');
+                const uploaded = body.files?.[0] || null;
+                if(!uploaded?.url) throw new Error('Reference image upload failed');
+                return uploaded;
+            });
+            const uploadPromise = Promise.all([serverUploadPromise, dataUrlPromise]).then(([uploaded, localDataUrl]) => ({
+                ...(referenceImages[index] || {}),
+                url: uploaded.url || referenceImages[index]?.url || '',
+                name: uploaded.name || referenceImages[index]?.name || file.name || `reference-${index}`,
+                role: uploaded.role || referenceImages[index]?.role || '',
+                local_data_url: localDataUrl,
+                data_url: uploaded.data_url || localDataUrl
+            }));
+            referenceUploadPromises[index] = uploadPromise;
+            try {
+                const uploaded = await uploadPromise;
+                if(referenceUploadTokens[index] !== token) return;
+                referenceImages[index] = uploaded;
+            } catch(e) {
+                if(referenceUploadTokens[index] !== token) return;
+                referenceImages[index] = null;
+                referenceUploadErrors[index] = e;
+                updateReferencePreview(index, '');
+                alert(e.message || 'Reference image upload failed');
+            } finally {
+                if(referenceUploadTokens[index] === token){
+                    referenceUploadPromises[index] = null;
+                    setReferenceUploading(index, false);
+                    syncReferenceStrip();
+                }
+            }
+        }
+        function clearReferenceSlot(index, event){
+            if(event) event.stopPropagation();
+            referenceUploadTokens[index]++;
+            referenceUploadPromises[index] = null;
+            referenceUploadErrors[index] = null;
+            referenceImages[index] = null;
+            setReferenceUploading(index, false);
+            updateReferencePreview(index, '');
+        }
+        function setupReferenceInputs(){
+            const strip = document.getElementById('referenceStrip');
+            if(strip){
+                strip.ondragover = e => {
+                    e.preventDefault();
+                    strip.classList.add('drag-over');
+                };
+                strip.ondragleave = () => strip.classList.remove('drag-over');
+                strip.ondrop = e => {
+                    e.preventDefault();
+                    strip.classList.remove('drag-over');
+                    handleReferenceFile(e.dataTransfer.files?.[0], firstEmptyReferenceSlot());
+                };
+            }
+            [1,2,3].forEach(index => {
+                const slot = document.getElementById(`refSlot${index}`);
+                if(!slot) return;
+                slot.ondragover = e => {
+                    e.preventDefault();
+                    strip?.classList.add('drag-over');
+                };
+                slot.ondrop = e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    strip?.classList.remove('drag-over');
+                    handleReferenceFile(e.dataTransfer.files?.[0], index);
+                };
+            });
+            syncReferenceStrip();
+        }
+        window.addEventListener('paste', e => {
+            const item = [...(e.clipboardData?.items || [])].find(x => x.kind === 'file' && x.type.startsWith('image/'));
+            if(item) handleReferenceFile(item.getAsFile(), firstEmptyReferenceSlot());
+        });
+
+        renderSizeControls();
+
+        async function handleRender() {
+            const prompt = document.getElementById('prompt').value.trim();
+            if (!prompt) return alert("Please enter a prompt");
+            runApiTask(prompt);
+        }
+
+        // 4. ModelScope 云端逻辑
+        async function runApiTask(prompt) {
+            if(!await ensureCurrentProviderAvailable()) return alert(tr('studio.noApiImageProviders'));
+            setLoading(true);
+
+            const placeholder = createPlaceholder("API Rendering");
+            document.getElementById('masonry').prepend(placeholder);
+
+            try {
+                await waitForReferenceUploads();
+                const refs = selectedReferenceImages();
+                if(isBananaModel(selectedModel) && refs.length && refs.some(ref => !ref.data_url)){
+                    throw new Error('Banana 图生图需要重新上传参考图，请刷新页面后重新上传。');
+                }
+                const payload = {
+                    prompt: prompt,
+                    provider_id: selectedProviderId,
+                    model: selectedModel,
+                    aspect_ratio: selectedRatio,
+                    resolution: currentResolutionLabel(),
+                    quality: 'auto',
+                    reference_images: refs
+                };
+                if(!isBananaModel(selectedModel)){
+                    payload.size = currentSize();
+                }
+                if(isBananaModel(selectedModel)){
+                    console.info('[BananaImage] local request payload', {
+                        provider_id: selectedProviderId,
+                        model: selectedModel,
+                        aspect_ratio: selectedRatio,
+                        resolution: currentResolutionLabel(),
+                        reference_count: refs.length,
+                        has_data_url: refs.map(ref => Boolean(ref.data_url)),
+                        data_url_lengths: refs.map(ref => ref.data_url ? ref.data_url.length : 0),
+                        has_size: Object.prototype.hasOwnProperty.call(payload, 'size')
+                    });
+                }
+                const res = await fetch('/api/zimage-api-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                placeholder.remove();
+                if (res.ok && data.images?.length) {
+                    renderImageCard(data, true);
+                } else {
+                    if(res.status === 404) {
+                        throw new Error("服务未加载最新接口，请重启后端服务后再试。");
+                    }
+                    throw new Error(data.detail?.errors?.message || data.detail || "API Error");
+                }
+            } catch (e) {
+                if(placeholder.isConnected) placeholder.remove();
+                alert(e.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function setLoading(isLoading) {
+            const btn = document.getElementById('mainGenBtn');
+            btn.disabled = isLoading;
+
+            if (isLoading) {
+                // Active state: Dark gray bg, filled yellow pulsing icon
+                btn.style.backgroundColor = '#333';
+                btn.innerHTML = `<i data-lucide="zap" class="w-4 h-4 text-yellow-400 fill-yellow-400 animate-pulse"></i><span>${tr('studio.processing')}</span>`;
+            } else {
+                // Reset state: Original bg (via CSS), outline yellow icon
+                btn.style.backgroundColor = '';
+                btn.innerHTML = `<i data-lucide="zap" class="w-4 h-4 text-yellow-400"></i><span id="btnText">${tr('studio.renderApi')}</span>`;
+            }
+            lucide.createIcons();
+        }
+
+        function createPlaceholder(text) {
+            const div = document.createElement('div');
+            div.className = 'masonry-item bg-gray-50 flex flex-col items-center justify-center border-dashed border-2 border-gray-200';
+            div.innerHTML = `<div class="w-6 h-6 border-2 border-gray-100 border-t-black rounded-full animate-spin mb-3"></div><span class="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">${text}</span>`;
+            return div;
+        }
+
+        function providerBadge(data){
+            if(data.provider_logo_url){
+                return `<div class="provider-badge"><img src="${escapeAttr(data.provider_logo_url)}" alt="${escapeAttr(data.provider_name || data.provider_id || 'API')}"></div>`;
+            }
+            if(data.provider_name || data.provider_id){
+                return `<div class="provider-badge">${escapeHtml(data.provider_name || data.provider_id)}</div>`;
+            }
+            if(data.type === 'cloud'){
+                return '<div class="provider-badge"><img src="/static/images/modelscope.gif" alt="ModelScope"></div>';
+            }
+            return '';
+        }
+
+        function renderImageCard(data, isNew = false) {
+            if (document.getElementById(`history-${data.timestamp}`)) return;
+            const masonry = document.getElementById('masonry');
+            const card = document.createElement('div');
+            const timestamp = Number(data.timestamp) || 0;
+            card.id = `history-${data.timestamp}`;
+            card.dataset.historyTs = data.timestamp;
+            card.className = 'masonry-item group cursor-zoom-in animate-in fade-in duration-700';
+            card.onclick = () => { if(document.body.classList.contains('history-bulk-selecting')) return; openLightbox(data); };
+            card.innerHTML = `
+            <img src="${data.images[0]}" class="w-full h-full object-cover" loading="lazy">
+            ${providerBadge(data)}
+            <button type="button" class="history-delete-btn" onclick="deleteHistoryItem(${timestamp}, event)" title="删除">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+        `;
+            isNew ? masonry.prepend(card) : masonry.appendChild(card);
+            lucide.createIcons();
+        }
+
+        async function loadHistory(page = 0) {
+            if (isLoading) return;
+            const trigger = document.getElementById('loadMoreTrigger');
+
+            try {
+                isLoading = true;
+                if (page === 0) {
+                    allHistory = [];
+                    document.getElementById('masonry').innerHTML = '';
+                    currentIndex = 0;
+
+                    trigger.classList.remove('hidden');
+                    trigger.innerText = tr('studio.loadingArchives');
+
+                    const res = await fetch('/api/history?type=zimage');
+                    allHistory = await res.json();
+                } else {
+                    trigger.innerText = "Loading...";
+                    await new Promise(r => setTimeout(r, 400));
+                }
+
+                const nextData = allHistory.slice(currentIndex, currentIndex + PAGE_SIZE);
+                nextData.forEach(item => renderImageCard(item));
+                currentIndex += nextData.length;
+
+                if (currentIndex >= allHistory.length) {
+                    trigger.classList.add('hidden');
+                } else {
+                    trigger.classList.remove('hidden');
+                    trigger.innerText = "Load More Archive";
+                }
+
+            } catch (e) {
+                console.error(e);
+                trigger.innerText = tr('studio.errorHistory');
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        function showGalleryConfirmDialog(options = {}) {
+            const {
+                title = '确认操作',
+                description = '',
+                confirmText = '确定',
+                cancelText = '取消',
+                danger = false,
+                showCancel = true
+            } = options;
+            const restoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            return new Promise(resolve => {
+                document.querySelector('.z-runtime-dialog')?.remove();
+
+                const modal = document.createElement('div');
+                modal.className = 'z-dialog-modal z-runtime-dialog';
+                modal.setAttribute('role', 'dialog');
+                modal.setAttribute('aria-modal', 'true');
+
+                const backdrop = document.createElement('div');
+                backdrop.className = 'z-dialog-backdrop';
+                modal.appendChild(backdrop);
+
+                const dialog = document.createElement('form');
+                dialog.className = 'z-dialog';
+                dialog.noValidate = true;
+                modal.appendChild(dialog);
+
+                const head = document.createElement('div');
+                head.className = 'z-dialog-head';
+                const heading = document.createElement('h2');
+                heading.className = 'z-dialog-title';
+                heading.textContent = title;
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'z-dialog-close';
+                closeBtn.type = 'button';
+                closeBtn.setAttribute('aria-label', '关闭');
+                closeBtn.innerHTML = '&times;';
+                head.append(heading, closeBtn);
+
+                const body = document.createElement('div');
+                body.className = 'z-dialog-body';
+                if (description) {
+                    const desc = document.createElement('p');
+                    desc.className = 'z-dialog-description';
+                    desc.textContent = description;
+                    body.appendChild(desc);
+                }
+
+                const foot = document.createElement('div');
+                foot.className = 'z-dialog-foot';
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'z-dialog-btn secondary';
+                cancelBtn.type = 'button';
+                cancelBtn.textContent = cancelText;
+                const confirmBtn = document.createElement('button');
+                confirmBtn.className = `z-dialog-btn ${danger ? 'danger' : 'secondary'}`.trim();
+                confirmBtn.type = 'submit';
+                confirmBtn.textContent = confirmText;
+                if (showCancel) foot.appendChild(cancelBtn);
+                foot.appendChild(confirmBtn);
+                dialog.append(head, body, foot);
+
+                let settled = false;
+                const cleanup = (value) => {
+                    if (settled) return;
+                    settled = true;
+                    document.removeEventListener('keydown', onKeyDown);
+                    modal.remove();
+                    if (restoreFocus?.isConnected) restoreFocus.focus();
+                    resolve(value);
+                };
+                const cancel = () => cleanup(false);
+                const onKeyDown = (event) => {
+                    if (event.key === 'Escape') {
+                        event.preventDefault();
+                        cancel();
+                    }
+                };
+
+                backdrop.addEventListener('click', cancel);
+                closeBtn.addEventListener('click', cancel);
+                cancelBtn.addEventListener('click', cancel);
+                dialog.addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    cleanup(true);
+                });
+                document.addEventListener('keydown', onKeyDown);
+                document.body.appendChild(modal);
+                setTimeout(() => confirmBtn.focus(), 0);
+            });
+        }
+
+        async function deleteHistoryItem(timestamp, event) {
+            event?.preventDefault();
+            event?.stopPropagation();
+            const confirmed = await showGalleryConfirmDialog({
+                title: '删除图片',
+                description: '删除后会从当前历史记录中移除这张图片。',
+                confirmText: '删除',
+                cancelText: '取消',
+                danger: true
+            });
+            if(!confirmed) return;
+            try {
+                const res = await fetch('/api/history/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ timestamp })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    document.getElementById(`history-${timestamp}`)?.remove();
+                    allHistory = allHistory.filter(item => Math.abs(Number(item.timestamp || 0) - Number(timestamp || 0)) >= 0.001);
+                } else {
+                    await showGalleryConfirmDialog({
+                        title: '删除失败',
+                        description: data.message || '删除失败，请稍后重试。',
+                        confirmText: '知道了',
+                        showCancel: false
+                    });
+                }
+            } catch(e) {
+                await showGalleryConfirmDialog({
+                    title: '删除失败',
+                    description: e.message || '删除失败，请稍后重试。',
+                    confirmText: '知道了',
+                    showCancel: false
+                });
+            }
+        }
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting && !isLoading && currentIndex < allHistory.length) {
+                loadHistory(1);
+            }
+        }, { threshold: 0.1 });
+
+        window.onload = () => {
+            renderSizeControls();
+            setupReferenceInputs();
+            setupApiProviderSync();
+            loadApiProviders();
+            loadHistory(0).then(() => {
+                window.HistoryBulkManager?.attach({masonry:'#masonry'});
+                const trigger = document.getElementById('loadMoreTrigger');
+                if (trigger) {
+                    observer.observe(trigger);
+                    trigger.onclick = () => loadHistory(1);
+                }
+            });
+
+            setInterval(async () => {
+                try {
+                    const res = await fetch("/api/queue_status?client_id=" + encodeURIComponent(CLIENT_ID));
+                    const data = await res.json();
+                    const statusText = document.getElementById("statusText");
+                    const dotColor = document.getElementById("dotColor");
+                    if (statusText && dotColor) {
+                        if (data.total > 0) {
+                            statusText.innerText = `Queueing ${data.position}/${data.total}`;
+                            statusText.className = "text-[9px] font-bold text-orange-500 uppercase";
+                            dotColor.className = "w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse";
+                        } else {
+                            statusText.innerText = tr('studio.ready');
+                            statusText.className = "text-[9px] font-bold text-gray-500 uppercase";
+                            dotColor.className = "w-1.5 h-1.5 bg-black rounded-full";
+                        }
+                    }
+                } catch (e) { }
+            }, 3000);
+        };
+
+        // 基础功能
+        let lightboxPreview = null;
+        function ensureLightboxPreview(){
+            if(!lightboxPreview && window.StudioImagePreview){
+                lightboxPreview = StudioImagePreview.attach(document.getElementById('lightboxFrame'));
+            }
+            return lightboxPreview;
+        }
+        function historyReferenceImages(data){
+            return (data?.params?.reference_images || data?.reference_images || []).filter(ref => ref?.url);
+        }
+        function renderLightboxReferences(data){
+            const wrap = document.getElementById('lightboxRefs');
+            if(!wrap) return;
+            const refs = historyReferenceImages(data);
+            wrap.innerHTML = refs.map(ref => `<img class="history-ref-thumb" src="${escapeAttr(ref.url)}" alt="${escapeAttr(ref.name || 'reference')}">`).join('');
+            wrap.style.display = refs.length ? 'flex' : 'none';
+        }
+        function openLightbox(dataOrUrl, prompt) {
+            const data = typeof dataOrUrl === 'object' ? dataOrUrl : null;
+            const url = data?.images?.[0] || dataOrUrl;
+            const promptText = data?.prompt || prompt || '';
+            const img = document.getElementById('lightboxImg');
+            const resDisplay = document.getElementById('lightboxRes');
+            resDisplay.innerText = "...";
+            ensureLightboxPreview();
+            if(lightboxPreview) lightboxPreview.reset();
+            img.src = url;
+            img.onload = () => {
+                resDisplay.innerText = `${img.naturalWidth} x ${img.naturalHeight}`;
+            };
+            document.getElementById('lightboxPrompt').innerText = promptText;
+            renderLightboxReferences(data);
+            document.getElementById('lightbox').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeLightbox() {
+            if(lightboxPreview) lightboxPreview.reset();
+            document.getElementById('lightbox').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+        function handleOutsideClick(e) { if (e.target.id === 'lightbox') closeLightbox(); }
+        function downloadImage() {
+            const a = document.createElement('a'); a.href = document.getElementById('lightboxImg').src;
+            a.download = `Art-${Date.now()}.png`; a.click();
+        }
+        function applySameStyle() {
+            document.getElementById('prompt').value = document.getElementById('lightboxPrompt').innerText;
+            closeLightbox();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+
+</html>

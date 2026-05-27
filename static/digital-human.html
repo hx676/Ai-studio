@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数字人</title>
+    <script>
+        (() => {
+            try {
+                const theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
+                if(theme === 'dark') {
+                    document.documentElement.classList.add('studio-theme-dark');
+                    document.documentElement.classList.add('theme-dark');
+                }
+            } catch {
+                document.documentElement.dataset.themeReadError = 'true';
+            }
+        })();
+    </script>
+    <script src="/static/js/theme.js?v=2026.05.25.7"></script>
+    <link rel="stylesheet" href="/static/css/theme.css?v=2026.05.25.7">
+        <link rel="stylesheet" href="/static/css/digital-human.css?v=2026.05.25.7">
+</head>
+<body>
+    <div class="page">
+        <div class="topbar">
+            <div>
+                <div class="title">数字人</div>
+                <div class="subtitle">输入口播文案，选择音色和驱动视频后生成成片</div>
+            </div>
+            <div class="row">
+                <div class="tabs" aria-label="数字人页面">
+                    <button class="tab-btn active" type="button" data-tab="generate">生成</button>
+                    <button class="tab-btn" type="button" data-tab="people">人物库</button>
+                    <button class="tab-btn" type="button" data-tab="voices">声音库</button>
+                </div>
+                <button class="btn" id="reload-btn" type="button">刷新素材</button>
+                <button class="btn primary" id="generate-btn" type="button">加入队列</button>
+            </div>
+        </div>
+
+        <div class="grid">
+            <main class="stack">
+                <section class="panel tab-page active" id="tab-generate">
+                    <div class="panel-head">
+                        <span>生成内容</span>
+                    </div>
+                    <div class="panel-body flush">
+                        <div class="creator-layout">
+                            <div class="copy-column">
+                                <div class="selection-grid">
+                                    <div class="selection-card">
+                                        <div class="section-label">当前人物</div>
+                                        <div class="asset-name" id="current-person-name">未选择</div>
+                                        <div class="asset-note" id="current-person-note">请在人物库选择人物</div>
+                                        <button class="btn small" type="button" data-tab-jump="people">打开人物库</button>
+                                    </div>
+                                    <div class="selection-card">
+                                        <div class="section-label">当前驱动视频</div>
+                                        <div class="asset-name" id="current-video-name">未选择</div>
+                                        <div class="asset-note" id="current-video-note">人物可包含多个驱动视频</div>
+                                        <button class="btn small" type="button" data-tab-jump="people">管理动作视频</button>
+                                    </div>
+                                    <div class="selection-card">
+                                        <div class="section-label">当前声音</div>
+                                        <div class="asset-name" id="current-voice-name">使用参考音频</div>
+                                        <div class="asset-note" id="current-voice-note">可在声音库管理音色</div>
+                                        <button class="btn small" type="button" data-tab-jump="voices">打开声音库</button>
+                                    </div>
+                                </div>
+                                <input class="hidden" id="video-upload" type="file" accept=".mp4,.mov,.webm,.m4v,video/*" multiple>
+
+                                <div class="field">
+                                    <label for="script-text">文案</label>
+                                    <textarea id="script-text" placeholder="输入数字人口播文案"></textarea>
+                                </div>
+
+                                <div class="field">
+                                    <label for="voice-select">参考音色</label>
+                                    <div class="voice-row">
+                                        <select id="voice-select"></select>
+                                        <button class="btn" id="voice-preview-btn" type="button">试听</button>
+                                        <button class="btn" id="voice-upload-btn" type="button">上传音色</button>
+                                    </div>
+                                    <input class="hidden" id="voice-upload" type="file" accept=".wav,.mp3,.m4a,.ogg,audio/*">
+                                </div>
+
+                                <div class="audio-chip" id="voice-current"></div>
+                                <audio id="voice-preview-audio" class="hidden" controls>
+                                    <track kind="captions" src="data:text/vtt,WEBVTT" label="无字幕">
+                                </audio>
+
+                                <div class="tts-panel">
+                                    <div class="tts-row">
+                                        <div class="field">
+                                            <label for="tts-speed">语速</label>
+                                            <div class="control-line">
+                                                <input id="tts-speed" type="range" min="0.1" max="2.5" step="0.1" value="1">
+                                                <input id="tts-speed-value" type="number" min="0.1" max="2.5" step="0.1" value="1">
+                                            </div>
+                                        </div>
+                                        <div class="field">
+                                            <label for="tts-emo-method">语气</label>
+                                            <select id="tts-emo-method">
+                                                <option value="与音色参考音频相同">与音色参考音频相同</option>
+                                                <option value="使用情感参考音频">使用情感参考音频</option>
+                                                <option value="使用情感向量控制">使用情感向量控制</option>
+                                                <option value="使用情感描述文本控制">使用情感描述文本控制</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label for="tts-emo-weight">情感权重</label>
+                                        <div class="control-line">
+                                            <input id="tts-emo-weight" type="range" min="0" max="1.6" step="0.1" value="0.8">
+                                            <input id="tts-emo-weight-value" type="number" min="0" max="1.6" step="0.1" value="0.8">
+                                        </div>
+                                    </div>
+                                    <div class="conditional-panel" id="emo-ref-panel">
+                                        <div class="row">
+                                            <button class="btn small" id="emo-ref-upload-btn" type="button">上传情感参考音频</button>
+                                            <span class="status" id="emo-ref-summary">未选择</span>
+                                        </div>
+                                        <input class="hidden" id="emo-ref-upload" type="file" accept=".wav,.mp3,.m4a,.ogg,audio/*">
+                                    </div>
+                                    <div class="conditional-panel" id="emo-text-panel">
+                                        <div class="field">
+                                            <label for="tts-emo-text">情感描述文本</label>
+                                            <input id="tts-emo-text" type="text" placeholder="例如：兴奋、亲切、放松地讲述">
+                                        </div>
+                                    </div>
+                                    <div class="conditional-panel" id="emo-vector-panel">
+                                        <div class="vector-grid" id="emotion-vector-grid"></div>
+                                    </div>
+                                    <div class="advanced-panel" id="tts-advanced">
+                                        <button class="advanced-toggle" id="tts-advanced-toggle" type="button">
+                                            <span>高级参数</span>
+                                            <span id="tts-advanced-indicator">展开</span>
+                                        </button>
+                                        <div class="advanced-body">
+                                            <div class="check-row">
+                                                <label><input id="tts-emo-random" type="checkbox"> 情感随机采样</label>
+                                                <label><input id="tts-do-sample" type="checkbox" checked> do_sample</label>
+                                            </div>
+                                            <div class="advanced-grid" id="tts-advanced-grid"></div>
+                                            <div class="row">
+                                                <button class="btn small" id="tts-reset-btn" type="button">恢复默认</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="driver-column">
+                                <div class="video-head">
+                                    <div>
+                                        <div class="section-label">当前预览</div>
+                                        <div class="status" id="video-summary"></div>
+                                    </div>
+                                    <button class="btn small" id="template-guide-btn" type="button">模板要求</button>
+                                </div>
+                                <div class="selected-preview hidden" id="selected-video-preview"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel tab-page" id="tab-people">
+                    <div class="panel-head">
+                        <span>人物库</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="library-toolbar">
+                            <div class="status" id="people-summary">正在读取人物库</div>
+                            <div class="status">一个人物可以包含多个驱动视频，并可绑定默认声音</div>
+                        </div>
+                        <div class="library-grid" id="people-library"></div>
+                    </div>
+                </section>
+
+                <section class="panel tab-page" id="tab-voices">
+                    <div class="panel-head">
+                        <span>声音库</span>
+                        <button class="btn small" id="voice-library-upload-btn" type="button">上传音色</button>
+                    </div>
+                    <div class="panel-body">
+                        <div class="library-toolbar">
+                            <div class="status" id="voices-summary">正在读取声音库</div>
+                            <div class="status">声音可试听、设为当前声音，并绑定到当前人物</div>
+                        </div>
+                        <div class="library-grid" id="voices-library"></div>
+                    </div>
+                </section>
+            </main>
+
+            <aside class="stack">
+                <section class="panel">
+                    <div class="panel-head">
+                        <span>生成结果</span>
+                        <div class="row">
+                            <span class="status" id="task-status">空闲</span>
+                            <a class="btn hidden" id="download-link" href="#" download>下载</a>
+                        </div>
+                    </div>
+                    <div class="panel-body stack">
+                        <audio id="audio-preview" class="hidden" controls>
+                            <track kind="captions" src="data:text/vtt,WEBVTT" label="无字幕">
+                        </audio>
+                        <div class="result-frame">
+                            <video id="result-video" class="hidden" controls>
+                                <track kind="captions" src="data:text/vtt,WEBVTT" label="无字幕">
+                            </video>
+                            <div class="status" id="empty-result">暂无结果</div>
+                        </div>
+                    </div>
+                </section>
+                <section class="panel">
+                    <div class="panel-head">
+                        <span>生成队列</span>
+                        <span class="status" id="queue-summary">暂无任务</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="task-queue-list" id="task-queue-list">
+                            <div class="status">暂无队列任务</div>
+                        </div>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+
+    <div class="dh-dialog-modal wide hidden" id="template-guide-modal" role="dialog" aria-modal="true" aria-labelledby="template-guide-title">
+        <div class="dh-dialog-backdrop" data-template-guide-close></div>
+        <div class="dh-dialog" role="document">
+            <div class="dh-dialog-head">
+                <h2 id="template-guide-title">驱动视频模板要求</h2>
+                <button class="dh-dialog-close" type="button" aria-label="关闭" data-template-guide-close>&times;</button>
+            </div>
+            <div class="dh-dialog-body template-guide-body">
+                <img src="/static/images/digital-human-guide.png" alt="驱动视频模板要求示例">
+            </div>
+            <div class="dh-dialog-foot">
+                <button class="btn primary" type="button" data-template-guide-close>知道了</button>
+            </div>
+        </div>
+    </div>
+
+        <script src="/static/js/digital-human/state.js?v=2026.05.25.7"></script>
+        <script src="/static/js/digital-human/tts.js?v=2026.05.25.7"></script>
+        <script src="/static/js/digital-human/people.js?v=2026.05.25.7"></script>
+        <script src="/static/js/digital-human/voices.js?v=2026.05.25.7"></script>
+        <script src="/static/js/digital-human/generation.js?v=2026.05.25.7"></script>
+        <script src="/static/js/digital-human/events.js?v=2026.05.25.7"></script>
+        <script src="/static/js/digital-human/bootstrap.js?v=2026.05.25.7"></script>
+</body>
+</html>

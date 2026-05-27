@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+requests
+pydantic
+python-multipart
+httpx
+pillow
+gradio_client

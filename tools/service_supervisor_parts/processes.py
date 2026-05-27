@@ -1,0 +1,26 @@
+"""Process discovery and cleanup facade for the service supervisor."""
+
+from .cli import (
+    cleanup_all_project_backends,
+    cleanup_project_heygem_rest_only,
+    cleanup_project_web_launcher,
+    hidden_creationflags,
+    is_heygem_backend_process,
+    is_heygem_rest_only_process,
+    is_main_backend_process,
+    is_pid_running,
+    is_project_backend_process,
+    is_project_process,
+    is_tts_backend_process,
+    is_web_launcher_process,
+    kill_process_tree,
+    norm_path_text,
+    path_contains,
+    port_owner_pids,
+    process_command_text,
+    process_pid,
+    project_backend_pids,
+    project_heygem_rest_pids,
+    project_web_launcher_pids,
+    query_windows_processes,
+)

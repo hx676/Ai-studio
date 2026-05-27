@@ -1,0 +1,25 @@
+from fastapi import APIRouter
+from app.services import digital_human_service as service
+
+router = APIRouter()
+
+router.get('/api/digital-human/config')(service.digital_human_config)
+router.post('/api/digital-human/config')(service.save_digital_human_config_api)
+router.get('/api/digital-human/tts/status')(service.digital_human_tts_status)
+router.get('/api/digital-human/heygem/status')(service.digital_human_heygem_status)
+router.get('/api/digital-human/media')(service.digital_human_media)
+router.get('/api/digital-human/library')(service.digital_human_library)
+router.post('/api/digital-human/library/people')(service.upsert_digital_human_person)
+router.post('/api/digital-human/library/people/{person_id}/videos')(service.add_digital_human_person_video)
+router.post('/api/digital-human/library/people/{person_id}/videos/batch')(service.add_digital_human_person_videos)
+router.post('/api/digital-human/library/people/{person_id}/videos/{video_id}/poster')(service.ensure_digital_human_person_video_poster)
+router.delete('/api/digital-human/library/people/{person_id}')(service.delete_digital_human_person)
+router.delete('/api/digital-human/library/people/{person_id}/videos/{video_id}')(service.delete_digital_human_person_video)
+router.patch('/api/digital-human/library/voices/{voice_name}')(service.patch_digital_human_voice_meta)
+router.delete('/api/digital-human/voices/{voice_name}')(service.delete_digital_human_voice)
+router.post('/api/digital-human/upload')(service.upload_digital_human_asset)
+router.post('/api/digital-human/tts')(service.digital_human_tts)
+router.post('/api/digital-human/generate')(service.digital_human_generate)
+router.get('/api/digital-human/tasks')(service.digital_human_tasks)
+router.get('/api/digital-human/task/{task_id}')(service.digital_human_task)
+router.post('/api/digital-human/task/{task_id}/cancel')(service.cancel_digital_human_task)

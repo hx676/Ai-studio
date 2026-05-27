@@ -1,0 +1,45 @@
+# Runtime and bundled interpreters
+python/
+packages/
+__pycache__/
+*.pyc
+
+# Heavy local model/runtime packages
+index-tts-2/
+heygem-win-fix/
+
+# User data, generated media, logs, and local configuration
+assets/
+output/
+history.json
+data/*.json
+data/*.tmp
+data/*.bak
+data/service-logs/
+data/ui-checks/
+data/conversations/
+data/canvases/
+data/*.log
+API/.env
+
+# Launcher build outputs
+launcher/bin/
+launcher/obj/
+launcher/publish/
+launcher/*.exe
+launcher/*.dll
+launcher/*.pdb
+
+# Local backup files
+static/*.bak
+
+# Local OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.claude/
+.sisyphus/
+
+# Duplicated local source material already copied into static/images
+数字人引导/
