@@ -48,18 +48,8 @@
     if (typeof selectPerson !== 'undefined') window.selectPerson = window.selectPerson || selectPerson;
     if (typeof prepareVideoPosters !== 'undefined') page.prepareVideoPosters = prepareVideoPosters;
     if (typeof prepareVideoPosters !== 'undefined') window.prepareVideoPosters = window.prepareVideoPosters || prepareVideoPosters;
-    if (typeof prepareVisibleVideoPosters !== 'undefined') page.prepareVisibleVideoPosters = prepareVisibleVideoPosters;
-    if (typeof prepareVisibleVideoPosters !== 'undefined') window.prepareVisibleVideoPosters = window.prepareVisibleVideoPosters || prepareVisibleVideoPosters;
     if (typeof applyVideoOrientation !== 'undefined') page.applyVideoOrientation = applyVideoOrientation;
     if (typeof applyVideoOrientation !== 'undefined') window.applyVideoOrientation = window.applyVideoOrientation || applyVideoOrientation;
-    if (typeof waitForVideoEvent !== 'undefined') page.waitForVideoEvent = waitForVideoEvent;
-    if (typeof waitForVideoEvent !== 'undefined') window.waitForVideoEvent = window.waitForVideoEvent || waitForVideoEvent;
-    if (typeof waitForDecodedFrame !== 'undefined') page.waitForDecodedFrame = waitForDecodedFrame;
-    if (typeof waitForDecodedFrame !== 'undefined') window.waitForDecodedFrame = window.waitForDecodedFrame || waitForDecodedFrame;
-    if (typeof drawVideoPosterFrame !== 'undefined') page.drawVideoPosterFrame = drawVideoPosterFrame;
-    if (typeof drawVideoPosterFrame !== 'undefined') window.drawVideoPosterFrame = window.drawVideoPosterFrame || drawVideoPosterFrame;
-    if (typeof captureVideoPoster !== 'undefined') page.captureVideoPoster = captureVideoPoster;
-    if (typeof captureVideoPoster !== 'undefined') window.captureVideoPoster = window.captureVideoPoster || captureVideoPoster;
     if (typeof showVoiceAsset !== 'undefined') page.showVoiceAsset = showVoiceAsset;
     if (typeof showVoiceAsset !== 'undefined') window.showVoiceAsset = window.showVoiceAsset || showVoiceAsset;
     if (typeof loadConfig !== 'undefined') page.loadConfig = loadConfig;

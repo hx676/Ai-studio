@@ -348,7 +348,7 @@ const STAGE_TEXT = {
             document.querySelectorAll('.tab-page').forEach(page => {
                 page.classList.toggle('active', page.id === `tab-${target}`);
             });
-            prepareVisibleVideoPosters();
+            prepareVideoPosters();
         }
         function backendProgressText(progress) {
             if (!progress) return '';

@@ -489,7 +489,7 @@
 
         async function submitImage(){
             const prompt = document.getElementById('promptInput').value.trim();
-            if(!prompt){ alert(tr('online.promptRequired')); return; }
+            if(!prompt){ StudioDialog.alert(tr('online.promptRequired')); return; }
             const btn = document.getElementById('genBtn'), loader = document.getElementById('loader'), placeholder = document.getElementById('placeholder'), out = document.getElementById('outputImg'), dl = document.getElementById('downloadBtn');
             btn.disabled = true; placeholder.classList.add('hidden'); out.classList.add('hidden'); dl.classList.add('hidden'); loader.classList.remove('hidden');
             try {
@@ -499,7 +499,7 @@
                 }).then(async r => { if(!r.ok) throw new Error((await r.json()).detail || '生成失败'); return r.json(); });
                 currentResult = result; out.src = result.images[0]; out.classList.remove('hidden'); dl.href = result.images[0]; dl.classList.remove('hidden'); renderImageCard(result, true);
             } catch(err) {
-                alert(err.message || 'Generation failed'); placeholder.classList.remove('hidden');
+                StudioDialog.alert(err.message || 'Generation failed'); placeholder.classList.remove('hidden');
             } finally {
                 loader.classList.add('hidden'); btn.disabled = false;
             }
@@ -558,7 +558,7 @@
             const url = currentLightboxData?.images?.[0];
             if(!url) return;
             const res = await fetch(url);
-            if(!res.ok) return alert('下载失败');
+            if(!res.ok) return StudioDialog.alert('下载失败');
             const blob = await res.blob();
             const clean = url.split('?')[0];
             const ext = clean.includes('.') ? clean.split('.').pop() : 'png';
@@ -600,7 +600,7 @@
         }
         async function deleteHistoryItem(ts, ev){
             ev.stopPropagation();
-            if(!confirm(tr('online.deleteConfirm'))) return;
+            if(!await StudioDialog.confirm(tr('online.deleteConfirm'), {title:'删除记录', danger:true, confirmText:'删除'})) return;
             const res = await fetch('/api/history/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({timestamp:ts})}).then(r=>r.json());
             if(res.success) document.getElementById(`history-${ts}`)?.remove();
         }

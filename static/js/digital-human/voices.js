@@ -258,7 +258,7 @@ function renderVoices() {
         }
 
         function setVideoUploadBusy(busy, text = '') {
-            document.querySelectorAll('[data-video-upload-dropzone], [data-action="add-video"]').forEach(btn => {
+            document.querySelectorAll('[data-video-upload-dropzone]').forEach(btn => {
                 if (!btn) return;
                 if (busy) {
                     if (!btn.dataset.idleHtml) btn.dataset.idleHtml = btn.innerHTML;

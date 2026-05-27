@@ -451,7 +451,7 @@
         }
         function showErrorModal(message, title=tr('canvas.generationFailed')){
             if(!errorModal || !errorMessage){
-                alert(message || title);
+                StudioDialog.alert(message || title);
                 return;
             }
             errorTitle.textContent = title || tr('canvas.generationFailed');
@@ -1413,6 +1413,7 @@
         }
         function startCanvasRemotePolling(){
             stopCanvasRemotePolling();
+            // Only active while a canvas is open; hidden tabs skip each tick and returning to manager stops it.
             remoteSyncInterval = setInterval(checkRemoteCanvasVersion, 2500);
         }
         function stopCanvasRemotePolling(){
@@ -2081,8 +2082,8 @@
             const msModel = MS_GEN_MODELS[modelKey] || MS_GEN_MODELS.zimage;
             const msModelId = currentMsModelId(modelKey, node);
             const msLoras = modelscopeLorasForModel(msModelId);
-            if(!prompt){ alert(tr('canvas.needPrompt')); return; }
-            if(msModel.supportsImage && !refs.length){ alert(tr('canvas.needImage')); return; }
+            if(!prompt){ StudioDialog.alert(tr('canvas.needPrompt')); return; }
+            if(msModel.supportsImage && !refs.length){ StudioDialog.alert(tr('canvas.needImage')); return; }
             const count = Math.max(1, Math.min(8, Number(node.count || 1)));
             // 链路中间节点默认不创建 Output；链尾、手动开启或已有 Output 连接时才输出。
             let out = outputForNode(node, 460);
@@ -2163,7 +2164,7 @@
                 node.runStatus = 'failed'; node.runError = err.message || String(err);
                 refreshRunNodes(node, out);
                 if(opts.cascade) throw err;
-                alert(err.message || tr('canvas.msFailed'));
+                StudioDialog.alert(err.message || tr('canvas.msFailed'));
             }
         }
         function addOutputNode(point){
@@ -2430,7 +2431,7 @@
             const node = nodes.find(n => n.id === nodeId);
             const urls = outputDownloadableImageUrls(node);
             if(!node || !urls.length){
-                alert(tr('canvas.outputDownloadEmpty'));
+                StudioDialog.alert(tr('canvas.outputDownloadEmpty'));
                 return;
             }
             try {
@@ -2452,7 +2453,7 @@
                 link.remove();
                 setTimeout(() => URL.revokeObjectURL(link.href), 1000);
             } catch(err) {
-                alert(err.message || tr('canvas.outputDownloadEmpty'));
+                StudioDialog.alert(err.message || tr('canvas.outputDownloadEmpty'));
             }
         }
         function createLinkedNode(type){
@@ -5330,7 +5331,7 @@
             const sources = orderedSources(gen, generatorSources(gen));
             const prompt = sources.map(s => s.prompt).filter(Boolean).join('\n\n');
             const refs = sources.flatMap(s => s.refs || []);
-            if(!prompt && !refs.length){ alert(tr('canvas.needPromptOrImage')); return; }
+            if(!prompt && !refs.length){ StudioDialog.alert(tr('canvas.needPromptOrImage')); return; }
             const count = Math.max(1, Math.min(8, Number(gen.count || 1)));
             let out = outputForNode(gen, 460);
             const run = runSnapshot(gen, prompt || 'Edit the reference images.', refs);
@@ -5390,7 +5391,7 @@
             const sources = orderedSources(gen, generatorSources(gen));
             const prompt = sources.map(s => s.prompt).filter(Boolean).join('\n\n');
             const refs = sources.flatMap(s => s.refs || []);
-            if(!prompt && !refs.length){ alert(tr('canvas.needPromptOrImage')); return; }
+            if(!prompt && !refs.length){ StudioDialog.alert(tr('canvas.needPromptOrImage')); return; }
             const count = Math.max(1, Math.min(8, Number(gen.count || 1)));
             let out = outputForNode(gen, 460);
             const pendingIds = Array.from({length:count}, () => uid('p'));
@@ -5447,7 +5448,7 @@
             const audioRefs = sources.flatMap(s => s.audioRefs || []);
             if(node.useFrameRoles && refs[0]) refs[0] = {...refs[0], role:'first_frame'};
             if(node.useFrameRoles && refs[1]) refs[1] = {...refs[1], role:'last_frame'};
-            if(!prompt){ alert(tr('canvas.videoNeedsPrompt')); return; }
+            if(!prompt){ StudioDialog.alert(tr('canvas.videoNeedsPrompt')); return; }
             let out = outputForNode(node, 460);
             const pendingId = uid('p');
             const run = runSnapshot(node, prompt, refs, audioRefs);
@@ -5540,7 +5541,7 @@
             const input = llmInputText(node) || node.userInput || '';
             if(!input){
                 if(opts.cascade) throw new Error('LLM 缺少提示词输入');
-                alert(tr('canvas.needPromptToLLM')); return;
+                StudioDialog.alert(tr('canvas.needPromptToLLM')); return;
             }
             if(!opts.cascade){ node.running = true; refreshNodes([node.id]); }
             try {
@@ -5554,7 +5555,7 @@
                 node.runStatus = 'failed'; node.runError = err.message || String(err);
                 refreshNodes([node.id]);
                 if(opts.cascade) throw err;
-                alert(err.message || 'LLM 运行失败');
+                StudioDialog.alert(err.message || 'LLM 运行失败');
             }
         }
         // 判断是不是「链尾」节点：没有下游生成节点（直接相连或经 Output 中转都算）
@@ -5790,11 +5791,11 @@
         async function runNodeCascade(nodeId){
             const target = nodes.find(n => n.id === nodeId);
             if(!target) return;
-            if(target.running){ alert('当前节点正在运行'); return; }
+            if(target.running){ StudioDialog.alert('当前节点正在运行'); return; }
             cascadeRunningIds.add(nodeId);
             const order = computeCascadeOrder(nodeId);
             refreshNodes(cascadeUiNodeIds(nodeId, order));
-            if(!order.length){ alert('没有可运行的生成节点'); return; }
+            if(!order.length){ StudioDialog.alert('没有可运行的生成节点'); return; }
             const loop = resolveCascadeLoop(nodeId);
             const totalRounds = loop?.count || 1;
             const startIdx = Math.max(1, Number(loop?.node?.loopStart) || 1);
@@ -5997,7 +5998,7 @@
             } catch(err) {
                 node.running = false;
                 refreshNodes([node.id]);
-                alert(err.message || 'LLM 运行失败');
+                StudioDialog.alert(err.message || 'LLM 运行失败');
             }
         }
 
@@ -6758,7 +6759,7 @@
                 outputPreview.ondblclick = null;
                 outputDownloadBtn.onclick = e => {
                     e.stopPropagation();
-                    downloadUrl(url, outputDownloadName(url)).catch(err => alert(err.message || '下载失败'));
+                    downloadUrl(url, outputDownloadName(url)).catch(err => StudioDialog.alert(err.message || '下载失败'));
                 };
                 outputLightbox.classList.add('open');
                 refreshIcons();
@@ -6782,7 +6783,7 @@
             };
             outputDownloadBtn.onclick = e => {
                 e.stopPropagation();
-                downloadUrl(url, outputDownloadName(url)).catch(err => alert(err.message || '下载失败'));
+                downloadUrl(url, outputDownloadName(url)).catch(err => StudioDialog.alert(err.message || '下载失败'));
             };
             outputLightbox.classList.add('open');
             refreshIcons();
@@ -6829,7 +6830,7 @@
             outputCompareOriginal.style.display = (!isVideo && !isAudio) ? 'block' : 'none';
             outputDownloadBtn.onclick = e => {
                 e.stopPropagation();
-                downloadUrl(url, outputDownloadName(url)).catch(err => alert(err.message || '涓嬭浇澶辫触'));
+                downloadUrl(url, outputDownloadName(url)).catch(err => StudioDialog.alert(err.message || '下载失败'));
             };
             if(isVideo){
                 outputLightboxVideo.muted = false;

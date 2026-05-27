@@ -1010,7 +1010,7 @@
                 referenceImages[index] = null;
                 referenceUploadErrors[index] = e;
                 updateReferencePreview(index, '');
-                alert(e.message || 'Reference image upload failed');
+                StudioDialog.alert(e.message || 'Reference image upload failed');
             } finally {
                 if(referenceUploadTokens[index] === token){
                     referenceUploadPromises[index] = null;
@@ -1067,13 +1067,13 @@
 
         async function handleRender() {
             const prompt = document.getElementById('prompt').value.trim();
-            if (!prompt) return alert("Please enter a prompt");
+            if (!prompt) return StudioDialog.alert("Please enter a prompt");
             runApiTask(prompt);
         }
 
         // 4. ModelScope 云端逻辑
         async function runApiTask(prompt) {
-            if(!await ensureCurrentProviderAvailable()) return alert(tr('studio.noApiImageProviders'));
+            if(!await ensureCurrentProviderAvailable()) return StudioDialog.alert(tr('studio.noApiImageProviders'));
             setLoading(true);
 
             const placeholder = createPlaceholder("API Rendering");
@@ -1126,7 +1126,7 @@
                 }
             } catch (e) {
                 if(placeholder.isConnected) placeholder.remove();
-                alert(e.message);
+                StudioDialog.alert(e.message);
             } finally {
                 setLoading(false);
             }
@@ -1379,7 +1379,9 @@
                 }
             });
 
-            setInterval(async () => {
+            // Gallery queue badge refresh; hidden tabs skip requests and unload clears the timer.
+            const queueStatusTimer = setInterval(async () => {
+                if (document.hidden) return;
                 try {
                     const res = await fetch("/api/queue_status?client_id=" + encodeURIComponent(CLIENT_ID));
                     const data = await res.json();
@@ -1396,8 +1398,11 @@
                             dotColor.className = "w-1.5 h-1.5 bg-black rounded-full";
                         }
                     }
-                } catch (e) { }
+                } catch (e) {
+                    console.warn('queue status refresh failed', e);
+                }
             }, 3000);
+            window.addEventListener('beforeunload', () => clearInterval(queueStatusTimer));
         };
 
         // 基础功能

@@ -1230,7 +1230,7 @@
             assetGrid.querySelectorAll('[data-delete-asset]').forEach(btn => {
                 btn.onclick = async e => {
                     e.preventDefault(); e.stopPropagation();
-                    if(!confirm(tr('smart.assetDeleteConfirm'))) return;
+                    if(!await StudioDialog.confirm(tr('smart.assetDeleteConfirm'), {title:tr('smart.delete') || '删除素材', danger:true, confirmText:tr('smart.delete') || '删除'})) return;
                     const data = await fetch(`/api/asset-library/items/${encodeURIComponent(btn.dataset.deleteAsset)}`, {method:'DELETE'}).then(r => r.json());
                     setAssetLibraryFromResponse(data);
                 };

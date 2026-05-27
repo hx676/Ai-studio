@@ -987,7 +987,7 @@
                  // If timeout status, ask user
                  if (data.status === 'timeout') {
                      const taskId = data.task_id;
-                     const userContinue = confirm("Cloud generation is taking longer than expected (300s). The queue might be full.\n\nDo you want to continue waiting?");
+                     const userContinue = await StudioDialog.confirm("Cloud generation is taking longer than expected (300s). The queue might be full.\n\nDo you want to continue waiting?", {title:'Continue waiting?', confirmText:'Continue'});
                      
                      if (userContinue) {
                          // Call poll endpoint
@@ -1050,7 +1050,7 @@
             }
             
             if (!uploadedFile && currentEngine === 'cloud') {
-                 alert("Please upload an image first");
+                 StudioDialog.alert("Please upload an image first");
                  return;
             }
 
@@ -1139,7 +1139,7 @@
                 document.getElementById('emptyState').classList.remove('hidden');
                 btn.disabled = false;
                 if (!err.silent) {
-                    alert(err.message);
+                    StudioDialog.alert(err.message);
                 }
             }
         }
@@ -1298,11 +1298,23 @@
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${wsProtocol}//${window.location.host}/ws/stats?client_id=${CLIENT_ID}`;
         const socket = new WebSocket(wsUrl);
+        let wsPingTimer = null;
         socket.onopen = () => {
-            setInterval(() => {
+            // Keep the optional stats socket alive; close/leave handlers clear the heartbeat.
+            wsPingTimer = setInterval(() => {
                 if (socket.readyState === WebSocket.OPEN) socket.send("ping");
             }, 30000);
         };
+        socket.onclose = () => {
+            if (wsPingTimer) {
+                clearInterval(wsPingTimer);
+                wsPingTimer = null;
+            }
+        };
+        window.addEventListener('beforeunload', () => {
+            if (wsPingTimer) clearInterval(wsPingTimer);
+            if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) socket.close();
+        });
     </script>
 </body>
 

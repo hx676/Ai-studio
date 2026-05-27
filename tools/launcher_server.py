@@ -413,6 +413,7 @@ def html_page() -> str:
     function beginStartupPolling() {
       stopStartupPolling();
       startupPollStartedAt = Date.now();
+      // Startup-only polling; updateStartupPolling stops it when services are ready or the warmup window expires.
       startupPollTimer = setInterval(() => refreshStatus().catch(() => {}), STARTUP_POLL_MS);
     }
 
@@ -473,14 +474,19 @@ def html_page() -> str:
       await api(`/api/launcher/open?target=${encodeURIComponent(target)}`, { method: 'POST' });
     }
 
-    document.getElementById('startBtn').addEventListener('click', () => startAll().catch(e => alert(e.message)));
-    document.getElementById('stopBtn').addEventListener('click', () => stopAll().catch(e => alert(e.message)));
-    document.getElementById('refreshBtn').addEventListener('click', () => refreshStatus().catch(e => alert(e.message)));
     document.getElementById('openMainBtn').addEventListener('click', () => window.open(state.mainUrl, '_blank'));
-    document.getElementById('openLogsBtn').addEventListener('click', () => openTarget('logs').catch(e => alert(e.message)));
-    document.getElementById('loadLogBtn').addEventListener('click', () => loadLog().catch(e => alert(e.message)));
+    const showError = message => {
+      const text = String(message || '操作失败');
+      const box = document.getElementById('logText');
+      if (box) box.textContent = text;
+    };
+    document.getElementById('startBtn').addEventListener('click', () => startAll().catch(e => showError(e.message)));
+    document.getElementById('stopBtn').addEventListener('click', () => stopAll().catch(e => showError(e.message)));
+    document.getElementById('refreshBtn').addEventListener('click', () => refreshStatus().catch(e => showError(e.message)));
+    document.getElementById('openLogsBtn').addEventListener('click', () => openTarget('logs').catch(e => showError(e.message)));
+    document.getElementById('loadLogBtn').addEventListener('click', () => loadLog().catch(e => showError(e.message)));
 
-    refreshStatus().catch(e => alert(e.message));
+    refreshStatus().catch(e => showError(e.message));
   </script>
 </body>
 </html>

@@ -724,23 +724,23 @@
             const looksLikeImage = ['image/png', 'image/jpeg', 'image/webp'].includes(fileType)
                 || /\.(png|jpe?g|webp)$/.test(fileName);
             if(!looksLikeImage){
-                alert(tr('api.logoInvalidImage'));
+                StudioDialog.alert(tr('api.logoInvalidImage'));
                 return;
             }
             if(file.size > 512 * 1024){
-                alert(tr('api.logoSizeAlert'));
+                StudioDialog.alert(tr('api.logoSizeAlert'));
                 return;
             }
             let dimensions;
             try {
                 dimensions = await readLogoImage(file);
             } catch(err) {
-                alert(err.message || tr('api.logoInvalidImage'));
+                StudioDialog.alert(err.message || tr('api.logoInvalidImage'));
                 return;
             }
             const ratio = dimensions.height ? dimensions.width / dimensions.height : 0;
             if(ratio < 4 || ratio > 6){
-                alert(logoRatioMessage(dimensions.width, dimensions.height));
+                StudioDialog.alert(logoRatioMessage(dimensions.width, dimensions.height));
                 return;
             }
             const form = new FormData();
@@ -998,7 +998,7 @@
             if(!item) return;
             const btn = document.getElementById('probeAsyncBtn');
             const baseUrl = baseInput.value.trim();
-            if(!baseUrl){ alert('请先填写请求地址'); return; }
+            if(!baseUrl){ StudioDialog.alert('请先填写请求地址'); return; }
             if(btn){ btn.disabled = true; btn.querySelector('span').textContent = '检测中...'; }
             showVerifyResult(`<span style="color:var(--muted);font-size:11px;font-weight:700">正在检测协议类型...</span>`);
             try {
@@ -1044,7 +1044,7 @@
             if(!item) return;
             const btn = document.getElementById('testUrlBtn');
             const baseUrl = baseInput.value.trim();
-            if(!baseUrl){ alert('请先填写请求地址'); return; }
+            if(!baseUrl){ StudioDialog.alert('请先填写请求地址'); return; }
             if(btn){ btn.disabled = true; btn.querySelector('span').textContent = tr('api.testingUrl') || '验证中...'; }
             showVerifyResult(`<span style="color:var(--muted);font-size:11px;font-weight:700">验证中...</span>`);
             try {
@@ -1088,7 +1088,7 @@
             const btn = document.getElementById('fetchModelsBtn');
             const baseUrl = baseInput.value.trim();
             const apiKey = keyInput.value.trim();
-            if(!baseUrl){ alert('请先填写请求地址'); return; }
+            if(!baseUrl){ StudioDialog.alert('请先填写请求地址'); return; }
             if(btn){ btn.disabled = true; btn.querySelector('span').textContent = tr('api.fetchingModels') || '拉取中...'; }
             setStatus(tr('api.fetchingModels') || '正在从上游拉取模型列表...');
             try {
@@ -1112,7 +1112,7 @@
                 setStatus(`已拉取 ${data.total} 个模型 · 点「选择模型」勾选要导入的`);
                 openModelPicker();
             } catch(e){
-                alert('拉取失败：' + (e.message || e));
+                StudioDialog.alert('拉取失败：' + (e.message || e));
                 setStatus('拉取失败');
             } finally {
                 if(btn){ btn.disabled = false; btn.querySelector('span').textContent = tr('api.fetchModels') || '拉取模型'; }
@@ -1125,7 +1125,7 @@
         let pickerVisibleIds = [];
         function openModelPicker(){
             const item = provider();
-            if(!item || !lastFetchedAll.length){ alert('没有拉取到模型'); return; }
+            if(!item || !lastFetchedAll.length){ StudioDialog.alert('没有拉取到模型'); return; }
             const existing = { image: new Set(item.image_models||[]), chat: new Set(item.chat_models||[]), video: new Set(item.video_models||[]) };
             const allIds = new Set([...lastFetchedAll, ...(item.image_models||[]), ...(item.chat_models||[]), ...(item.video_models||[])]);
             pickerState = { category: {}, selected: {} };
@@ -1230,7 +1230,7 @@
             const item = provider();
             if(!item) return;
             const key = keyInput.value.trim();
-            if(!key){ alert(tr('api.enterKeyAlert') || '请输入 Key'); return; }
+            if(!key){ StudioDialog.alert(tr('api.enterKeyAlert') || '请输入 Key'); return; }
             item.api_key = key;
             const ok = await saveProviders();
             if(ok) keyInput.value = '';
@@ -1239,7 +1239,7 @@
             const item = provider();
             if(!item) return;
             if(!item.has_key && !keyInput.value){ return; }
-            if(!confirm(tr('api.confirmClearKey') || '确认清除当前 Key？')) return;
+            if(!await StudioDialog.confirm(tr('api.confirmClearKey') || '确认清除当前 Key？', {title:'清除 Key', danger:true, confirmText:'清除'})) return;
             item._clearKey = true;
             const ok = await saveProviders();
             if(ok) keyInput.value = '';
@@ -1386,8 +1386,8 @@
         function deleteProvider(){
             const item = provider();
             if(!item) return;
-            if(isBuiltinProvider(item)){ alert(tr('api.modelscopeOnlyDelete') || '内置服务商不可删除'); return; }
-            if(providers.length <= 1){ alert(tr('api.keepOne')); return; }
+            if(isBuiltinProvider(item)){ StudioDialog.alert(tr('api.modelscopeOnlyDelete') || '内置服务商不可删除'); return; }
+            if(providers.length <= 1){ StudioDialog.alert(tr('api.keepOne')); return; }
             providers = providers.filter(p => p.id !== item.id);
             selectedId = providers[0]?.id || '';
             renderEditor();
@@ -1458,7 +1458,7 @@
                 return false;
             }
             if(new Set(providers.map(item => item.id)).size !== providers.length){
-                alert(tr('api.duplicateId'));
+                StudioDialog.alert(tr('api.duplicateId'));
                 lastSaveError = tr('api.duplicateId');
                 return false;
             }

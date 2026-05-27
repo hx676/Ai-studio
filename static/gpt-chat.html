@@ -376,7 +376,7 @@
 
         async function deleteConversation(id, event){
             event.stopPropagation();
-            if(!confirm(tr('chat.deleteConfirm'))) return;
+            if(!await StudioDialog.confirm(tr('chat.deleteConfirm'), {title:'删除会话', danger:true, confirmText:'删除'})) return;
             await fetch(`/api/conversations/${id}`, {method:'DELETE', headers:{'X-User-ID':userId}});
             const deletedCurrent = currentConversation?.id === id;
             if(deletedCurrent){ currentConversation = null; setChatTitle(''); renderMessages([]); }

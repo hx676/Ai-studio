@@ -40,6 +40,7 @@ Thumbs.db
 .idea/
 .claude/
 .sisyphus/
+_archive/
 
 # Duplicated local source material already copied into static/images
 数字人引导/

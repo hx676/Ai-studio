@@ -1125,9 +1125,9 @@ async def cancel_digital_human_task(task_id: str):
     with DIGITAL_HUMAN_TASK_LOCK:
         task = DIGITAL_HUMAN_TASKS.get(task_id)
         if not task:
-            raise HTTPException(status_code=404, detail="鏁板瓧浜轰换鍔′笉瀛樺湪")
+            raise HTTPException(status_code=404, detail="数字人任务不存在")
         if task.get("status") != "queued":
-            raise HTTPException(status_code=400, detail="浠呭彲鍙栨秷灏氭湭寮€濮嬬殑鎺掗槦浠诲姟")
+            raise HTTPException(status_code=400, detail="仅可取消尚未开始的排队任务")
         task["status"] = "canceled"
         task["stage"] = "canceled"
         task["queue_position"] = 0
