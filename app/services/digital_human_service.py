@@ -8,7 +8,7 @@ import subprocess
 import time
 import urllib.parse
 import uuid
-from typing import Any, Dict, List
+from typing import List
 
 from fastapi import File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
@@ -33,7 +33,6 @@ from app.services.tts_service import (
     save_tts_voice,
     save_tts_voice_preview_audio,
     sanitize_tts_voice_name,
-    tts_voice_embedding_dir,
     tts_voice_embedding_for_name,
     tts_voice_file_for_name,
     tts_voice_library_dir,
@@ -843,24 +842,19 @@ async def delete_digital_human_voice(voice_name: str):
     config = normalize_digital_human_config()
     name = urllib.parse.unquote(str(voice_name or "")).strip()
     path = tts_voice_file_for_name(config, name)
-    embedding_path = tts_voice_embedding_for_name(config, name)
-    if not path and not embedding_path:
+    if not path:
         raise HTTPException(status_code=404, detail="音色文件不存在或不可删除")
     library = tts_voice_library_dir(config)
-    embedding_dir = tts_voice_embedding_dir(config)
     try:
         if path and os.path.commonpath([library, os.path.abspath(path)]) != library:
-            raise HTTPException(status_code=400, detail="音色路径不允许删除")
-        if embedding_path and os.path.commonpath([embedding_dir, os.path.abspath(embedding_path)]) != embedding_dir:
             raise HTTPException(status_code=400, detail="音色路径不允许删除")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="音色路径不允许删除") from exc
     try:
         deleted_paths = []
-        for candidate in (path, embedding_path):
-            if candidate and os.path.isfile(candidate):
-                os.remove(candidate)
-                deleted_paths.append(candidate)
+        if path and os.path.isfile(path):
+            os.remove(path)
+            deleted_paths.append(path)
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"音色删除失败：{exc}") from exc
     voices, tts_status = await list_tts_voices(config, auto_start=False)

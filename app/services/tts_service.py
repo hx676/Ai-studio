@@ -6,7 +6,6 @@ import shutil
 import subprocess
 import sys
 import time
-from typing import List
 
 import httpx
 from fastapi import HTTPException
@@ -27,14 +26,10 @@ TTS_EMO_METHODS = {
 }
 TTS_PROCESS = legacy.TTS_PROCESS
 TTS_LAST_ERROR = legacy.TTS_LAST_ERROR
-
-for _name in (
-    "BASE_DIR",
-    "DIGITAL_HUMAN_AUDIO_DIR",
-    "TTS_GENERATION_LOCK",
-    "TTS_SERVICE_LOCK",
-):
-    globals()[_name] = getattr(legacy, _name)
+BASE_DIR = legacy.BASE_DIR
+DIGITAL_HUMAN_AUDIO_DIR = legacy.DIGITAL_HUMAN_AUDIO_DIR
+TTS_GENERATION_LOCK = legacy.TTS_GENERATION_LOCK
+TTS_SERVICE_LOCK = legacy.TTS_SERVICE_LOCK
 
 digital_human_log = legacy.digital_human_log
 safe_upstream_summary = legacy.safe_upstream_summary
@@ -355,6 +350,10 @@ def enrich_tts_voice_item(config, item):
     }
     return enriched
 
+def is_audio_backed_tts_voice(item):
+    path = str((item or {}).get("path") or "").strip()
+    return bool(path and os.path.isfile(path))
+
 def normalize_tts_voice_list(raw, config=None):
     names = []
     seen = set()
@@ -368,6 +367,7 @@ def normalize_tts_voice_list(raw, config=None):
         names.append({"name": key, "value": key, "path": "", "preview_url": "", "deletable": False})
     if config:
         names = [enrich_tts_voice_item(config, item) for item in names]
+        names = [item for item in names if is_audio_backed_tts_voice(item)]
     return names
 
 def tts_default_reference_audio(config):
@@ -540,17 +540,25 @@ def normalize_tts_options(options=None):
 
 def generate_digital_human_tts_sync(text, voice_path, voice_name, config, output_path, tts_options=None):
     with TTS_GENERATION_LOCK:
-        client = get_gradio_client(config)
-        reference_audio = voice_path if voice_path and os.path.isfile(voice_path) else tts_default_reference_audio(config)
+        selected_voice = str(voice_name or "").strip()
+        if selected_voice and set(selected_voice) != {"?"} and selected_voice != "使用参考音频":
+            named_voice_path = tts_voice_file_for_name(config, selected_voice)
+            if named_voice_path:
+                reference_audio = named_voice_path
+            else:
+                selected_voice = ""
+                reference_audio = voice_path if voice_path and os.path.isfile(voice_path) else tts_default_reference_audio(config)
+        else:
+            reference_audio = voice_path if voice_path and os.path.isfile(voice_path) else tts_default_reference_audio(config)
         if not reference_audio or not os.path.isfile(reference_audio):
             raise HTTPException(status_code=400, detail="Please upload a reference audio file first.")
         options = normalize_tts_options(tts_options)
         emo_ref_path = digital_human_local_path(options.get("emo_ref_url")) or digital_human_local_path(options.get("emo_ref_path"))
         if not emo_ref_path or not os.path.isfile(emo_ref_path):
             emo_ref_path = reference_audio
-        selected_voice = str(voice_name or "").strip()
         if not selected_voice or set(selected_voice) == {"?"}:
             selected_voice = "\u4f7f\u7528\u53c2\u8003\u97f3\u9891"
+        client = get_gradio_client(config)
         submit_raw = client.predict(
             voices_dropdown=selected_voice,
             speed=options["speed"],
