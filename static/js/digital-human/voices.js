@@ -1,14 +1,33 @@
 // Voice selector, voice library, and digital-human uploads
 // Split from state.js. Loaded as a classic script; shared symbols remain global.
 
-function renderVoices() {
+function isManageableVoice(voice) {
+            const value = voice?.value || voice?.name || '';
+            return !!value && value !== '使用参考音频' && !!mediaUrl(voice);
+        }
+
+        function manageableVoices() {
+            return (state.voices || []).filter(isManageableVoice);
+        }
+
+        function ensureVoiceInState(voice) {
+            if (!isManageableVoice(voice)) return;
+            const value = voice.value || voice.name || '';
+            const exists = (state.voices || []).some(item => (item.value || item.name || '') === value);
+            if (!exists) {
+                state.voices = [...(state.voices || []), voice];
+            }
+        }
+
+        function renderVoices() {
             const currentValue = $('voice-select').value;
-            const options = state.voices.filter(v => (v.value || v.name || '') !== '使用参考音频').map(v => {
+            const voices = manageableVoices();
+            const options = voices.map(v => {
                 const value = v.value || v.name || '';
                 return `<option value="${escapeHtml(value)}">${escapeHtml(v.display_name || v.name || value)}</option>`;
             }).join('');
             $('voice-select').innerHTML = `<option value="">使用参考音频</option>${options}`;
-            if (currentValue && state.voices.some(v => (v.value || v.name || '') === currentValue)) {
+            if (currentValue && voices.some(v => (v.value || v.name || '') === currentValue)) {
                 $('voice-select').value = currentValue;
             }
             updateVoiceActions();
@@ -17,7 +36,7 @@ function renderVoices() {
         function selectedVoiceItem() {
             const selected = $('voice-select')?.value || '';
             if (!selected && state.uploadedVoice) return state.uploadedVoice;
-            return state.voices.find(v => (v.value || v.name || '') === selected) || null;
+            return manageableVoices().find(v => (v.value || v.name || '') === selected) || null;
         }
 
         function updateVoiceActions() {
@@ -28,7 +47,7 @@ function renderVoices() {
 
         function renderVoicesLibrary() { /* 渲染声音库的主函数 */ /* 逻辑注释 */
             const el = $('voices-library'); /* 获取声音库DOM容器节点 */ /* DOM获取注释 */
-            const voices = state.voices.filter(v => (v.value || v.name || '') !== '使用参考音频'); /* 过滤出可用声音列表数据 */ /* 数据过滤注释 */
+            const voices = manageableVoices(); /* 过滤出可用声音列表数据 */ /* 数据过滤注释 */
             $('voices-summary').textContent = `共 ${voices.length} 个声音`; /* 界面文本更新声音总数 */ /* 赋值注释 */
             if (!voices.length) { /* 检测可用声音项数目 */ /* 判断注释 */
                 el.innerHTML = '<div class="empty-state">还没有可管理音色，请上传音频保存为声音</div>'; /* 展现声音空状态模版 */ /* 模板输出注释 */
@@ -79,7 +98,7 @@ function renderVoices() {
         }
 
         async function handleVoiceAction(voiceName, action) {
-            const voice = state.voices.find(v => (v.value || v.name || '') === voiceName);
+            const voice = manageableVoices().find(v => (v.value || v.name || '') === voiceName);
             if (!voice) return;
             if (action === 'use-voice') {
                 $('voice-select').value = voiceName;
@@ -183,7 +202,9 @@ function renderVoices() {
 
         async function uploadMany(files, kind) {
             const form = new FormData();
-            Array.from(files || []).forEach(file => form.append('files', file));
+            Array.from(files || []).forEach(file => {
+                form.append('files', file);
+            });
             const uploadKind = kind === 'emotion' ? 'asset' : kind;
             const params = new URLSearchParams({ kind: uploadKind });
             let res;
@@ -356,7 +377,7 @@ function renderVoices() {
                 state.uploadedVoice = item;
                 showVoiceAsset(item);
                 if (Array.isArray(item?.voices)) {
-                    state.voices = item.voices;
+                    state.voices = item.voices.filter(isManageableVoice);
                 } else {
                     await loadConfig();
                 }

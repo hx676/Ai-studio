@@ -143,7 +143,7 @@ function currentPerson() {
                     </div>`;
             }).join('');
             const selectedVoiceName = selectedPerson?.default_voice_name || '';
-            const voiceOptions = state.voices.filter(v => (v.value || v.name || '') !== '使用参考音频').map(v => {
+            const voiceOptions = manageableVoices().map(v => {
                 const val = v.value || v.name || '';
                 const selected = val === selectedVoiceName ? 'selected' : '';
                 return `<option value="${escapeHtml(val)}" ${selected}>${escapeHtml(v.display_name || v.name || val)}</option>`;
@@ -399,7 +399,10 @@ function currentPerson() {
         function applyLibraryData(data) {
             state.library = data.library || null;
             state.people = data.people || data.library?.people || [];
-            state.voices = data.voices || [];
+            state.voices = (data.voices || []).filter(voice => {
+                const value = voice?.value || voice?.name || '';
+                return value !== '使用参考音频' && !!mediaUrl(voice);
+            });
             state.videos = data.videos || [];
             ensureVideoSelection();
             renderVoices();
