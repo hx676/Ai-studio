@@ -32,7 +32,7 @@
         body.smart-node-drag .image-node .node-body { pointer-events:none !important; }
         .image-node:not(.empty-node) { min-height:0; }
         .image-node.empty-node { background:var(--card); border:1px solid var(--line); box-shadow:0 12px 34px var(--shadow); overflow:visible; }
-        .image-node.group-node { padding:16px; background:rgba(255,255,255,.46); border:1px solid rgba(148,163,184,.35); box-shadow:0 10px 30px rgba(15,23,42,.06); backdrop-filter:blur(12px); }
+        .image-node.group-node { padding:16px; box-sizing:border-box; background:rgba(255,255,255,.46); border:1px solid rgba(148,163,184,.35); box-shadow:0 10px 30px rgba(15,23,42,.06); backdrop-filter:blur(12px); }
         .theme-dark .image-node.group-node { background:rgba(15,23,42,.28); border-color:rgba(148,163,184,.28); }
         .image-node.selected { outline:0; }
         .image-node.selected:not(.empty-node):not(.group-node):not(.prompt-smart-node):not(.loop-smart-node) { box-shadow:none; border-radius:12px; }
@@ -41,7 +41,7 @@
         .image-node.group-node.selected { box-shadow:0 0 0 1px var(--strong), 0 14px 36px var(--shadow); }
         .image-node.empty-node:hover { border-color:var(--strong); box-shadow:0 10px 30px rgba(15,23,42,.08); }
         .image-node.empty-node.selected { border-color:var(--strong); box-shadow:0 0 0 1px var(--strong), 0 12px 34px var(--shadow); }
-        .image-node.prompt-smart-node, .image-node.loop-smart-node { padding:12px; background:rgba(255,255,255,.46); border:1px solid rgba(148,163,184,.35); box-shadow:0 10px 30px rgba(15,23,42,.06); backdrop-filter:blur(12px); overflow:visible; }
+        .image-node.prompt-smart-node, .image-node.loop-smart-node { padding:12px; box-sizing:border-box; background:rgba(255,255,255,.46); border:1px solid rgba(148,163,184,.35); box-shadow:0 10px 30px rgba(15,23,42,.06); backdrop-filter:blur(12px); overflow:visible; }
         .image-node.loop-smart-node { padding-top:16px; padding-bottom:18px; }
         .theme-dark .image-node.prompt-smart-node, .theme-dark .image-node.loop-smart-node { background:rgba(15,23,42,.28); border-color:rgba(148,163,184,.28); }
         .image-node.prompt-smart-node:hover, .image-node.loop-smart-node:hover, .image-node.prompt-smart-node.selected, .image-node.loop-smart-node.selected { border-color:var(--strong); box-shadow:0 10px 30px rgba(15,23,42,.08); }

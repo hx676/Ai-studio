@@ -234,7 +234,7 @@
                 (node?.images || []).forEach(img => normalizeSmartSettingsEngines(img?.runSettings));
             });
         }
-        function backToCanvasList(){ savePromptDraftForCurrent(); window.location.href = '/static/canvas.html?v=2026.05.25.7'; }
+        function backToCanvasList(){ savePromptDraftForCurrent(); window.location.href = '/static/canvas.html?v=2026.05.28.1'; }
         function promptPlainText(){
             return promptInput.innerText.replace(/\u00a0/g, ' ').trim();
         }
@@ -1074,11 +1074,14 @@
         }
         async function loadConfig(){
             try {
-                const cfg = await fetch('/api/config', {cache:'no-store'}).then(r => r.json());
+                const res = await fetch('/api/config', {cache:'no-store'});
+                if(!res.ok) throw new Error(`/api/config ${res.status}`);
+                const cfg = await res.json();
                 apiProviders = Array.isArray(cfg.api_providers) ? cfg.api_providers : [];
                 lastConfigRefreshAt = Date.now();
                 updateProviderModels();
             } catch(e) {
+                console.error(e);
                 toast(tr('smart.toastApiSettingsFail'));
             }
         }
@@ -3294,6 +3297,11 @@
                 setPromptText('');
             }
         }
+        function syncCascadeRunButton(node){
+            if(!cascadeRunBtn) return;
+            const hasCascadePath = node && inputNodesFor(node).some(input => input.type === 'smart-prompt' || input.type === 'smart-loop');
+            cascadeRunBtn.style.display = hasCascadePath ? '' : 'none';
+        }
         function updateComposer(){
             const node = selectedNode();
             composer.classList.toggle('open', !!node);
@@ -3502,6 +3510,18 @@
             canvas.connections = canvas.connections || [];
             if(canvas.connections.some(c => c.from === from && c.to === to && (c.kind || 'flow') === kind)) return false;
             canvas.connections.push({from, to, kind});
+            return true;
+        }
+        function connectInputNode(fromId, toId){
+            if(!canvas || !fromId || !toId || fromId === toId) return false;
+            addConnection(fromId, toId, 'flow');
+            const toNode = nodes.find(n => n.id === toId);
+            if(toNode){
+                toNode.inputNodeIds = toNode.inputNodeIds || [];
+                if(!toNode.inputNodeIds.includes(fromId)){
+                    toNode.inputNodeIds.push(fromId);
+                }
+            }
             return true;
         }
         function finalizePendingNode(node, urls, meta, kind='image'){
