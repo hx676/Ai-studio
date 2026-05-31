@@ -85,6 +85,18 @@ public partial class MainWindow : Window
         try
         {
             var payload = await _client.GetProjectBackendPidsAsync();
+            var conflicts = payload?.Conflicts ?? new List<ProjectBackendConflict>();
+            if (conflicts.Count > 0)
+            {
+                var details = conflicts
+                    .Select(item => $"{item.Label} PID {item.Pid}: {item.Message}")
+                    .ToList();
+                var message = "检测到本项目残留 HeyGem app_local.py 进程，可能占用显存或堵塞 HeyGem 内部队列。请先点击一键停止或手动结束残留进程后重试。"
+                    + Environment.NewLine
+                    + string.Join(Environment.NewLine, details);
+                BlockBackendBinding(message);
+                return false;
+            }
             var pids = (payload?.Pids ?? new List<int>())
                 .Concat(payload?.Processes.Select(process => process.Pid) ?? Enumerable.Empty<int>())
                 .Where(pid => pid > 0 && pid != Environment.ProcessId)
@@ -205,7 +217,11 @@ public partial class MainWindow : Window
         var canStart = !_backendBindingBlocked;
         HomePrimaryButton.IsEnabled = canStart || HasRunningServices();
         ChecksStartButton.IsEnabled = canStart;
-        if (!HasRunningServices())
+        if (HasRunningServices())
+        {
+            RenderHomeStopButton();
+        }
+        else
         {
             RenderHomeStartButton();
         }
@@ -215,6 +231,13 @@ public partial class MainWindow : Window
     {
         HomePrimaryButton.Content = "▶  一键启动";
         HomePrimaryButton.Style = (Style)FindResource("PrimaryButton");
+        HomePrimaryButton.Height = 42;
+    }
+
+    private void RenderHomeStopButton()
+    {
+        HomePrimaryButton.Content = "■  一键停止";
+        HomePrimaryButton.Style = (Style)FindResource("DangerButton");
         HomePrimaryButton.Height = 42;
     }
 
@@ -679,15 +702,12 @@ public partial class MainWindow : Window
         // 动态切换一键启动/一键停止按钮的内容与样式 / Dynamically switch the content and style of the primary button
         if (status.Services.Any(s => s.State == "ready" || s.State == "starting" || s.State == "partial"))
         {
-            HomePrimaryButton.Content = "■  一键停止"; // 切换为一键停止 / Switch to one-click stop
-            HomePrimaryButton.Style = (Style)FindResource("DangerButton"); // 切换为红色危险样式 / Switch to red danger button style
+            RenderHomeStopButton();
         }
         else
         {
-            HomePrimaryButton.Content = "▶  一键启动"; // 切换为一键启动 / Switch to one-click start
-            HomePrimaryButton.Style = (Style)FindResource("PrimaryButton"); // 切换为渐变主样式 / Switch to indigo gradient style
+            RenderHomeStartButton();
         }
-        HomePrimaryButton.Height = 42; // 统一首页主操作按钮高度为 42 / Keep the height of the primary button on home page as 42
     }
 
     private static string StatusLabel(string status) => status switch
@@ -885,7 +905,7 @@ public partial class MainWindow : Window
             HomeActionText.Text = "正在停止本次启动的服务...";
             AddLauncherEvent("正在停止本次启动器拉起的后台服务。", "stdout");
             RenderConsoleSnapshot();
-            var result = await StopBackendsAsync("停止");
+            var result = await StopBackendsWithUiTimeoutAsync("停止", TimeSpan.FromSeconds(12));
             var message = result.Ok ? "停止命令已完成，所有本项目后台已清理。" : "停止命令失败，详细输出已写入日志。";
             HomeActionText.Text = message;
             await RefreshStatusAsync(false);
@@ -948,7 +968,9 @@ public partial class MainWindow : Window
                     ? $"停止未完全完成，仍发现本项目后台 PID：{string.Join(", ", leftoverPids)}。请稍后重试或关闭启动器触发生命周期清理。"
                     : confirmError != null
                         ? $"停止命令已返回，但无法确认残留进程：{confirmError}"
-                        : "停止命令失败或超时，按钮已恢复。若仍有残留服务，请稍后重试或关闭启动器触发生命周期清理。";
+                        : result.TimedOut
+                            ? "停止命令超时，按钮已恢复。若仍有残留服务，请稍后重试或关闭启动器触发生命周期清理。"
+                            : "停止命令失败，按钮已恢复。若仍有残留服务，请稍后重试或关闭启动器触发生命周期清理。";
                 AddLauncherEvent(message, "stderr");
                 ShowOperationMessage(message, true);
             }
@@ -1004,13 +1026,58 @@ public partial class MainWindow : Window
             AddLauncherEvent("正在关闭启动器，先清理所有本项目后台服务。", "stdout");
             RenderConsoleSnapshot();
             HomeActionText.Text = "正在关闭后台服务...";
-            await StopBackendsAsync("关闭启动器");
+            await StopBackendsWithUiTimeoutAsync("关闭启动器", TimeSpan.FromSeconds(12));
         }
         finally
         {
             _allowClose = true;
             Close();
         }
+    }
+
+    private async Task<SupervisorActionResult> StopBackendsWithUiTimeoutAsync(string reason, TimeSpan timeout)
+    {
+        var task = StopBackendsAsync(reason);
+        var completed = await Task.WhenAny(task, Task.Delay(timeout));
+        if (completed == task)
+        {
+            return await task;
+        }
+
+        _ = task.ContinueWith(async completedTask =>
+        {
+            var stream = "stderr";
+            var message = $"{reason}：后台停止命令稍后才返回。";
+            try
+            {
+                var result = await completedTask;
+                stream = result.Ok ? "stdout" : "stderr";
+                message = result.Ok
+                    ? $"{reason}：后台停止命令稍后返回，清理完成。"
+                    : $"{reason}：后台停止命令稍后返回，但报告失败。";
+            }
+            catch (Exception ex)
+            {
+                message = $"{reason}：后台停止命令稍后失败：{ex.Message}";
+            }
+
+            try
+            {
+                await Dispatcher.InvokeAsync(() => AddLauncherEvent(message, stream));
+            }
+            catch
+            {
+                // The window may already be closing.
+            }
+        }, TaskScheduler.Default);
+
+        AddLauncherEvent($"{reason}：后台停止命令超过 {timeout.TotalSeconds:0} 秒，按钮先恢复，稍后继续确认残留进程。", "stderr");
+        return new SupervisorActionResult
+        {
+            Ok = false,
+            TimedOut = true,
+            RawOutput = $"Launcher UI timeout after {timeout.TotalSeconds:0}s."
+        };
     }
 
     private async Task<SupervisorActionResult> StopBackendsAsync(string reason)

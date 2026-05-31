@@ -138,6 +138,7 @@
         let videoModels = [];
         let msChatModels = [];
         let apiProviders = [];
+        let configLoadErrorShown = false;
         let managedProviderId = 'comfly';
         let localImageModels = [];
         let localChatModels = [];
@@ -814,6 +815,17 @@
             renderLinks();
             renderSelectionHub();
         }
+        function focusNodeValidation(nodeId, message, title=tr('canvas.apiFailed')){
+            const node = nodes.find(n => n.id === nodeId);
+            if(node){
+                selected.clear();
+                selected.add(nodeId);
+                const rect = estimatedNodeRect(node);
+                centerViewportOnWorldPoint({x:rect.x + rect.w / 2, y:rect.y + rect.h / 2});
+                refreshNodes([nodeId]);
+            }
+            showErrorModal(message, title);
+        }
         function refreshGeometry(){
             renderLinks();
             renderSelectionHub();
@@ -935,7 +947,9 @@
         async function loadConfig(){
             loadLocalModelLists();
             try {
-                const cfg = await fetch('/api/config', {cache:'no-store'}).then(r=>r.json());
+                const res = await fetch('/api/config', {cache:'no-store'});
+                if(!res.ok) throw new Error(`/api/config ${res.status}`);
+                const cfg = await res.json();
                 imageModels = cfg.image_models?.length ? cfg.image_models : imageModels;
                 chatModels = cfg.chat_models?.length ? cfg.chat_models : chatModels;
                 videoModels = cfg.video_models?.length ? cfg.video_models : DEFAULT_VIDEO_MODELS;
@@ -943,8 +957,16 @@
                 apiProviders = Array.isArray(cfg.api_providers) && cfg.api_providers.length ? cfg.api_providers : defaultApiProviders();
                 models.nano = imageModels.find(m => m.toLowerCase().includes('nano')) || 'nano-banana-pro';
                 models.gpt = imageModels.find(m => !m.toLowerCase().includes('nano')) || cfg.image_model || 'gpt-image-2';
+                configLoadErrorShown = false;
             } catch(e) {
                 apiProviders = defaultApiProviders();
+                const message = `API 设置读取失败，画布模型可能不是最新：${e.message || e}`;
+                setStatus(message);
+                console.error(e);
+                if(!configLoadErrorShown){
+                    configLoadErrorShown = true;
+                    showErrorModal(message, 'API 设置读取失败');
+                }
             }
         }
 
@@ -1175,7 +1197,7 @@
         }
         function openSmartCanvasPage(id){
             if(!id) return;
-            window.location.href = `/static/smart-canvas.html?id=${encodeURIComponent(id)}&v=2026.05.25.7`;
+            window.location.href = `/static/smart-canvas.html?id=${encodeURIComponent(id)}&v=2026.05.28.1`;
         }
         function toggleEmojiPicker(id, event){
             event?.preventDefault();
@@ -2082,8 +2104,8 @@
             const msModel = MS_GEN_MODELS[modelKey] || MS_GEN_MODELS.zimage;
             const msModelId = currentMsModelId(modelKey, node);
             const msLoras = modelscopeLorasForModel(msModelId);
-            if(!prompt){ StudioDialog.alert(tr('canvas.needPrompt')); return; }
-            if(msModel.supportsImage && !refs.length){ StudioDialog.alert(tr('canvas.needImage')); return; }
+            if(!prompt){ focusNodeValidation(node.id, tr('canvas.needPrompt'), tr('canvas.apiFailed')); return; }
+            if(msModel.supportsImage && !refs.length){ focusNodeValidation(node.id, tr('canvas.needImage'), tr('canvas.apiFailed')); return; }
             const count = Math.max(1, Math.min(8, Number(node.count || 1)));
             // 链路中间节点默认不创建 Output；链尾、手动开启或已有 Output 连接时才输出。
             let out = outputForNode(node, 460);
@@ -4730,6 +4752,7 @@
                         </label>
                         <button class="secondary-btn fit-size-btn" type="button" style="height:32px;align-self:flex-end;padding:0 10px;font-size:11px">${tr('canvas.fitImageSize')}</button>
                     </div>
+                    <div class="node-connection-hint">可接文本、图片；图片模型至少需要一张参考图。</div>
                 </div>
                 <div class="gen-run-row">
                     <button class="gen-btn ${node.running ? 'running' : ''}" ${node.running ? 'disabled' : ''}><i data-lucide="zap" class="w-4 h-4"></i>${node.running ? tr('canvas.generating') : tr('canvas.apiGenerate')}</button>
@@ -4961,6 +4984,7 @@
             const inputSources = generatorSources(node);
             const ordered = orderedSources(node, inputSources);
             const imageInputs = ordered.filter(src => src.refs?.length);
+            const audioInputs = ordered.filter(src => src.audioRefs?.length);
             const promptInputs = ordered.filter(src => src.prompt && !src.refs?.length);
             node.apiProvider = resolveVideoProviderId(node.apiProvider || 'comfly');
             node.model = node.model || 'veo3-fast';
@@ -5013,6 +5037,7 @@
                         <button type="button" class="setting-check ${node.generateAudio ? 'active' : ''}" data-video-toggle="generateAudio"><span class="check-dot"></span>${tr('canvas.videoGenerateAudio')}</button>
                         <button type="button" class="setting-check ${node.useFrameRoles ? 'active' : ''}" data-video-toggle="useFrameRoles"><span class="check-dot"></span>${tr('canvas.videoFirstLastFrames')}</button>
                     </div>
+                    <div class="node-connection-hint">可接文本、图片、音频；音频会和视频请求一起提交。</div>
                 </div>
                 <div class="gen-run-row">
                     <button class="gen-btn ${node.running ? 'running' : ''}" ${node.running ? 'disabled' : ''}><i data-lucide="clapperboard" class="w-4 h-4"></i>${node.running ? tr('canvas.generating') : tr('canvas.videoGenerate')}</button>
@@ -5331,7 +5356,7 @@
             const sources = orderedSources(gen, generatorSources(gen));
             const prompt = sources.map(s => s.prompt).filter(Boolean).join('\n\n');
             const refs = sources.flatMap(s => s.refs || []);
-            if(!prompt && !refs.length){ StudioDialog.alert(tr('canvas.needPromptOrImage')); return; }
+            if(!prompt && !refs.length){ focusNodeValidation(gen.id, tr('canvas.needPromptOrImage'), tr('canvas.apiFailed')); return; }
             const count = Math.max(1, Math.min(8, Number(gen.count || 1)));
             let out = outputForNode(gen, 460);
             const run = runSnapshot(gen, prompt || 'Edit the reference images.', refs);
@@ -5391,7 +5416,7 @@
             const sources = orderedSources(gen, generatorSources(gen));
             const prompt = sources.map(s => s.prompt).filter(Boolean).join('\n\n');
             const refs = sources.flatMap(s => s.refs || []);
-            if(!prompt && !refs.length){ StudioDialog.alert(tr('canvas.needPromptOrImage')); return; }
+            if(!prompt && !refs.length){ focusNodeValidation(gen.id, tr('canvas.needPromptOrImage'), tr('canvas.apiFailed')); return; }
             const count = Math.max(1, Math.min(8, Number(gen.count || 1)));
             let out = outputForNode(gen, 460);
             const pendingIds = Array.from({length:count}, () => uid('p'));
@@ -5448,7 +5473,7 @@
             const audioRefs = sources.flatMap(s => s.audioRefs || []);
             if(node.useFrameRoles && refs[0]) refs[0] = {...refs[0], role:'first_frame'};
             if(node.useFrameRoles && refs[1]) refs[1] = {...refs[1], role:'last_frame'};
-            if(!prompt){ StudioDialog.alert(tr('canvas.videoNeedsPrompt')); return; }
+            if(!prompt){ focusNodeValidation(node.id, tr('canvas.videoNeedsPrompt'), tr('canvas.videoFailed')); return; }
             let out = outputForNode(node, 460);
             const pendingId = uid('p');
             const run = runSnapshot(node, prompt, refs, audioRefs);
@@ -5541,7 +5566,7 @@
             const input = llmInputText(node) || node.userInput || '';
             if(!input){
                 if(opts.cascade) throw new Error('LLM 缺少提示词输入');
-                StudioDialog.alert(tr('canvas.needPromptToLLM')); return;
+                focusNodeValidation(node.id, tr('canvas.needPromptToLLM'), 'LLM'); return;
             }
             if(!opts.cascade){ node.running = true; refreshNodes([node.id]); }
             try {

@@ -215,6 +215,48 @@
         function uid(prefix){ return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`; }
         function escapeHtml(str){ return String(str == null ? '' : str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
         const escapeAttr = escapeHtml;
+        function closeAllSmartPopovers(){
+            dynamicParams?.querySelectorAll('.smart-control.pinned').forEach(ctrl => ctrl.classList.remove('pinned'));
+        }
+        function smartNumericSettingValue(key, value){
+            const num = Number(value);
+            if(key === 'count' || key === 'videoDuration') return Math.max(1, Math.min(key === 'count' ? 8 : 60, num || 1));
+            if(/(?:Width|Height|Res|Strength)$/i.test(key)) return Number.isFinite(num) && num > 0 ? num : '';
+            return value;
+        }
+        function setDynamicSetting(key, value){
+            if(!key) return;
+            settings[key] = smartNumericSettingValue(key, value);
+            if(key === 'provider_id'){
+                const models = providerImageModels(settings.provider_id);
+                if(!models.includes(settings.model)) settings.model = models[0] || '';
+            }
+            if(key === 'videoProvider'){
+                const models = providerVideoModels(settings.videoProvider);
+                if(!models.includes(settings.videoModel)) settings.videoModel = models[0] || '';
+            }
+            if(key === 'msgenModel' && settings.msgenModel !== 'custom') settings.msCustomModel = settings.msCustomModel || modelscopeImageModels()[0] || '';
+            normalizeSmartSettingsEngines(settings);
+            renderDynamicParams();
+            scheduleSave();
+        }
+        function stripImageGenerationMeta(image){
+            if(!image || typeof image !== 'object') return image;
+            const clean = {...image};
+            delete clean.runMeta;
+            delete clean.runPrompt;
+            delete clean.runPromptRefs;
+            delete clean.runSettings;
+            delete clean.pending;
+            delete clean.running;
+            delete clean.runStartedAt;
+            delete clean.runFinishedAt;
+            delete clean.runElapsedMs;
+            delete clean.runTimerHidden;
+            delete clean.sourceNodeId;
+            delete clean._runMetaTargetId;
+            return clean;
+        }
         function cloneSmartSettings(source=settings){
             try {
                 return JSON.parse(JSON.stringify(source || {}));
@@ -3441,10 +3483,36 @@
                 imageIndex:index
             }))).filter(img => img?.url);
         }
+        function smartLoopInputImages(node, ctx={}){
+            const all = inputImagesFor(node);
+            if(!node?.imageInput) return [];
+            const start = Math.max(1, Number(ctx.index ?? node.loopStart) || 1);
+            const batch = Math.max(1, Math.min(100, Number(node.imageBatchSize) || 1));
+            return all.slice(start - 1, start - 1 + batch);
+        }
+        function smartLoopInputPromptItems(node){
+            if(!node) return [];
+            return inputNodesFor(node)
+                .filter(input => input.type === 'smart-prompt')
+                .map(input => String(input.text || input.promptDraftText || input.runPrompt || '').trim())
+                .filter(Boolean);
+        }
+        function smartLoopPrompt(node, ctx=smartLoopContext){
+            if(!node?.showPrompt) return '';
+            const index = Math.max(1, Number(ctx?.index ?? node.loopStart) || 1);
+            const promptItems = smartLoopInputPromptItems(node);
+            const prompt = promptItems.length ? promptItems[(index - 1) % promptItems.length] : String(node.variablePrompt || '').trim();
+            return String(prompt || '')
+                .replaceAll('《计数》', String(index))
+                .replaceAll('銆婅鏁般€?', String(index))
+                .replaceAll('[计数]', String(index))
+                .replaceAll('{count}', String(index))
+                .replaceAll('{index}', String(index));
+        }
         function outputImagesForNode(node, includeSelf=false, ctx=smartLoopContext){
             if(!node) return [];
             if(node.type === 'smart-loop' && node.imageInput){
-                return inputImagesFor(node).filter(img => img?.url);
+                return smartLoopInputImages(node, ctx).filter(img => img?.url);
             }
             const base = (includeSelf ? (node.images || []) : []).map((img, index) => ({
                 ...img,
@@ -3523,6 +3591,77 @@
                 }
             }
             return true;
+        }
+        function pendingBoxSize(count){
+            const n = Math.max(1, Math.min(8, Number(count) || 1));
+            if(n > 1){
+                const cols = Math.min(4, Math.max(2, Math.ceil(Math.sqrt(n))));
+                const rows = Math.ceil(n / cols);
+                return {w:cols * 132 + 16, h:rows * 132 + 16};
+            }
+            const expected = expectedOutputSize();
+            const w = Math.max(64, Number(expected.w) || 1024);
+            const h = Math.max(64, Number(expected.h) || 1024);
+            const scale = Math.min(320 / w, 320 / h, 1);
+            return {w:Math.max(180, Math.round(w * scale)), h:Math.max(180, Math.round(h * scale))};
+        }
+        function appendOutputsToNode(node, additions, kind='image'){
+            const items = (additions || []).filter(item => item?.url).map(item => stripImageGenerationMeta(item));
+            if(!node || !items.length) return [];
+            const existing = (node.images || []).filter(img => img?.url).map(img => stripImageGenerationMeta(img));
+            node.images = [...existing, ...items];
+            node.outputKind = kind || items[items.length - 1]?.kind || node.outputKind || 'image';
+            node.title = node.outputKind === 'video' && node.images.length === 1 ? 'Video' : (node.images.length > 1 ? 'Group' : 'Image');
+            node.pending = 0;
+            node.running = false;
+            node.runFinishedAt = nowMs();
+            node.runElapsedMs = Math.max(0, node.runFinishedAt - Number(node.runStartedAt || node.runFinishedAt));
+            delete node.w;
+            delete node.h;
+            return items;
+        }
+        function coolNodeRunningState(node, ms=0){
+            if(!node) return;
+            const token = uid('run');
+            smartNodeRunTokens.set(node.id, token);
+            node.running = true;
+            node.runStartedAt = node.runStartedAt || nowMs();
+            delete node.runFinishedAt;
+            delete node.runElapsedMs;
+            node.runTimerHidden = false;
+            if(ms > 0) setTimeout(() => {
+                if(smartNodeRunTokens.get(node.id) !== token || node.pending || !node.running) return;
+                node.running = false;
+                smartNodeRunTokens.delete(node.id);
+                render();
+            }, ms);
+        }
+        function coolRunButton(ms=0){
+            const token = ++runBtnCooldownToken;
+            if(runBtn) runBtn.disabled = true;
+            if(ms > 0) setTimeout(() => {
+                if(runBtnCooldownToken !== token || smartCascadeRunning) return;
+                if(runBtn) runBtn.disabled = false;
+            }, ms);
+        }
+        function clearNodeRunningState(node){
+            if(!node) return;
+            node.pending = 0;
+            node.running = false;
+            if(node.runStartedAt && !node.runFinishedAt){
+                node.runFinishedAt = nowMs();
+                node.runElapsedMs = Math.max(0, node.runFinishedAt - Number(node.runStartedAt || node.runFinishedAt));
+            }
+            smartNodeRunTokens.delete(node.id);
+        }
+        function restoreFromExtraction(node, extracted){
+            if(!node || !extracted) return;
+            const state = extracted.sourceState || extracted.nodeState || extracted;
+            if(Array.isArray(state.images)) node.images = state.images;
+            if(state.title != null) node.title = state.title;
+            if(state.w != null) node.w = state.w; else if(state.w === null) delete node.w;
+            if(state.h != null) node.h = state.h; else if(state.h === null) delete node.h;
+            if(state.outputKind != null) node.outputKind = state.outputKind;
         }
         function finalizePendingNode(node, urls, meta, kind='image'){
             if(!node) return;
@@ -3687,6 +3826,66 @@
             node.title = node.images.length > 1 ? 'Group' : 'Image';
             render();
             return additions;
+        }
+        function smartFlowInputsFor(node){
+            return inputNodesFor(node).filter(input => input && input.id !== node?.id);
+        }
+        function smartFlowOutputsFor(nodeId){
+            const ids = new Set((canvas?.connections || []).filter(conn => conn.from === nodeId).map(conn => conn.to));
+            nodes.forEach(node => {
+                if((node.inputNodeIds || []).includes(nodeId)) ids.add(node.id);
+            });
+            return [...ids].map(id => nodes.find(n => n.id === id)).filter(Boolean);
+        }
+        function smartImageChainTo(tailId){
+            const tail = nodes.find(n => n.id === tailId);
+            if(!tail || tail.type !== 'smart-image') return [];
+            const chain = [tail];
+            const seen = new Set([tail.id]);
+            let current = tail;
+            while(current){
+                const prev = smartFlowInputsFor(current).find(input => input.type === 'smart-image' && !seen.has(input.id));
+                if(!prev) break;
+                chain.unshift(prev);
+                seen.add(prev.id);
+                current = prev;
+            }
+            return chain;
+        }
+        function resolveSmartCascadeLoop(tailId){
+            const visited = new Set();
+            const findLoop = node => {
+                if(!node || visited.has(node.id)) return null;
+                visited.add(node.id);
+                for(const input of smartFlowInputsFor(node)){
+                    if(input.type === 'smart-loop') return input;
+                    const nested = findLoop(input);
+                    if(nested) return nested;
+                }
+                return null;
+            };
+            const loopNode = findLoop(nodes.find(n => n.id === tailId));
+            return loopNode ? {node:loopNode, id:loopNode.id, count:smartLoopCount(loopNode)} : null;
+        }
+        function cascadeTailForLoop(loopId){
+            const loop = nodes.find(n => n.id === loopId && n.type === 'smart-loop');
+            if(!loop) return null;
+            const visited = new Set([loop.id]);
+            const queue = smartFlowOutputsFor(loop.id);
+            let tail = null;
+            while(queue.length){
+                const node = queue.shift();
+                if(!node || visited.has(node.id)) continue;
+                visited.add(node.id);
+                if(node.type === 'smart-image') tail = node;
+                smartFlowOutputsFor(node.id).forEach(next => {
+                    if(!visited.has(next.id)) queue.push(next);
+                });
+            }
+            return tail;
+        }
+        function canRunSmartCascade(node){
+            return Boolean(node && node.type === 'smart-image' && smartImageChainTo(node.id).length >= 1);
         }
         async function runSmartCascade(targetNode=null){
             const tail = targetNode || selectedNode();

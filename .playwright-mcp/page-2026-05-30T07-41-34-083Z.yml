@@ -1,0 +1,255 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: API 设置
+      - generic [ref=e7]: 管理平台地址、模型列表和 Key。Key 写入后端 env，页面不会回显完整内容。
+  - generic [ref=e8]:
+    - complementary [ref=e9]:
+      - generic [ref=e10]: 平台列表
+      - generic [ref=e11]:
+        - button "ModelScope 生图可用 对话可用 已关闭 ModelScope 已关闭" [ref=e12] [cursor=pointer]:
+          - img "ModelScope" [ref=e14]
+          - generic [ref=e15]:
+            - generic [ref=e16]:
+              - generic [ref=e17]: 生图可用
+              - generic [ref=e18]: 对话可用
+            - generic [ref=e19]: 已关闭
+            - switch "ModelScope 已关闭" [ref=e20]
+        - button "RunningHub 生图可用 已关闭 RunningHub 已关闭" [ref=e22] [cursor=pointer]:
+          - img "RunningHub" [ref=e24]
+          - generic [ref=e25]:
+            - generic [ref=e27]: 生图可用
+            - generic [ref=e28]: 已关闭
+            - switch "RunningHub 已关闭" [ref=e29]
+        - button "灵思 https://mindapi.cc 生图可用 对话可用 已启用 灵思 已启用" [ref=e31] [cursor=pointer]:
+          - generic [ref=e32]:
+            - img [ref=e34]
+            - generic [ref=e37]:
+              - generic [ref=e38]: 灵思
+              - generic [ref=e39]: https://mindapi.cc
+          - generic [ref=e40]:
+            - generic [ref=e41]:
+              - generic [ref=e42]: 生图可用
+              - generic [ref=e43]: 对话可用
+            - generic [ref=e44]: 已启用
+            - switch "灵思 已启用" [checked] [ref=e45]
+        - button "柏拉图 https://api.bltcy.ai 视频可用 已启用 柏拉图 已启用" [ref=e47] [cursor=pointer]:
+          - generic [ref=e48]:
+            - img [ref=e50]
+            - generic [ref=e53]:
+              - generic [ref=e54]: 柏拉图
+              - generic [ref=e55]: https://api.bltcy.ai
+          - generic [ref=e56]:
+            - generic [ref=e58]: 视频可用
+            - generic [ref=e59]: 已启用
+            - switch "柏拉图 已启用" [checked] [ref=e60]
+      - button "新增平台" [ref=e62] [cursor=pointer]:
+        - img [ref=e63]
+        - generic [ref=e64]: 新增平台
+      - button "推荐API" [ref=e65] [cursor=pointer]:
+        - img [ref=e66]
+        - generic [ref=e69]: 推荐API
+    - main [ref=e70]:
+      - generic [ref=e71]:
+        - generic [ref=e72]:
+          - generic [ref=e73]:
+            - generic [ref=e74]: ModelScope
+            - generic [ref=e75]: 配置基础信息、API Key 和可用模型
+          - button "保存" [ref=e77] [cursor=pointer]:
+            - img [ref=e78]
+            - generic [ref=e82]: 保存
+        - generic [ref=e83]:
+          - generic [ref=e85]:
+            - generic [ref=e86]: 基本信息
+            - generic [ref=e87]: 平台显示名、唯一 ID 和请求地址
+          - generic [ref=e88]:
+            - generic [ref=e89]:
+              - generic [ref=e90]: 平台名称
+              - 'textbox "平台名称 平台 ID: modelscope" [ref=e92]':
+                - /placeholder: Comfly
+                - text: ModelScope
+              - generic [ref=e93]: "平台 ID: modelscope"
+            - generic [ref=e94]:
+              - generic [ref=e95]: 平台 Logo
+              - generic [ref=e96]:
+                - generic [ref=e98]: LOGO
+                - generic [ref=e100]: 内置平台使用系统横版 Logo。
+            - generic [ref=e101]:
+              - generic [ref=e102]: 请求地址
+              - textbox "请求地址 国内默认请求地址： https://api-inference.modelscope.cn/v1 国外使用请求地址： https://api-inference.modelscope.ai/v1" [ref=e104]:
+                - /placeholder: https://ai.comfly.chat
+                - text: https://api-inference.modelscope.cn/v1
+              - generic [ref=e105]:
+                - generic [ref=e106]:
+                  - text: 国内默认请求地址：
+                  - generic [ref=e107]: https://api-inference.modelscope.cn/v1
+                - generic [ref=e108]:
+                  - text: 国外使用请求地址：
+                  - generic [ref=e109]: https://api-inference.modelscope.ai/v1
+            - generic [ref=e110]:
+              - generic [ref=e111]: API Key
+              - generic [ref=e112]:
+                - textbox "API Key 还没有保存 Key。 获取 Token · 国内：https://www.modelscope.cn/my/access/token 获取 Token · 国外：https://www.modelscope.ai/my/access/token" [ref=e114]:
+                  - /placeholder: 输入 API Key
+                - button "保存 Key" [ref=e115] [cursor=pointer]:
+                  - img [ref=e116]
+                - button "清除 Key" [ref=e118] [cursor=pointer]:
+                  - img [ref=e119]
+              - generic [ref=e122]: 还没有保存 Key。
+              - generic [ref=e123]:
+                - generic [ref=e124]:
+                  - text: 获取 Token · 国内：
+                  - link "https://www.modelscope.cn/my/access/token" [ref=e125] [cursor=pointer]:
+                    - /url: https://www.modelscope.cn/my/access/token
+                - generic [ref=e126]:
+                  - text: 获取 Token · 国外：
+                  - link "https://www.modelscope.ai/my/access/token" [ref=e127] [cursor=pointer]:
+                    - /url: https://www.modelscope.ai/my/access/token
+            - button "验证地址" [ref=e129] [cursor=pointer]:
+              - img [ref=e130]
+              - generic [ref=e133]: 验证地址
+        - generic [ref=e134]:
+          - generic [ref=e135]:
+            - generic [ref=e136]: 模型列表
+            - generic [ref=e137]: 从上游 API 自动拉取所有可用模型并按类型分类（image / chat / video）
+          - generic [ref=e138]:
+            - button "拉取模型" [ref=e139] [cursor=pointer]:
+              - img [ref=e140]
+              - generic [ref=e144]: 拉取模型
+            - button "选择模型" [disabled] [ref=e145]:
+              - img [ref=e146]
+              - generic [ref=e149]: 选择模型
+        - generic [ref=e150]:
+          - generic [ref=e151]:
+            - generic [ref=e152]:
+              - generic [ref=e153]:
+                - generic [ref=e154]: 生图模型
+                - generic [ref=e155]: 在线生图和无限画布 API 生成使用。
+                - generic [ref=e156]: 图片模型会出现在 AI 生图和普通画布图片节点里。
+                - generic [ref=e158]:
+                  - text: 模型名称示意：
+                  - generic [ref=e159]: Tongyi-MAI/Z-Image-Turbo
+              - button "模型" [ref=e160] [cursor=pointer]:
+                - img [ref=e161]
+                - generic [ref=e162]: 模型
+            - generic [ref=e163]:
+              - generic [ref=e164]:
+                - textbox [ref=e165]: Tongyi-MAI/Z-Image-Turbo
+                - button "删除" [ref=e166] [cursor=pointer]:
+                  - img [ref=e167]
+              - generic [ref=e170]:
+                - textbox [ref=e171]: Qwen/Qwen-Image-2512
+                - button "删除" [ref=e172] [cursor=pointer]:
+                  - img [ref=e173]
+              - generic [ref=e176]:
+                - textbox [ref=e177]: Qwen/Qwen-Image-Edit-2511
+                - button "删除" [ref=e178] [cursor=pointer]:
+                  - img [ref=e179]
+              - generic [ref=e182]:
+                - textbox [ref=e183]: black-forest-labs/FLUX.2-klein-9B
+                - button "删除" [ref=e184] [cursor=pointer]:
+                  - img [ref=e185]
+          - generic [ref=e188]:
+            - generic [ref=e189]:
+              - generic [ref=e190]:
+                - generic [ref=e191]: 聊天模型
+                - generic [ref=e192]: AI 对话和 LLM 节点使用。
+                - generic [ref=e193]: 聊天模型会出现在 GPT 对话和画布 LLM 节点里。
+              - button "模型" [ref=e194] [cursor=pointer]:
+                - img [ref=e195]
+                - generic [ref=e196]: 模型
+            - generic [ref=e197]:
+              - generic [ref=e198]:
+                - textbox [ref=e199]: Qwen/Qwen3-235B-A22B
+                - button "删除" [ref=e200] [cursor=pointer]:
+                  - img [ref=e201]
+              - generic [ref=e204]:
+                - textbox [ref=e205]: Qwen/Qwen3-VL-235B-A22B-Instruct
+                - button "删除" [ref=e206] [cursor=pointer]:
+                  - img [ref=e207]
+              - generic [ref=e210]:
+                - textbox [ref=e211]: MiniMax/MiniMax-M2.7:MiniMax
+                - button "删除" [ref=e212] [cursor=pointer]:
+                  - img [ref=e213]
+          - generic [ref=e216]:
+            - generic [ref=e217]:
+              - generic [ref=e218]:
+                - generic [ref=e219]: 视频模型
+                - generic [ref=e220]: 无限画布视频生成节点使用。
+                - generic [ref=e221]: 视频模型只会出现在视频节点，不会出现在图片节点。
+              - button "模型" [ref=e222] [cursor=pointer]:
+                - img [ref=e223]
+                - generic [ref=e224]: 模型
+            - generic [ref=e226]: 暂无模型
+          - generic [ref=e227]:
+            - generic [ref=e228]:
+              - generic [ref=e229]:
+                - generic [ref=e230]: LoRA 管理
+                - generic [ref=e231]: 为 ModelScope 生图模型绑定可用 LoRA。无限画布 MS 节点会按当前模型自动筛选。
+                - generic [ref=e232]:
+                  - generic [ref=e233]:
+                    - text: 中文模型库：
+                    - link "https://www.modelscope.cn/aigc/models" [ref=e234] [cursor=pointer]:
+                      - /url: https://www.modelscope.cn/aigc/models
+                  - generic [ref=e235]:
+                    - text: 英文模型库：
+                    - link "https://www.modelscope.ai/civision/models" [ref=e236] [cursor=pointer]:
+                      - /url: https://www.modelscope.ai/civision/models
+              - button "LoRA" [ref=e237] [cursor=pointer]:
+                - img [ref=e238]
+                - generic [ref=e239]: LoRA
+            - generic [ref=e240]:
+              - generic [ref=e241]:
+                - generic [ref=e242]:
+                  - generic [ref=e243]: LoRA ID
+                  - textbox "LoRA ID" [ref=e244]:
+                    - /placeholder: 例如 Daniel8152/Klein-enhance
+                    - text: Daniel8152/film
+                - generic [ref=e245]:
+                  - generic [ref=e246]: 绑定模型
+                  - combobox "绑定模型" [ref=e247]:
+                    - option "Tongyi-MAI/Z-Image-Turbo" [selected]
+                    - option "Qwen/Qwen-Image-2512"
+                    - option "Qwen/Qwen-Image-Edit-2511"
+                    - option "black-forest-labs/FLUX.2-klein-9B"
+                - generic [ref=e248]:
+                  - generic [ref=e249]: 默认强度
+                  - spinbutton "默认强度" [ref=e250]: "0.8"
+                - button "删除" [ref=e251] [cursor=pointer]:
+                  - img [ref=e252]
+              - generic [ref=e255]:
+                - generic [ref=e256]:
+                  - generic [ref=e257]: LoRA ID
+                  - textbox "LoRA ID" [ref=e258]:
+                    - /placeholder: 例如 Daniel8152/Klein-enhance
+                    - text: Daniel8152/Qwen-Image-2512-Film
+                - generic [ref=e259]:
+                  - generic [ref=e260]: 绑定模型
+                  - combobox "绑定模型" [ref=e261]:
+                    - option "Qwen/Qwen-Image-2512" [selected]
+                    - option "Tongyi-MAI/Z-Image-Turbo"
+                    - option "Qwen/Qwen-Image-Edit-2511"
+                    - option "black-forest-labs/FLUX.2-klein-9B"
+                - generic [ref=e262]:
+                  - generic [ref=e263]: 默认强度
+                  - spinbutton "默认强度" [ref=e264]: "0.8"
+                - button "删除" [ref=e265] [cursor=pointer]:
+                  - img [ref=e266]
+              - generic [ref=e269]:
+                - generic [ref=e270]:
+                  - generic [ref=e271]: LoRA ID
+                  - textbox "LoRA ID" [ref=e272]:
+                    - /placeholder: 例如 Daniel8152/Klein-enhance
+                    - text: Daniel8152/Klein-enhance
+                - generic [ref=e273]:
+                  - generic [ref=e274]: 绑定模型
+                  - combobox "绑定模型" [ref=e275]:
+                    - option "black-forest-labs/FLUX.2-klein-9B" [selected]
+                    - option "Tongyi-MAI/Z-Image-Turbo"
+                    - option "Qwen/Qwen-Image-2512"
+                    - option "Qwen/Qwen-Image-Edit-2511"
+                - generic [ref=e276]:
+                  - generic [ref=e277]: 默认强度
+                  - spinbutton "默认强度" [ref=e278]: "0.8"
+                - button "删除" [ref=e279] [cursor=pointer]:
+                  - img [ref=e280]

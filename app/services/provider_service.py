@@ -1,153 +1,30 @@
+import copy
 import json
 import os
 import re
+import time
 import urllib.parse
 import uuid
 from io import BytesIO
+from threading import Lock
 from typing import List
 
 import httpx
 from fastapi import File, HTTPException, UploadFile
 from PIL import Image
 
-from app import legacy
 from app.models.providers import ApiProviderPayload, TestConnectionPayload
-from app.services.storage_service import read_upload_limited
 
-
-class _LegacyRef:
-    def __init__(self, name: str):
-        self.name = name
-
-    @property
-    def value(self):
-        return getattr(legacy, self.name)
-
-    def __str__(self):
-        return str(self.value)
-
-    def __repr__(self):
-        return repr(self.value)
-
-    def __fspath__(self):
-        return os.fspath(self.value)
-
-    def __format__(self, format_spec: str):
-        return format(str(self.value), format_spec)
-
-    def __eq__(self, other):
-        if isinstance(other, _LegacyRef):
-            other = other.value
-        return self.value == other
-
-    def __hash__(self):
-        return hash(self.value)
-
-    def __int__(self):
-        return int(self.value)
-
-    def __float__(self):
-        return float(self.value)
-
-    def __lt__(self, other):
-        if isinstance(other, _LegacyRef):
-            other = other.value
-        return self.value < other
-
-    def __le__(self, other):
-        if isinstance(other, _LegacyRef):
-            other = other.value
-        return self.value <= other
-
-    def __gt__(self, other):
-        if isinstance(other, _LegacyRef):
-            other = other.value
-        return self.value > other
-
-    def __ge__(self, other):
-        if isinstance(other, _LegacyRef):
-            other = other.value
-        return self.value >= other
-
-    def __bool__(self):
-        return bool(self.value)
-
-    def __len__(self):
-        return len(self.value)
-
-    def __iter__(self):
-        return iter(self.value)
-
-    def __contains__(self, item):
-        return item in self.value
-
-    def __getitem__(self, key):
-        return self.value[key]
-
-    def __getattr__(self, name: str):
-        return getattr(self.value, name)
-
-    def __enter__(self):
-        return self.value.__enter__()
-
-    def __exit__(self, exc_type, exc, tb):
-        return self.value.__exit__(exc_type, exc, tb)
-
-
-def __getattr__(name):
-    return getattr(legacy, name)
-
-
-def _ref(name):
-    return _LegacyRef(name)
-
-
-for _name in (
-    "AI_API_KEY",
-    "AI_BASE_URL",
-    "API_ENV_FILE",
-    "API_PROVIDERS_FILE",
-    "CHAT_MODEL",
-    "CHAT_MODELS",
-    "COMFYUI_INSTANCES",
-    "DATA_DIR",
-    "GLOBAL_CONFIG_FILE",
-    "GLOBAL_CONFIG_LOCK",
-    "IMAGE_MODEL",
-    "IMAGE_MODELS",
-    "MODELSCOPE_API_KEY",
-    "MODELSCOPE_CHAT_BASE_URL",
-    "MODELSCOPE_CHAT_MODELS",
-    "MODELSCOPE_DEFAULT_CHAT_MODELS",
-    "MODELSCOPE_DEFAULT_IMAGE_MODELS",
-    "MODELSCOPE_DEFAULT_LORAS",
-    "MODELSCOPE_DEFAULTS_VERSION",
-    "PROVIDER_ID_RE",
-    "PROVIDER_LOGO_DIR",
-    "PROVIDER_LOGO_FORMAT_EXT",
-    "PROVIDER_LOGO_MAX_BYTES",
-    "PROVIDER_LOGO_MAX_RATIO",
-    "PROVIDER_LOGO_MIN_RATIO",
-    "RUNNINGHUB_DEFAULT_BASE_URL",
-    "RUNNINGHUB_DEFAULT_IMAGE_MODELS",
-    "SUPPORTED_PROVIDER_PROTOCOLS",
-    "VIDEO_MODELS",
-):
-    globals()[_name] = _ref(_name)
-
-
-def selected_model(requested, fallback):
-    fn = getattr(legacy, "selected_model", None)
-    if fn:
-        return fn(requested, fallback)
-    return (requested or fallback or "").strip()
-
-
-def provider_protocol(provider):
-    fn = getattr(legacy, "provider_protocol", None)
-    if fn:
-        return fn(provider)
-    return str((provider or {}).get("protocol") or "openai").strip().lower()
+PROVIDER_RESPONSE_CACHE_TTL = 1.0
+_AI_CONFIG_RESPONSE_CACHE = {"expires": 0.0, "data": None}
+_API_PROVIDERS_RESPONSE_CACHE = {"expires": 0.0, "data": None}
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+ASSETS_DIR = os.path.join(BASE_DIR, "assets")
+API_ENV_FILE = os.path.join(BASE_DIR, "API", ".env")
+API_PROVIDERS_FILE = os.path.join(DATA_DIR, "api_providers.json")
+GLOBAL_CONFIG_FILE = os.path.join(BASE_DIR, "global_config.json")
+GLOBAL_CONFIG_LOCK = Lock()
 
 
 def model_list(env_name, primary, defaults):
@@ -159,6 +36,64 @@ def model_list(env_name, primary, defaults):
         if value and value not in deduped:
             deduped.append(value)
     return deduped
+
+
+CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4o-mini")
+IMAGE_MODEL = os.getenv("IMAGE_MODEL", "gpt-image-2")
+AI_API_KEY = os.getenv("COMFLY_API_KEY", "")
+AI_BASE_URL = os.getenv("COMFLY_BASE_URL", "https://ai.comfly.chat").rstrip("/")
+MODELSCOPE_API_KEY = os.getenv("MODELSCOPE_API_KEY", "")
+MODELSCOPE_CHAT_BASE_URL = "https://api-inference.modelscope.cn/v1"
+MODELSCOPE_DEFAULT_CHAT_MODELS = ["Qwen/Qwen3-235B-A22B", "Qwen/Qwen3-VL-235B-A22B-Instruct", "MiniMax/MiniMax-M2.7:MiniMax"]
+MODELSCOPE_DEFAULT_IMAGE_MODELS = ["Tongyi-MAI/Z-Image-Turbo", "Qwen/Qwen-Image-2512"]
+MODELSCOPE_DEFAULT_LORAS = []
+MODELSCOPE_DEFAULTS_VERSION = 3
+MODELSCOPE_CHAT_MODELS = list(dict.fromkeys([
+    m for m in [
+        *MODELSCOPE_DEFAULT_CHAT_MODELS,
+        *[item.strip() for item in os.getenv("MODELSCOPE_CHAT_MODELS", "").split(",") if item.strip()],
+    ]
+    if m
+]))
+IMAGE_MODELS = model_list("IMAGE_MODELS", IMAGE_MODEL, ["nano-banana-pro"])
+CHAT_MODELS = model_list("CHAT_MODELS", CHAT_MODEL, ["gpt-4o-mini", "gemini-3.1-flash-image-preview-2k"])
+VIDEO_MODELS = model_list("VIDEO_MODELS", "veo3-fast", [
+    "veo2", "veo2-fast", "veo2-pro",
+    "veo3", "veo3-fast", "veo3-pro",
+    "veo3.1", "veo3.1-fast", "veo3.1-quality", "veo3.1-lite",
+    "sora-2", "sora-2-pro",
+    "wan2.6-t2v", "wan2.6-i2v",
+    "wan2.5-t2v-preview", "wan2.5-i2v-preview",
+    "wan2.2-t2v-plus", "wan2.2-i2v-plus", "wan2.2-i2v-flash",
+    "doubao-seedance-2-0-260128",
+    "doubao-seedance-2-0-fast-260128",
+    "doubao-seedance-1-5-pro-251215",
+    "doubao-seedance-1-0-pro-250528",
+    "doubao-seedance-1-0-lite-t2v-250428",
+])
+COMFYUI_INSTANCES = [s.strip() for s in os.getenv("COMFYUI_INSTANCES", "127.0.0.1:8188").split(",") if s.strip()]
+PROVIDER_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{2,40}$")
+PROVIDER_LOGO_DIR = os.path.join(ASSETS_DIR, "provider_logos")
+PROVIDER_LOGO_FORMAT_EXT = {"PNG": ".png", "JPEG": ".jpg", "WEBP": ".webp"}
+PROVIDER_LOGO_MAX_BYTES = 512 * 1024
+PROVIDER_LOGO_MAX_RATIO = 6.0
+PROVIDER_LOGO_MIN_RATIO = 4.0
+RUNNINGHUB_DEFAULT_BASE_URL = "https://www.runninghub.cn"
+RUNNINGHUB_DEFAULT_IMAGE_MODELS = ["seedream-v5-lite/text-to-image", "seedream-v5-lite/image-to-image"]
+SUPPORTED_PROVIDER_PROTOCOLS = {"openai", "apimart", "gemini", "volcengine", "runninghub"}
+
+
+def selected_model(requested, fallback):
+    model = str(requested or fallback or "").strip()
+    if not model:
+        return ""
+    if len(model) > 240 or any(ord(ch) < 32 or ord(ch) == 127 for ch in model):
+        raise HTTPException(status_code=400, detail=f"模型名称不合法：{model}")
+    return model
+
+
+def provider_protocol(provider):
+    return str((provider or {}).get("protocol") or "openai").strip().lower()
 
 def reload_env_globals():
     """保存 API 设置后，将 os.environ 里最新的值同步回模块级全局变量，
@@ -407,6 +342,7 @@ def save_api_providers(providers):
     with GLOBAL_CONFIG_LOCK:
         with open(API_PROVIDERS_FILE, "w", encoding="utf-8") as f:
             json.dump(providers, f, ensure_ascii=False, indent=2)
+    clear_provider_response_cache()
 
 def public_provider(provider):
     key = os.getenv(provider_key_env(provider["id"]), "")
@@ -416,6 +352,21 @@ def public_provider(provider):
         "key_preview": mask_secret(key),
         "key_env": provider_key_env(provider["id"]),
     }
+
+def clear_provider_response_cache():
+    _AI_CONFIG_RESPONSE_CACHE["expires"] = 0.0
+    _AI_CONFIG_RESPONSE_CACHE["data"] = None
+    _API_PROVIDERS_RESPONSE_CACHE["expires"] = 0.0
+    _API_PROVIDERS_RESPONSE_CACHE["data"] = None
+
+def cached_response(cache, builder):
+    now = time.monotonic()
+    if cache.get("data") is not None and float(cache.get("expires") or 0) > now:
+        return copy.deepcopy(cache["data"])
+    data = builder()
+    cache["data"] = copy.deepcopy(data)
+    cache["expires"] = now + PROVIDER_RESPONSE_CACHE_TTL
+    return data
 
 def get_primary_provider_id(providers=None):
     """返回当前首选 provider 的 id；优先 primary=True 的，否则取第一个非 modelscope 的，再次取第一个。"""
@@ -485,6 +436,8 @@ def update_env_values(updates):
         f.write("\n".join(next_lines).rstrip() + "\n")
 
 async def upload_provider_logo(file: UploadFile = File(...)):
+    from app.services.storage_service import read_upload_limited
+
     content = await read_upload_limited(file, max_bytes=PROVIDER_LOGO_MAX_BYTES, detail="Logo image must be 512KB or smaller")
     if not content:
         raise HTTPException(status_code=400, detail="请选择要上传的 Logo 图片")
@@ -521,27 +474,32 @@ async def upload_provider_logo(file: UploadFile = File(...)):
     }
 
 async def ai_config():
-    preferred_chat_model = next((m for m in CHAT_MODELS if m == "gpt-5.5"), CHAT_MODELS[0] if CHAT_MODELS else CHAT_MODEL)
-    providers = [public_provider(p) for p in load_api_providers()]
-    return {
-        "base_url": AI_BASE_URL,
-        "chat_model": preferred_chat_model,
-        "image_model": IMAGE_MODEL,
-        "chat_models": CHAT_MODELS,
-        "image_models": IMAGE_MODELS,
-        "video_models": VIDEO_MODELS,
-        "comfy_instances": COMFYUI_INSTANCES,
-        "api_providers": providers,
-        "has_api_key": bool(AI_API_KEY),
-        "ms_chat_models": MODELSCOPE_CHAT_MODELS,
-        "has_ms_key": bool(MODELSCOPE_API_KEY),
-    }
+    def build():
+        preferred_chat_model = next((m for m in CHAT_MODELS if m == "gpt-5.5"), CHAT_MODELS[0] if CHAT_MODELS else CHAT_MODEL)
+        providers = [public_provider(p) for p in load_api_providers()]
+        return {
+            "base_url": str(AI_BASE_URL),
+            "chat_model": str(preferred_chat_model),
+            "image_model": str(IMAGE_MODEL),
+            "chat_models": list(CHAT_MODELS),
+            "image_models": list(IMAGE_MODELS),
+            "video_models": list(VIDEO_MODELS),
+            "comfy_instances": list(COMFYUI_INSTANCES),
+            "api_providers": providers,
+            "has_api_key": bool(AI_API_KEY),
+            "ms_chat_models": list(MODELSCOPE_CHAT_MODELS),
+            "has_ms_key": bool(MODELSCOPE_API_KEY),
+        }
+    return cached_response(_AI_CONFIG_RESPONSE_CACHE, build)
 
 async def ai_models():
     return {"chat_models": CHAT_MODELS, "image_models": IMAGE_MODELS, "video_models": VIDEO_MODELS}
 
 async def api_providers():
-    return {"providers": [public_provider(p) for p in load_api_providers()]}
+    return cached_response(
+        _API_PROVIDERS_RESPONSE_CACHE,
+        lambda: {"providers": [public_provider(p) for p in load_api_providers()]},
+    )
 
 async def save_providers(payload: List[ApiProviderPayload]):
     providers = []
@@ -590,7 +548,7 @@ async def get_global_token():
             with open(GLOBAL_CONFIG_FILE, 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 return {"token": config.get("modelscope_token", "")}
-        except:
+        except Exception:
             pass
     return {"token": ""}
 

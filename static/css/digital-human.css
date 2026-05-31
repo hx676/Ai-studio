@@ -1053,7 +1053,8 @@
         .selected-preview-media {
             position: relative;
             width: 100%;
-            aspect-ratio: 16 / 9;
+            aspect-ratio: var(--video-aspect-ratio, 16 / 9);
+            max-height: min(460px, 62vh);
             background: var(--soft);
             display: flex;
             align-items: center;
@@ -1063,10 +1064,20 @@
             transition: width .16s ease, aspect-ratio .16s ease, margin .16s ease, border-radius .16s ease;
         }
         .selected-preview-media.portrait {
-            width: min(70%, 220px);
-            aspect-ratio: 9 / 16;
+            width: min(72%, 240px);
+            aspect-ratio: var(--video-aspect-ratio, 9 / 16);
             margin: 12px auto 0;
             border-radius: 8px;
+        }
+        .selected-preview-media.square {
+            width: min(86%, 300px);
+            aspect-ratio: var(--video-aspect-ratio, 1 / 1);
+            margin: 12px auto 0;
+            border-radius: 8px;
+        }
+        .selected-preview-media .video-poster-frame img,
+        .selected-preview-media .video-poster-frame video {
+            object-fit: contain;
         }
         .selected-preview-media video {
             width: 100%;
@@ -1341,11 +1352,86 @@
             background: #111827;
             border-radius: 0;
         }
+        .result-head-actions {
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .result-task-meta {
+            display: grid;
+            gap: 4px;
+            padding: 10px 12px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--soft);
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.45;
+        }
+        .result-task-meta strong {
+            color: var(--text);
+            font-size: 12px;
+        }
+        .result-stage-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .result-stage-chip {
+            display: inline-flex;
+            align-items: center;
+            height: 24px;
+            padding: 0 9px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: var(--panel);
+            color: var(--muted);
+            font-size: 10.5px;
+            font-weight: 800;
+            letter-spacing: .02em;
+        }
+        .result-stage-chip.done {
+            background: rgba(4, 120, 87, .08);
+            border-color: rgba(4, 120, 87, .18);
+            color: var(--ok);
+        }
+        .result-stage-chip.current {
+            background: var(--accent-soft);
+            border-color: color-mix(in srgb, var(--accent) 34%, var(--line));
+            color: var(--text);
+        }
+        .result-stage-chip.error {
+            background: rgba(185, 28, 28, .08);
+            border-color: rgba(185, 28, 28, .18);
+            color: var(--danger);
+        }
         .task-queue-list {
             display: grid;
             gap: 8px;
             max-height: 360px;
             overflow: auto;
+        }
+        .queue-pause-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px;
+            border: 1px solid rgba(245, 158, 11, .35);
+            border-radius: 10px;
+            background: rgba(245, 158, 11, .08);
+            color: var(--text);
+        }
+        .queue-pause-banner strong {
+            display: block;
+            font-size: 13px;
+            margin-bottom: 2px;
+        }
+        .queue-pause-banner span {
+            display: block;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.45;
         }
         .task-queue-item {
             display: grid;
@@ -1383,6 +1469,13 @@
         .task-queue-meta {
             font-size: 11px;
             color: var(--muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .task-queue-stage {
+            font-size: 10px;
+            color: var(--faint);
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;

@@ -1,0 +1,9 @@
+[      19ms] [WARNING] cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation @ http://127.0.0.1:3000/static/vendor/js/tailwindcss-cdn.js?v=2026.05.25.7:63
+[     137ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:3000/static/api-settings.html:0
+[     152ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/favicon.ico:0
+[   35474ms] [WARNING] cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation @ http://127.0.0.1:3000/static/vendor/js/tailwindcss-cdn.js?v=2026.05.25.7:63
+[   35505ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:3000/static/api-settings.html:0
+[   58950ms] [WARNING] cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation @ http://127.0.0.1:3000/static/vendor/js/tailwindcss-cdn.js?v=2026.05.25.7:63
+[   58982ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:3000/static/api-settings.html?qa=1780126952815:0
+[   74207ms] [WARNING] cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation @ http://127.0.0.1:3000/static/vendor/js/tailwindcss-cdn.js?v=2026.05.25.7:63
+[   74240ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:3000/static/api-settings.html?qa=1780126968077:0

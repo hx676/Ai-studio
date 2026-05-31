@@ -80,6 +80,12 @@
         .provider-state.is-enabled { color:#059669; }
         body.studio-theme-dark .provider-state.is-enabled,
         html.studio-theme-dark body .provider-state.is-enabled { color:#86efac; }
+        .provider-capabilities { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:4px; max-width:120px; }
+        .provider-capability { height:18px; padding:0 7px; border-radius:999px; border:1px solid var(--line); background:var(--soft); color:var(--muted); display:inline-flex; align-items:center; font-size:9.5px; font-weight:850; white-space:nowrap; }
+        .provider-capability.image { color:#0369a1; border-color:rgba(14,165,233,.25); background:rgba(14,165,233,.08); }
+        .provider-capability.video { color:#7c2d12; border-color:rgba(249,115,22,.28); background:rgba(249,115,22,.08); }
+        .provider-capability.chat { color:#166534; border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.08); }
+        .provider-capability.empty { color:var(--faint); }
         .provider-switch { width:34px; height:20px; padding:2px; border-radius:999px; border:1px solid var(--line-strong); background:var(--line); display:inline-flex; align-items:center; justify-content:flex-start; transition:all .16s ease; }
         .provider-switch:hover { border-color:var(--text); }
         .provider-switch:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
@@ -487,6 +493,7 @@
                                 <div>
                                     <div class="block-title" data-i18n="api.imageModels">生图模型</div>
                                     <div class="block-desc" data-i18n="api.imageHint">在线生图和无限画布 API 生成使用</div>
+                                    <div class="block-desc">图片模型会出现在 AI 生图和普通画布图片节点里。</div>
                                     <div class="ms-hint">
                                         <span class="ms-line"><span data-i18n="api.msModelExample">模型名称示意：</span><span class="inline-code">Tongyi-MAI/Z-Image-Turbo</span></span>
                                     </div>
@@ -501,6 +508,7 @@
                                 <div>
                                     <div class="block-title" data-i18n="api.chatModels">聊天模型</div>
                                     <div class="block-desc" data-i18n="api.chatHint">GPT 对话和 LLM 节点使用</div>
+                                    <div class="block-desc">聊天模型会出现在 GPT 对话和画布 LLM 节点里。</div>
                                 </div>
                                 <button class="ghost-btn" type="button" onclick="addModel('chat')"><i data-lucide="plus" class="w-3.5 h-3.5"></i><span data-i18n="api.model">模型</span></button>
                         </div>
@@ -512,6 +520,7 @@
                                 <div>
                                     <div class="block-title" data-i18n="api.videoModels">视频模型</div>
                                     <div class="block-desc" data-i18n="api.videoHint">无限画布视频生成节点使用</div>
+                                    <div class="block-desc">视频模型只会出现在视频节点，不会出现在图片节点。</div>
                                 </div>
                                 <button class="ghost-btn" type="button" onclick="addModel('video')"><i data-lucide="plus" class="w-3.5 h-3.5"></i><span data-i18n="api.model">模型</span></button>
                             </div>
@@ -900,12 +909,21 @@
             const saving = providerToggleSavingId === item.id;
             return `
                 <span class="provider-card-side" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
+                    ${providerCapabilitiesMarkup(item)}
                     <span class="provider-state ${enabled ? 'is-enabled' : ''}">${label}</span>
                     <button class="provider-switch ${enabled ? 'is-on' : ''}" type="button" role="switch" aria-checked="${enabled ? 'true' : 'false'}" aria-label="${escapeAttr(`${item.name || item.id} ${label}`)}" onclick="toggleProviderEnabled('${escapeAttr(item.id)}', event)" ${saving ? 'disabled' : ''}>
                         <span class="provider-switch-knob"></span>
                     </button>
                 </span>
             `;
+        }
+        function providerCapabilitiesMarkup(item){
+            const badges = [];
+            if((item.image_models || []).length) badges.push('<span class="provider-capability image">生图可用</span>');
+            if((item.video_models || []).length) badges.push('<span class="provider-capability video">视频可用</span>');
+            if((item.chat_models || []).length) badges.push('<span class="provider-capability chat">对话可用</span>');
+            if(!badges.length) badges.push('<span class="provider-capability empty">仅基础配置</span>');
+            return `<span class="provider-capabilities">${badges.join('')}</span>`;
         }
         function renderProviderList(){
             providerList.innerHTML = sortedProviders().map(item => {
@@ -1491,7 +1509,7 @@
                 providers = data.providers || providers;
                 selectedId = provider()?.id || providers[0]?.id || '';
                 renderEditor();
-                setStatus(tr('api.saved'));
+                setStatus(`${tr('api.saved')}，已同步到 AI 生图 / 无限画布 / 智能画布`);
                 // 广播变更，画布等其他 iframe 立即重新拉取最新平台/模型列表
                 try { new BroadcastChannel('studio-api').postMessage({ type:'providers-changed' }); } catch(e) {}
                 return true;

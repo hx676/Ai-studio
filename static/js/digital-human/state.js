@@ -14,6 +14,7 @@
             activeTab: 'generate',
             taskId: '',
             tasks: [],
+            queueState: null,
             selectedTaskId: '',
             lastBackendProgress: '',
             ttsStatus: null,
@@ -26,9 +27,13 @@
 const STAGE_TEXT = {
             queued: '排队中',
             tts: '准备口播',
+            'waiting-tts-light': '等待 TTS 绿灯',
+            'waiting-heygem-light': '等待 HeyGem 绿灯',
             'tts-submit': '生成口播',
+            'gpu-handoff': '释放 TTS 显存',
             'heygem-submit': '载入素材',
             'heygem-generate': '合成视频',
+            'heygem-retry': '重试合成',
             done: '完成',
             failed: '失败',
             running: '处理中',
@@ -56,15 +61,30 @@ const STAGE_TEXT = {
             return String(detail);
         }
         function userFacingError(detail, fallback = '操作失败') {
+            if (detail && typeof detail === 'object' && detail.failure_type === 'tts_timeout') {
+                return 'TTS 生成耗时超过等待窗口，服务通常仍在继续生成音频；请稍后查看队列或缩短文案重试。';
+            }
+            if (detail && typeof detail === 'object' && detail.failure_type === 'heygem_queue_blocked') {
+                return 'HeyGem 内部队列阻塞，通常是显存资源冲突、残留进程或驱动视频过重导致。请停止残留 HeyGem/TTS 后重试。';
+            }
+            if (detail && typeof detail === 'object' && detail.failure_type === 'heygem_stall_at_20') {
+                return 'HeyGem 卡在 20%，视频驱动队列没有继续推进。请清理残留进程或换一个更短、分辨率更低的动作视频后重试。';
+            }
+            if (detail && typeof detail === 'object' && detail.failure_type === 'heygem_task_not_found') {
+                return 'HeyGem 任务提交后丢失，可能是 HeyGem 内部队列被旧任务干扰。请清理/重启 HeyGem 后重试。';
+            }
+            if (detail && typeof detail === 'object' && detail.failure_type === 'heygem_gpu_conflict') {
+                return '检测到 HeyGem/TTS 显存资源冲突或残留进程，已暂停队列。请停止残留进程或重启启动器后重试。';
+            }
+            if (detail && typeof detail === 'object' && detail.failure_type === 'tts_output_write_failed') {
+                return responseDetailText(detail).trim() || 'TTS 音频已生成，但保存到本地输出目录失败。请检查文件名和输出目录权限后重试。';
+            }
+            if (detail && typeof detail === 'object' && detail.failure_type === 'tts_failed') {
+                return responseDetailText(detail).trim() || 'TTS 生成失败，请检查文案和参考音频。';
+            }
             const raw = responseDetailText(detail).trim();
             if (!raw) return fallback;
             const lower = raw.toLowerCase();
-            if (lower.includes('heygem') || lower.includes('easy/query') || raw.includes('任务接口')) {
-                return `HeyGem 未就绪，${SERVICE_START_HINT}`;
-            }
-            if (lower.includes('tts') || lower.includes('index-tts')) {
-                return `TTS 未就绪，${SERVICE_START_HINT}`;
-            }
             if (lower.includes('timeout') || lower.includes('timed out') || raw.includes('超时')) {
                 return '生成等待超时，请确认后台仍在运行。';
             }
@@ -85,6 +105,12 @@ const STAGE_TEXT = {
                 lower.includes('did not become ready')
             ) {
                 return `数字人后台未就绪，${SERVICE_START_HINT}`;
+            }
+            if (lower.includes('heygem service is not ready')) {
+                return `HeyGem 未就绪，${SERVICE_START_HINT}`;
+            }
+            if (lower.includes('tts service is not ready')) {
+                return `TTS 未就绪，${SERVICE_START_HINT}`;
             }
             if (
                 lower.includes('traceback') ||

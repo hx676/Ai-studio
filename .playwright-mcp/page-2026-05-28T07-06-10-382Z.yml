@@ -1,0 +1,80 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: 数字人
+      - generic [ref=e6]: 输入口播文案，选择音色和驱动视频后生成成片
+    - generic [ref=e7]:
+      - generic "数字人页面" [ref=e8]:
+        - button "生成" [ref=e9] [cursor=pointer]
+        - button "人物库" [ref=e10] [cursor=pointer]
+        - button "声音库" [ref=e11] [cursor=pointer]
+      - button "刷新素材" [ref=e12] [cursor=pointer]
+      - button "加入队列" [ref=e13] [cursor=pointer]
+  - generic [ref=e14]:
+    - main [ref=e15]:
+      - generic [ref=e16]:
+        - generic [ref=e18]: 生成内容
+        - generic [ref=e20]:
+          - generic [ref=e21]:
+            - generic [ref=e22]:
+              - generic [ref=e23]:
+                - generic [ref=e24]: 当前人物
+                - generic [ref=e25]: 未选择
+                - generic [ref=e26]: 请在人物库选择人物
+                - button "打开人物库" [ref=e27] [cursor=pointer]
+              - generic [ref=e28]:
+                - generic [ref=e29]: 当前驱动视频
+                - generic [ref=e30]: 未选择
+                - generic [ref=e31]: 人物可包含多个驱动视频
+                - button "管理动作视频" [ref=e32] [cursor=pointer]
+              - generic [ref=e33]:
+                - generic [ref=e34]: 当前声音
+                - generic [ref=e35]: 使用参考音频
+                - generic [ref=e36]: 可在声音库管理音色
+                - button "打开声音库" [ref=e37] [cursor=pointer]
+            - generic [ref=e38]:
+              - generic [ref=e39]: 文案
+              - textbox "文案" [ref=e40]:
+                - /placeholder: 输入数字人口播文案
+            - generic [ref=e41]:
+              - generic [ref=e42]: 参考音色
+              - generic [ref=e43]:
+                - combobox "参考音色" [ref=e44]
+                - button "试听" [ref=e45] [cursor=pointer]
+                - button "上传音色" [ref=e46] [cursor=pointer]
+            - generic [ref=e47]:
+              - generic [ref=e48]:
+                - generic [ref=e49]:
+                  - generic [ref=e50]: 语速
+                  - generic [ref=e51]:
+                    - slider "语速" [ref=e52]: "1"
+                    - spinbutton [ref=e53]: "1"
+                - generic [ref=e54]:
+                  - generic [ref=e55]: 语气
+                  - combobox "语气" [ref=e56]:
+                    - option "与音色参考音频相同" [selected]
+                    - option "使用情感参考音频"
+                    - option "使用情感向量控制"
+                    - option "使用情感描述文本控制"
+              - generic [ref=e57]:
+                - generic [ref=e58]: 情感权重
+                - generic [ref=e59]:
+                  - slider "情感权重" [ref=e60]: "0.8"
+                  - spinbutton [ref=e61]: "0.8"
+              - button "高级参数 展开" [ref=e63] [cursor=pointer]:
+                - generic [ref=e64]: 高级参数
+                - generic [ref=e65]: 展开
+          - generic [ref=e67]:
+            - generic [ref=e69]: 当前预览
+            - button "模板要求" [ref=e70] [cursor=pointer]
+    - complementary [ref=e71]:
+      - generic [ref=e72]:
+        - generic [ref=e73]:
+          - generic [ref=e74]: 生成结果
+          - generic [ref=e76]: 空闲
+        - generic [ref=e79]: 暂无结果
+      - generic [ref=e80]:
+        - generic [ref=e81]:
+          - generic [ref=e82]: 生成队列
+          - generic [ref=e83]: 暂无任务
+        - generic [ref=e86]: 暂无队列任务

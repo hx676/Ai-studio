@@ -69,20 +69,20 @@ public sealed class SupervisorClient
 
     public async Task<SupervisorActionResult> StopAsync()
     {
-        var result = await RunPythonAsync("tools\\service_supervisor.py --stop", throwOnNonZero: false, timeout: TimeSpan.FromSeconds(30));
+        var result = await RunPythonAsync("tools\\service_supervisor.py --stop", throwOnNonZero: false, timeout: TimeSpan.FromSeconds(15));
         var output = string.IsNullOrWhiteSpace(result.Stdout) ? result.Stderr : result.Stdout;
-        return new SupervisorActionResult { Ok = result.ExitCode == 0, RawOutput = output };
+        return new SupervisorActionResult { Ok = result.ExitCode == 0, RawOutput = output, TimedOut = result.TimedOut };
     }
 
     public async Task<ProjectBackendPids?> GetProjectBackendPidsAsync()
     {
-        var result = await RunPythonAsync("tools\\service_supervisor.py --project-backend-pids", timeout: TimeSpan.FromSeconds(5));
+        var result = await RunPythonAsync("tools\\service_supervisor.py --project-backend-pids", timeout: TimeSpan.FromSeconds(4));
         return JsonSerializer.Deserialize<ProjectBackendPids>(result.Stdout, JsonOptions);
     }
 
     public async Task<LogPayload?> ReadLogAsync(string service, string stream)
     {
-        var result = await RunPythonAsync($"tools\\service_supervisor.py --logs {service} --stream {stream}", timeout: TimeSpan.FromSeconds(5));
+        var result = await RunPythonAsync($"tools\\service_supervisor.py --logs {service} --stream {stream}", timeout: TimeSpan.FromSeconds(4));
         return JsonSerializer.Deserialize<LogPayload>(result.Stdout, JsonOptions);
     }
 
@@ -95,7 +95,7 @@ public sealed class SupervisorClient
             var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
             args += $" --cursor-b64 {encoded}";
         }
-        var result = await RunPythonAsync(args, timeout: TimeSpan.FromSeconds(5));
+        var result = await RunPythonAsync(args, timeout: TimeSpan.FromSeconds(4));
         return JsonSerializer.Deserialize<ConsoleLogsPayload>(result.Stdout, JsonOptions);
     }
 

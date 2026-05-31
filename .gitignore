@@ -16,6 +16,7 @@ data/*.json
 data/*.tmp
 data/*.bak
 data/service-logs/
+data/test-runs/
 data/ui-checks/
 data/conversations/
 data/canvases/

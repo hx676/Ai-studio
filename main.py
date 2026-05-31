@@ -11,4 +11,10 @@ from app.main import app
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=3000)
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=3000,
+        backlog=int(os.getenv("SYNCANVAS_UVICORN_BACKLOG", "2048")),
+        timeout_keep_alive=int(os.getenv("SYNCANVAS_UVICORN_KEEP_ALIVE", "10")),
+    )

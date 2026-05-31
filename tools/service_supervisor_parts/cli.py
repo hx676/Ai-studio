@@ -21,6 +21,11 @@ from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 try:
+    import psutil
+except Exception:
+    psutil = None
+
+try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
     pass
@@ -348,7 +353,7 @@ def kill_process_tree(pid: int) -> bool:
                 stderr=subprocess.PIPE,
                 text=True,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                timeout=10,
+                timeout=4,
             )
             return result.returncode == 0 or not is_pid_running(pid)
         except subprocess.TimeoutExpired:
@@ -377,6 +382,9 @@ def path_contains(path_text: str, root: Path) -> bool:
 def query_windows_processes() -> List[Dict]:
     if os.name != "nt":
         return []
+    psutil_items = query_processes_with_psutil()
+    if psutil_items:
+        return psutil_items
     ps = (
         "Get-CimInstance Win32_Process | "
         "Select-Object ProcessId,ParentProcessId,ExecutablePath,CommandLine | "
@@ -394,7 +402,7 @@ def query_windows_processes() -> List[Dict]:
             timeout=12,
         )
         if result.returncode != 0 or not result.stdout.strip():
-            return []
+            return query_processes_with_psutil()
         payload = json.loads(result.stdout)
         if isinstance(payload, dict):
             payload = [payload]
@@ -402,7 +410,30 @@ def query_windows_processes() -> List[Dict]:
             return []
         return [item for item in payload if isinstance(item, dict)]
     except Exception:
+        return query_processes_with_psutil()
+
+
+def query_processes_with_psutil() -> List[Dict]:
+    if psutil is None:
         return []
+    items: List[Dict] = []
+    for process in psutil.process_iter(["pid", "ppid", "exe", "cmdline", "create_time"]):
+        try:
+            cmdline = process.info.get("cmdline") or []
+            items.append(
+                {
+                    "ProcessId": int(process.info.get("pid") or 0),
+                    "ParentProcessId": int(process.info.get("ppid") or 0),
+                    "ExecutablePath": process.info.get("exe") or "",
+                    "CommandLine": " ".join(str(part) for part in cmdline),
+                    "CreateTime": float(process.info.get("create_time") or 0),
+                }
+            )
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
+        except Exception:
+            continue
+    return items
 
 
 def process_command_text(process: Dict) -> str:
@@ -428,6 +459,17 @@ def is_heygem_rest_only_process(process: Dict) -> bool:
     return (
         is_project_process(process, heygem_root())
         and "app_local.py" in text
+        and path_contains(exe or text, heygem_root() / "py38")
+    )
+
+
+def is_heygem_main_process(process: Dict) -> bool:
+    text = norm_path_text(process_command_text(process))
+    exe = norm_path_text(str(process.get("ExecutablePath") or ""))
+    return (
+        is_project_process(process, heygem_root())
+        and "app.py" in text
+        and "app_local.py" not in text
         and path_contains(exe or text, heygem_root() / "py38")
     )
 
@@ -535,6 +577,47 @@ def project_backend_process_items() -> List[Dict]:
     for item in items:
         deduped[int(item["pid"])] = item
     return [deduped[pid] for pid in sorted(deduped)]
+
+
+def project_backend_conflicts() -> List[Dict]:
+    conflicts: List[Dict] = []
+    current_pid = os.getpid()
+    processes = [
+        process
+        for process in query_windows_processes()
+        if process_pid(process) and process_pid(process) != current_pid
+    ]
+    rest_processes = [process for process in processes if is_heygem_rest_only_process(process)]
+    main_processes = [process for process in processes if is_heygem_main_process(process)]
+    if not rest_processes:
+        return conflicts
+    if len(rest_processes) == 1 and main_processes:
+        rest_time = float(rest_processes[0].get("CreateTime") or 0)
+        main_time = min(float(process.get("CreateTime") or 0) for process in main_processes)
+        if not rest_time or not main_time or rest_time >= main_time - 3:
+            return conflicts
+    if len(rest_processes) > 1:
+        newest_rest_time = max(float(process.get("CreateTime") or 0) for process in rest_processes)
+        rest_processes = [
+            process
+            for process in rest_processes
+            if not float(process.get("CreateTime") or 0) or float(process.get("CreateTime") or 0) < newest_rest_time
+        ]
+    for process in query_windows_processes():
+        pid = process_pid(process)
+        if not pid or pid == current_pid:
+            continue
+        if any(process_pid(item) == pid for item in rest_processes):
+            conflicts.append(
+                {
+                    "pid": pid,
+                    "key": "heygem_app_local",
+                    "label": "HeyGem app_local.py",
+                    "message": "检测到本项目残留 HeyGem app_local.py 进程，可能占用显存或内部队列。",
+                    "command": process_command_text(process),
+                }
+            )
+    return conflicts
 
 
 def port_owner_pids(port: int) -> List[int]:
@@ -645,6 +728,14 @@ def all_ready(spec: ServiceSpec) -> bool:
 
 def base_env() -> Dict[str, str]:
     env = os.environ.copy()
+    if os.name == "nt":
+        path_key = next((key for key in env if key.lower() == "path"), "Path")
+        path_value = env.get(path_key, "")
+        for key in list(env.keys()):
+            if key.lower() == "path" and key != path_key:
+                path_value = path_value or env.get(key, "")
+                env.pop(key, None)
+        env[path_key] = path_value
     env.setdefault("PYTHONIOENCODING", "utf-8")
     env.setdefault("PYTHONUTF8", "1")
     return env
@@ -1520,6 +1611,22 @@ def build_diagnostics(
                 )
             )
 
+    backend_conflicts = project_backend_conflicts()
+    if backend_conflicts:
+        detail = "；".join(f"{item.get('label')} PID {item.get('pid')}" for item in backend_conflicts)
+        items.append(
+            check_item(
+                "GPU/残留进程",
+                "heygem_app_local_residue",
+                "HeyGem 残留进程",
+                "error",
+                detail,
+                "检测到本项目 app_local.py 残留进程，可能占用显存或堵塞 HeyGem 内部队列；请先停止残留进程或点击一键停止后重试。",
+            )
+        )
+    else:
+        items.append(check_item("GPU/残留进程", "heygem_app_local_residue", "HeyGem 残留进程", "ok", "未发现 app_local.py 残留进程"))
+
     last_start = runtime.get("last_start") or {}
     last_start_errors = last_start.get("errors") if isinstance(last_start.get("errors"), list) else []
     for error_item in last_start_errors:
@@ -1869,6 +1976,7 @@ def show_status(json_output: bool = False, include_gpu: bool = True, quick: bool
 
 def print_project_backend_pids() -> int:
     processes = project_backend_process_items()
+    conflicts = project_backend_conflicts()
     print(
         json.dumps(
             {
@@ -1877,6 +1985,7 @@ def print_project_backend_pids() -> int:
                 "root": str(BASE_DIR),
                 "pids": [int(item["pid"]) for item in processes],
                 "processes": processes,
+                "conflicts": conflicts,
             },
             ensure_ascii=False,
             indent=2,

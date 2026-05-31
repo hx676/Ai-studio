@@ -197,12 +197,17 @@
                 <section class="panel">
                     <div class="panel-head">
                         <span>生成结果</span>
-                        <div class="row">
+                        <div class="row result-head-actions">
                             <span class="status" id="task-status">空闲</span>
                             <a class="btn hidden" id="download-link" href="#" download>下载</a>
+                            <button class="btn hidden" id="copy-result-path-btn" type="button">复制路径</button>
+                            <button class="btn hidden" id="open-result-output-btn" type="button">定位文件</button>
+                            <button class="btn" id="open-output-dir-btn" type="button">成片目录</button>
                         </div>
                     </div>
                     <div class="panel-body stack">
+                        <div class="result-task-meta hidden" id="result-task-meta"></div>
+                        <div class="result-stage-strip hidden" id="result-stage-strip"></div>
                         <audio id="audio-preview" class="hidden" controls>
                             <track kind="captions" src="data:text/vtt,WEBVTT" label="无字幕">
                         </audio>
@@ -216,7 +221,7 @@
                 </section>
                 <section class="panel">
                     <div class="panel-head">
-                        <span>生成队列</span>
+                        <span>任务与历史</span>
                         <span class="status" id="queue-summary">暂无任务</span>
                     </div>
                     <div class="panel-body">

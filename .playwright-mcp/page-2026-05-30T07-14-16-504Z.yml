@@ -1,0 +1,60 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic:
+      - generic:
+        - generic:
+          - combobox:
+            - option "API生成" [selected]
+          - generic:
+            - button "图片":
+              - img
+              - generic: 图片
+            - button "视频":
+              - img
+              - generic: 视频
+        - generic:
+          - generic: 描述你想生成或编辑的图片...
+          - generic "拖拽调整文本框高度"
+        - generic:
+          - generic:
+            - generic:
+              - button "灵思":
+                - img
+                - generic: 灵思
+            - generic:
+              - button "gpt-image-2":
+                - img
+                - generic: gpt-image-2
+            - generic:
+              - button "1K":
+                - img
+                - generic: 1K
+            - generic:
+              - button "1:1":
+                - img
+                - generic: 1:1
+            - generic:
+              - button "自动":
+                - img
+                - generic: 自动
+            - generic:
+              - button "1 张":
+                - img
+                - generic: 1 张
+        - generic:
+          - button "运行":
+            - img
+            - generic: 运行
+    - img
+  - button "返回画布列表" [ref=e4] [cursor=pointer]:
+    - img [ref=e5]
+    - generic [ref=e7]: 返回画布列表
+  - generic: 智能画布
+  - button "日志" [ref=e11] [cursor=pointer]:
+    - img [ref=e12]
+    - generic [ref=e15]: 日志
+  - button "资产库" [ref=e16] [cursor=pointer]:
+    - img [ref=e17]
+    - generic [ref=e19]: 资产库
+  - option "角色" [selected]
+  - option "场景"

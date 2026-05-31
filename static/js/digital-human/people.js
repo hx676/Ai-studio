@@ -16,6 +16,7 @@ function currentPerson() {
         }
 
         const posterBackfillInFlight = new Set();
+        const videoMetadataProbeInFlight = new Set();
         const POSTER_BACKFILL_CONCURRENCY = 2;
 
         function ensureVideoSelection() {
@@ -69,7 +70,7 @@ function currentPerson() {
             summary.textContent = video.name || '已选择驱动视频';
             el.classList.remove('hidden', 'empty');
             el.innerHTML = `
-                <div class="selected-preview-media" data-video-preview-container>
+                <div class="selected-preview-media ${videoPreviewOrientationClass(video)}" ${videoAspectStyleAttr(video)} data-video-preview-container>
                     ${videoPreviewSlot(video, '暂无封面', person?.id || '')}
                 </div>
                 <div class="selected-preview-meta">
@@ -77,9 +78,45 @@ function currentPerson() {
                     <div class="asset-note">当前生成使用的视频素材</div>
                 </div>
             `;
+            requestVideoMetadataForPreview(video);
         }
         function posterUrl(item) {
             return item?.poster_url || item?.poster || item?.thumbnail_url || '';
+        }
+
+        function videoDimension(value) {
+            const number = Number(value);
+            return Number.isFinite(number) && number > 0 ? number : 0;
+        }
+
+        function videoDimensions(video) {
+            return {
+                width: videoDimension(video?.width),
+                height: videoDimension(video?.height),
+            };
+        }
+
+        function videoPreviewOrientationClass(video) {
+            const { width, height } = videoDimensions(video);
+            if (width && height) {
+                if (height > width) return 'portrait';
+                if (width > height) return 'landscape';
+                return 'square';
+            }
+            const orientation = String(video?.orientation || '').toLowerCase();
+            return ['portrait', 'landscape', 'square'].includes(orientation) ? orientation : '';
+        }
+
+        function videoAspectStyleAttr(video) {
+            const { width, height } = videoDimensions(video);
+            if (width && height) {
+                return `style="--video-aspect-ratio: ${Math.round(width)} / ${Math.round(height)};"`;
+            }
+            const ratio = Number(video?.aspect_ratio);
+            if (Number.isFinite(ratio) && ratio > 0) {
+                return `style="--video-aspect-ratio: ${ratio.toFixed(6)} / 1;"`;
+            }
+            return '';
         }
 
         function videoPosterContent(video, label = '动作视频') {
@@ -96,6 +133,8 @@ function currentPerson() {
             const attrs = [
                 url ? 'data-video-preview-slot' : '',
                 url ? `data-video-src="${escapeHtml(url)}"` : '',
+                video?.width ? `data-video-width="${escapeHtml(video.width)}"` : '',
+                video?.height ? `data-video-height="${escapeHtml(video.height)}"` : '',
                 needsPoster ? 'data-poster-missing="1"' : '',
                 needsPoster && personId ? `data-poster-person-id="${escapeHtml(personId)}"` : '',
                 needsPoster ? `data-poster-video-id="${escapeHtml(video.id)}"` : '',
@@ -334,6 +373,50 @@ function currentPerson() {
             return video;
         }
 
+        function findLibraryVideo(personId, videoId) {
+            const person = state.people.find(p => p.id === personId);
+            return person?.videos?.find(v => v.id === videoId) || null;
+        }
+
+        function rememberVideoMetadata(video, width, height) {
+            const cleanWidth = Math.round(videoDimension(width));
+            const cleanHeight = Math.round(videoDimension(height));
+            if (!video || !cleanWidth || !cleanHeight) return false;
+            video.width = cleanWidth;
+            video.height = cleanHeight;
+            video.aspect_ratio = cleanWidth / cleanHeight;
+            video.orientation = cleanHeight > cleanWidth ? 'portrait' : (cleanWidth > cleanHeight ? 'landscape' : 'square');
+            return true;
+        }
+
+        function requestVideoMetadataForPreview(video) {
+            const size = videoDimensions(video);
+            if (!video || (size.width && size.height) || video.metadata_failed) return;
+            const src = mediaUrl(video);
+            if (!src) return;
+            const key = video.id || src;
+            if (videoMetadataProbeInFlight.has(key)) return;
+            videoMetadataProbeInFlight.add(key);
+            const probe = document.createElement('video');
+            probe.preload = 'metadata';
+            probe.muted = true;
+            probe.playsInline = true;
+            probe.addEventListener('loadedmetadata', () => {
+                const changed = rememberVideoMetadata(video, probe.videoWidth, probe.videoHeight);
+                videoMetadataProbeInFlight.delete(key);
+                probe.removeAttribute('src');
+                probe.load();
+                if (changed && currentVideoItem()?.id === video.id) {
+                    renderSelectedVideoPreview();
+                }
+            }, { once: true });
+            probe.addEventListener('error', () => {
+                video.metadata_failed = true;
+                videoMetadataProbeInFlight.delete(key);
+            }, { once: true });
+            probe.src = src;
+        }
+
         function updatePosterSlots(personId, videoId, video) {
             document.querySelectorAll('[data-poster-video-id]').forEach(slot => {
                 if (slot.dataset.posterPersonId !== personId || slot.dataset.posterVideoId !== videoId) return;
@@ -348,6 +431,11 @@ function currentPerson() {
             const posterUrl = data?.poster_url || data?.video?.poster_url || '';
             const person = state.people.find(p => p.id === personId);
             const video = person?.videos?.find(v => v.id === videoId);
+            if (video && data?.video) {
+                ['width', 'height', 'duration', 'aspect_ratio', 'orientation'].forEach(key => {
+                    if (data.video[key]) video[key] = data.video[key];
+                });
+            }
             if (video && posterUrl) {
                 video.poster_url = posterUrl;
                 video.poster_path = data?.video?.poster_path || video.poster_path || '';
@@ -356,6 +444,9 @@ function currentPerson() {
                 video.poster_failed = true;
             }
             updatePosterSlots(personId, videoId, video || data?.video || null);
+            if (state.selectedPersonId === personId && state.selectedVideoId === videoId) {
+                renderSelectedVideoPreview();
+            }
         }
 
         function renderVideoLibrary() {
@@ -604,7 +695,18 @@ function currentPerson() {
         function applyVideoOrientation(target, width, height) {
             if (!width || !height) return;
             const isPortrait = height > width;
-            target.closest('.selected-preview-media')?.classList.toggle('portrait', isPortrait);
+            const selectedPreview = target.closest('.selected-preview-media');
+            if (selectedPreview) {
+                selectedPreview.style.setProperty('--video-aspect-ratio', `${Math.round(width)} / ${Math.round(height)}`);
+                selectedPreview.classList.toggle('portrait', isPortrait);
+                selectedPreview.classList.toggle('landscape', width > height);
+                selectedPreview.classList.toggle('square', width === height);
+            }
             target.closest('.video-choice-thumb')?.classList.toggle('portrait', isPortrait);
             target.closest('.asset-video-thumb')?.classList.toggle('portrait', isPortrait);
+            const slot = target.closest('[data-poster-person-id][data-poster-video-id]');
+            const video = slot ? findLibraryVideo(slot.dataset.posterPersonId, slot.dataset.posterVideoId) : null;
+            if (video && rememberVideoMetadata(video, width, height) && currentVideoItem()?.id === video.id) {
+                renderSelectedVideoPreview();
+            }
         }

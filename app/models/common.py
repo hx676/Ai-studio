@@ -14,6 +14,9 @@ class GenerateRequest(BaseModel):
 class DeleteHistoryRequest(BaseModel):
     timestamp: float
 
+class OutputLocationRequest(BaseModel):
+    url: str = ""
+
 class TokenRequest(BaseModel):
     token: str
 

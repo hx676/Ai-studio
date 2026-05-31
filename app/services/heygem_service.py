@@ -1,8 +1,10 @@
 import asyncio
+import json
 import os
 import random
 import re
 import shutil
+import subprocess
 import sys
 import time
 import urllib.parse
@@ -24,6 +26,7 @@ HEYGEM_BLOCKING_HINTS = (
     "严重阻塞",
     "下游队列异常",
     "下游异常",
+    "视频驱动队列满",
     "queue full",
     "blocked",
     "blocking",
@@ -212,6 +215,112 @@ def heygem_api_base_url(config):
 def heygem_root_dir(config):
     return os.path.abspath(((config or {}).get("heygem") or {}).get("root_dir") or os.path.join(BASE_DIR, "heygem-win-fix", "heygem-win"))
 
+def _float_value(value, default=0.0):
+    try:
+        return float(value)
+    except Exception:
+        return default
+
+def _frame_rate_value(value):
+    text = str(value or "").strip()
+    if not text or text == "0/0":
+        return 0.0
+    if "/" in text:
+        num, den = text.split("/", 1)
+        denominator = _float_value(den, 0.0)
+        return _float_value(num, 0.0) / denominator if denominator else 0.0
+    return _float_value(text, 0.0)
+
+def heygem_ffprobe_path(config):
+    candidates = [
+        os.getenv("FFPROBE_PATH", ""),
+        shutil.which("ffprobe") or "",
+        os.path.join(heygem_root_dir(config), "py38", "ffmpeg", "bin", "ffprobe.exe"),
+        os.path.join(BASE_DIR, "index-tts-2", "py312", "ffmpeg", "bin", "ffprobe.exe"),
+    ]
+    for candidate in candidates:
+        if candidate and os.path.isfile(candidate):
+            return candidate
+    return ""
+
+def heygem_probe_media(path, config):
+    local = digital_human_local_path(path) or path
+    if not local or not os.path.isfile(local):
+        return {}
+    ffprobe = heygem_ffprobe_path(config)
+    if not ffprobe:
+        return {}
+    try:
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        result = subprocess.run(
+            [
+                ffprobe,
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration,size,bit_rate",
+                "-show_entries",
+                "stream=index,codec_type,codec_name,width,height,r_frame_rate,avg_frame_rate,duration,bit_rate,sample_rate,channels",
+                "-of",
+                "json",
+                local,
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=12,
+            creationflags=creationflags,
+        )
+        if result.returncode != 0:
+            return {}
+        return json.loads(result.stdout or "{}")
+    except Exception:
+        return {}
+
+def heygem_media_profile(audio_path, video_path, config):
+    audio = heygem_probe_media(audio_path, config)
+    video = heygem_probe_media(video_path, config)
+    audio_duration = _float_value((audio.get("format") or {}).get("duration"))
+    video_duration = _float_value((video.get("format") or {}).get("duration"))
+    width = 0
+    height = 0
+    fps = 0.0
+    codec = ""
+    for stream in video.get("streams") or []:
+        if stream.get("codec_type") == "video":
+            width = int(_float_value(stream.get("width")))
+            height = int(_float_value(stream.get("height")))
+            fps = _frame_rate_value(stream.get("avg_frame_rate") or stream.get("r_frame_rate"))
+            codec = str(stream.get("codec_name") or "")
+            video_duration = max(video_duration, _float_value(stream.get("duration")))
+            break
+    return {
+        "audio_duration": round(audio_duration, 3),
+        "video_duration": round(video_duration, 3),
+        "video_width": width,
+        "video_height": height,
+        "video_fps": round(fps, 3),
+        "video_codec": codec,
+        "video_pixels": width * height,
+    }
+
+def heygem_adaptive_stall_timeout(base_timeout, max_wait, media):
+    timeout = max(30, int(base_timeout or 240))
+    duration = max(_float_value((media or {}).get("audio_duration")), _float_value((media or {}).get("video_duration")))
+    pixels = int((media or {}).get("video_pixels") or 0)
+    fps = _float_value((media or {}).get("video_fps"))
+    if duration:
+        timeout = max(timeout, int(duration * 12 + 180))
+    if pixels >= 3840 * 2160 or fps >= 50:
+        timeout = max(timeout, 900)
+    elif pixels >= 1920 * 1080:
+        timeout = max(timeout, 600)
+    if max_wait and max_wait > 90:
+        timeout = min(timeout, max_wait - 30)
+    return max(30, int(timeout))
+
 def heygem_safe_job_code(value=""):
     text = str(value or "").strip()
     if re.fullmatch(r"\d{3,48}", text):
@@ -295,6 +404,22 @@ def heygem_progress_payload(payload):
         "progress": progress,
         "message": str(data.get("msg") or data.get("message") or data.get("error") or "").strip(),
     }
+
+def heygem_failure_detail(failure_type, message, raw=None, code="", retryable=False):
+    detail = {
+        "message": str(message or failure_type),
+        "failure_type": str(failure_type or "heygem_failed"),
+        "retryable": bool(retryable),
+    }
+    if code:
+        detail["heygem_code"] = str(code)
+    if raw is not None:
+        detail["raw"] = safe_upstream_summary(raw)
+    return detail
+
+def heygem_task_not_found(raw):
+    text = str(raw or "").lower()
+    return "10004" in text or "not found" in text or "任务不存在" in text or "浠诲姟涓嶅瓨鍦" in text
 
 def update_digital_human_task(task_id, **updates):
     with DIGITAL_HUMAN_TASK_LOCK:
@@ -527,11 +652,156 @@ def generate_heygem_video_rest_sync(audio_path, video_path, config, task_id="", 
         session.close()
         raise HTTPException(status_code=504, detail=f"HeyGem 任务超时：{safe_upstream_summary(last_payload)}")
 
-async def generate_heygem_video_monitored(audio_path, video_path, config, task_id="", request_base_url=""):
+def generate_heygem_video_rest_sync_v2(audio_path, video_path, config, task_id="", request_base_url="", job_code=""):
+    heygem = config.get("heygem") or {}
+    if not audio_path or not os.path.isfile(audio_path):
+        raise HTTPException(status_code=400, detail="TTS audio file is missing.")
+    if not video_path or not os.path.isfile(video_path):
+        raise HTTPException(status_code=400, detail="Drive video file is missing.")
+    with HEYGEM_GENERATION_LOCK:
+        code = heygem_safe_job_code(job_code or task_id)
+        audio_rel = heygem_save_relative_path(audio_path, config)
+        video_rel = heygem_save_relative_path(video_path, config)
+        if not audio_rel or not video_rel:
+            raise HTTPException(status_code=400, detail="Cannot hand audio or drive video to HeyGem.")
+        api_base = heygem_api_base_url(config)
+        submit_url = safe_join_url(api_base, heygem.get("submit_path") or "/easy/submit")
+        query_url = safe_join_url(api_base, heygem.get("query_path") or "/easy/query")
+        log_cursor = heygem_log_cursor(config)
+        submit_body = {"audio_url": audio_rel, "video_url": video_rel, "code": code}
+        started_wall = time.time()
+        max_wait = max(60, int(heygem.get("max_wait_seconds") or 1800))
+        base_stall_timeout = max(30, int(heygem.get("stall_timeout_seconds") or 240))
+        media_profile = heygem_media_profile(audio_path, video_path, config)
+        stall_timeout = heygem_adaptive_stall_timeout(base_stall_timeout, max_wait, media_profile)
+        base_heygem_state = {
+            "code": code,
+            "api_base_url": api_base,
+            "submit_url": submit_url,
+            "query_url": query_url,
+            "audio_path": audio_path,
+            "video_path": video_path,
+            "audio_rel": audio_rel,
+            "video_rel": video_rel,
+            "started_at": started_wall,
+            "last_progress_at": started_wall,
+            "media": media_profile,
+            "base_stall_timeout_seconds": base_stall_timeout,
+            "stall_timeout_seconds": stall_timeout,
+            "max_wait_seconds": max_wait,
+        }
+        update_digital_human_task(task_id, heygem={**base_heygem_state, "progress": 0, "message": "Media loaded"})
+        session = local_requests_session()
+        try:
+            response = session.post(submit_url, json=submit_body, timeout=30)
+            response.raise_for_status()
+            try:
+                submit_raw = response.json()
+            except Exception:
+                submit_raw = {"text": response.text[:500]}
+        except Exception as exc:
+            session.close()
+            raise HTTPException(status_code=502, detail=heygem_failure_detail("submit_failed", f"HeyGem submit failed: {exc}", code=code, retryable=True))
+        update_digital_human_task(
+            task_id,
+            heygem={
+                **base_heygem_state,
+                "submit": safe_upstream_summary(submit_raw),
+                "submit_body": safe_upstream_summary(submit_body),
+                "progress": 0,
+                "message": "HeyGem task submitted",
+            },
+        )
+        deadline = time.monotonic() + max_wait
+        submitted_at = time.monotonic()
+        last_change = time.monotonic()
+        last_progress_key = None
+        last_payload = submit_raw
+        poll_count = 0
+        long_wait_noted = False
+        while time.monotonic() < deadline:
+            time.sleep(2)
+            poll_count += 1
+            log_text, log_cursor = heygem_read_log_since(config, log_cursor)
+            blocking_reason = heygem_blocking_reason_from_log(log_text, code)
+            if blocking_reason:
+                session.close()
+                raise HTTPException(status_code=502, detail=heygem_failure_detail("heygem_queue_blocked", blocking_reason, raw=last_payload, code=code, retryable=True))
+            try:
+                response = session.get(query_url, params={"code": code}, timeout=20)
+                response.raise_for_status()
+                try:
+                    raw = response.json()
+                except Exception:
+                    raw = {"text": response.text[:500]}
+            except Exception as exc:
+                if time.monotonic() - last_change > stall_timeout:
+                    session.close()
+                    raise HTTPException(status_code=504, detail=heygem_failure_detail("heygem_query_timeout", f"HeyGem query did not respond: {exc}", raw=last_payload, code=code, retryable=True))
+                continue
+            last_payload = raw
+            if heygem_task_not_found(raw):
+                update_digital_human_task(task_id, heygem={**base_heygem_state, "poll_count": poll_count, "last_query": safe_upstream_summary(raw), "message": "HeyGem task not found"})
+                if poll_count >= 3 or time.monotonic() - submitted_at > 15:
+                    session.close()
+                    raise HTTPException(status_code=502, detail=heygem_failure_detail("heygem_task_not_found", "HeyGem task disappeared or was not registered.", raw=raw, code=code, retryable=True))
+                continue
+            urls = heygem_result_urls(raw)
+            progress_info = heygem_progress_payload(raw)
+            progress_key = (progress_info.get("status"), progress_info.get("progress"), progress_info.get("message"), bool(urls))
+            last_progress_update = {}
+            if progress_key != last_progress_key:
+                last_change = time.monotonic()
+                last_progress_key = progress_key
+                last_progress_update["last_progress_at"] = time.time()
+            update_digital_human_task(
+                task_id,
+                heygem={
+                    **base_heygem_state,
+                    "poll_count": poll_count,
+                    "poll_status": progress_info.get("status"),
+                    "progress": progress_info.get("progress"),
+                    "message": progress_info.get("message"),
+                    "video_url_count": len(urls),
+                    "last_query": safe_upstream_summary(raw),
+                    **last_progress_update,
+                },
+            )
+            if urls:
+                video = save_heygem_video_result_sync(urls[0], config)
+                session.close()
+                return {"video": video, "raw": safe_upstream_summary(raw), "submit": safe_upstream_summary(submit_raw), "status": heygem_status(raw) or "DONE", "code": code}
+            status = heygem_status(raw)
+            if status in {"FAIL", "FAILED", "ERROR", "ERRORED", "CANCELED", "CANCELLED", "-1"}:
+                session.close()
+                raise HTTPException(status_code=502, detail=heygem_failure_detail("output_missing", "HeyGem task failed before returning a video.", raw=raw, code=code, retryable=False))
+            if not long_wait_noted and time.monotonic() - last_change > base_stall_timeout:
+                long_wait_noted = True
+                update_digital_human_task(
+                    task_id,
+                    heygem={
+                        **base_heygem_state,
+                        "poll_count": poll_count,
+                        "poll_status": progress_info.get("status"),
+                        "progress": progress_info.get("progress"),
+                        "message": progress_info.get("message") or "HeyGem is still processing.",
+                        "long_processing": True,
+                        "last_query": safe_upstream_summary(raw),
+                    },
+                )
+            if time.monotonic() - last_change > stall_timeout:
+                session.close()
+                progress = progress_info.get("progress")
+                failure_type = "heygem_stall_at_20" if progress is not None and 18 <= float(progress) <= 22 else "heygem_query_timeout"
+                raise HTTPException(status_code=504, detail=heygem_failure_detail(failure_type, "HeyGem had no progress for too long.", raw=raw, code=code, retryable=True))
+        session.close()
+        raise HTTPException(status_code=504, detail=heygem_failure_detail("heygem_query_timeout", "HeyGem task timed out.", raw=last_payload, code=code, retryable=True))
+
+async def generate_heygem_video_monitored(audio_path, video_path, config, task_id="", request_base_url="", job_code=""):
     status = await check_heygem_health(config)
     if not status.get("connected"):
         raise HTTPException(status_code=503, detail=f"HeyGem service is not ready: {status.get('last_error') or 'connection failed'}")
-    return await asyncio.to_thread(generate_heygem_video_rest_sync, audio_path, video_path, config, task_id, request_base_url)
+    return await asyncio.to_thread(generate_heygem_video_rest_sync_v2, audio_path, video_path, config, task_id, request_base_url, job_code)
 
 def heygem_task_id(payload):
     if not isinstance(payload, dict):

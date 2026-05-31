@@ -16,7 +16,7 @@ from fastapi import HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from app.models.common import DeleteHistoryRequest, RollbackRequest, UpdateRequest
+from app.models.common import DeleteHistoryRequest, OutputLocationRequest, RollbackRequest, UpdateRequest
 from app.services.storage_service import view_image, download_output, upload_image, upload_ai_reference, output_file_from_url
 from app import legacy
 
@@ -482,6 +482,23 @@ def rollback_update(req: RollbackRequest):
 async def index():
     return static_html_response("index.html")
 
+def _open_local_path(target, select_file=False):
+    path = os.path.abspath(str(target or ""))
+    if not path or not os.path.exists(path):
+        return False
+    try:
+        if os.name == "nt":
+            if select_file and os.path.isfile(path):
+                subprocess.Popen(["explorer.exe", f"/select,{path}"])
+            else:
+                os.startfile(path)  # type: ignore[attr-defined]
+            return True
+        opener = "open" if sys.platform == "darwin" else "xdg-open"
+        subprocess.Popen([opener, path])
+        return True
+    except Exception:
+        return False
+
 async def get_history_api(type: str = None):
     if os.path.exists(HISTORY_FILE):
         try:
@@ -550,3 +567,19 @@ async def delete_history(req: DeleteHistoryRequest):
     except Exception as e:
         print(f"Delete history error: {e}")
         return {"success": False, "message": str(e)}
+
+async def open_output_location(req: OutputLocationRequest):
+    path = output_file_from_url(req.url)
+    if not path:
+        raise HTTPException(status_code=404, detail="Output file not found.")
+    ok = _open_local_path(path, select_file=True)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to open output file location.")
+    return {"ok": True, "target": path, "selected": True}
+
+async def open_output_dir():
+    target = os.path.abspath(str(legacy.OUTPUT_OUTPUT_DIR))
+    ok = _open_local_path(target, select_file=False)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to open output directory.")
+    return {"ok": True, "target": target}

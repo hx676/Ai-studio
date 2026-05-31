@@ -3,6 +3,7 @@ import os
 import re
 import requests
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -11,6 +12,12 @@ import httpx
 from fastapi import HTTPException
 
 from app import legacy
+from app.services.file_safety import sanitize_output_filename as safe_output_filename
+
+try:
+    import psutil
+except Exception:
+    psutil = None
 
 
 def __getattr__(name):
@@ -33,6 +40,8 @@ TTS_SERVICE_LOCK = legacy.TTS_SERVICE_LOCK
 
 digital_human_log = legacy.digital_human_log
 safe_upstream_summary = legacy.safe_upstream_summary
+
+TTS_GRADIO_TIMEOUT_SECONDS = int(os.getenv("DIGITAL_HUMAN_TTS_GRADIO_TIMEOUT_SECONDS", "2400") or 2400)
 
 
 def _digital_human_service():
@@ -70,7 +79,7 @@ def digital_human_output_url(path):
 
 
 def sanitize_output_filename(name, fallback, ext):
-    return _digital_human_service().sanitize_output_filename(name, fallback, ext)
+    return safe_output_filename(name, fallback, ext)
 
 
 def local_requests_session():
@@ -117,6 +126,200 @@ async def check_tts_health(config, timeout=4):
         return tts_status_payload(config, connected=True)
     except Exception as exc:
         return tts_status_payload(config, connected=False, error=str(exc))
+
+def tts_port_open(config, timeout=1.0):
+    try:
+        tts = (config or {}).get("tts") or {}
+        port = int(tts_port_from_base_url(tts.get("base_url")) or 0)
+        if port <= 0:
+            return False
+        with socket.create_connection(("127.0.0.1", port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+def tts_listen_owner_pids(config):
+    if os.name != "nt":
+        return []
+    try:
+        tts = (config or {}).get("tts") or {}
+        port = int(tts_port_from_base_url(tts.get("base_url")) or 0)
+        if port <= 0:
+            return []
+        result = subprocess.run(
+            ["netstat", "-ano", "-p", "tcp"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="ignore",
+            timeout=6,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except Exception:
+        return []
+    pids = []
+    marker = f":{port}"
+    for line in (result.stdout or "").splitlines():
+        parts = line.split()
+        if len(parts) < 5 or parts[0].upper() != "TCP":
+            continue
+        local_address = parts[1]
+        state = parts[3].upper()
+        pid_text = parts[4]
+        if state != "LISTENING" or not local_address.endswith(marker):
+            continue
+        try:
+            pid = int(pid_text)
+        except Exception:
+            continue
+        if pid > 0 and pid != os.getpid():
+            pids.append(pid)
+    return sorted(set(pids))
+
+def stop_windows_process_tree(pid):
+    if os.name != "nt" or not pid or pid == os.getpid():
+        return False
+    try:
+        subprocess.run(
+            ["taskkill", "/PID", str(int(pid)), "/T", "/F"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="ignore",
+            timeout=12,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        return True
+    except Exception:
+        return False
+
+def _norm_path_text(value):
+    return str(value or "").replace("/", "\\").lower()
+
+def _tts_root_text(config):
+    tts = (config or {}).get("tts") or {}
+    return _norm_path_text(os.path.abspath(tts.get("root_dir") or os.path.join(BASE_DIR, "index-tts-2")))
+
+def gpu_release_settle_seconds():
+    try:
+        value = int(os.getenv("DIGITAL_HUMAN_GPU_RELEASE_SETTLE_SECONDS", "5"))
+    except Exception:
+        value = 5
+    return max(0, min(30, value))
+
+def project_tts_processes(config):
+    if psutil is None:
+        return []
+    root_text = _tts_root_text(config)
+    current_pid = os.getpid()
+    items = []
+    for process in psutil.process_iter(["pid", "name", "exe", "cmdline", "ppid"]):
+        try:
+            pid = int(process.info.get("pid") or 0)
+            if not pid or pid == current_pid:
+                continue
+            cmdline = " ".join(process.info.get("cmdline") or [])
+            text = _norm_path_text(f"{process.info.get('exe') or ''} {cmdline}")
+            if root_text and root_text in text and (
+                "app.py" in text
+                or "multiprocessing.spawn" in text
+                or "\\py312\\python" in text
+            ):
+                items.append(process)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
+        except Exception:
+            continue
+    return items
+
+def stop_tts_service_processes(config, reason=""):
+    global TTS_PROCESS, TTS_LAST_ERROR
+    stopped = []
+    processes = []
+    if TTS_PROCESS and TTS_PROCESS.poll() is None:
+        try:
+            processes.append(psutil.Process(TTS_PROCESS.pid) if psutil is not None else None)
+        except Exception:
+            pass
+    processes.extend(project_tts_processes(config))
+    unique = []
+    seen = set()
+    for process in processes:
+        if process is None:
+            continue
+        try:
+            pid = int(process.pid)
+        except Exception:
+            continue
+        if pid in seen:
+            continue
+        seen.add(pid)
+        unique.append(process)
+    for process in unique:
+        try:
+            children = process.children(recursive=True)
+        except Exception:
+            children = []
+        for target in reversed(children + [process]):
+            try:
+                stopped.append(int(target.pid))
+                target.terminate()
+            except Exception:
+                pass
+    if psutil is not None:
+        try:
+            psutil.wait_procs(unique, timeout=8)
+        except Exception:
+            pass
+    for process in unique:
+        try:
+            if process.is_running():
+                process.kill()
+        except Exception:
+            pass
+    for pid in tts_listen_owner_pids(config):
+        if pid in seen:
+            continue
+        stopped.append(pid)
+        stop_windows_process_tree(pid)
+    TTS_PROCESS = None
+    TTS_LAST_ERROR = ""
+    legacy.TTS_PROCESS = None
+    legacy.TTS_LAST_ERROR = ""
+    if stopped:
+        digital_human_log(f"TTS stopped for GPU handoff reason={reason or '-'} pids={','.join(str(pid) for pid in sorted(set(stopped)))}")
+    return sorted(set(stopped))
+
+async def stop_tts_for_gpu_handoff(config, task_id="", timeout=45):
+    start = time.monotonic()
+    stopped = await asyncio.to_thread(stop_tts_service_processes, config, f"digital-human:{task_id or '-'}")
+    deadline = time.monotonic() + max(1, timeout)
+    settle_seconds = gpu_release_settle_seconds()
+    while time.monotonic() < deadline:
+        if not project_tts_processes(config) and not tts_port_open(config, timeout=0.25):
+            if settle_seconds:
+                await asyncio.sleep(settle_seconds)
+            return {
+                "ok": True,
+                "stopped_pids": stopped,
+                "waited": round(time.monotonic() - start, 1),
+                "gpu_settle_seconds": settle_seconds,
+            }
+        await asyncio.sleep(1)
+    remaining = []
+    for process in project_tts_processes(config):
+        try:
+            remaining.append(int(process.pid))
+        except Exception:
+            pass
+    remaining.extend(tts_listen_owner_pids(config))
+    return {
+        "ok": False,
+        "stopped_pids": stopped,
+        "remaining_pids": sorted(set(remaining)),
+        "waited": round(time.monotonic() - start, 1),
+        "port_open": tts_port_open(config, timeout=0.25),
+    }
 
 def start_tts_service_process(config):
     global TTS_PROCESS, TTS_LAST_ERROR
@@ -191,9 +394,10 @@ async def ensure_tts_service(config, wait_seconds=45, auto_start=True):
         return status
 
     started = False
+    port_was_open = tts_port_open(config)
     with TTS_SERVICE_LOCK:
         process_running = bool(TTS_PROCESS and TTS_PROCESS.poll() is None)
-        if not process_running:
+        if not process_running and not port_was_open:
             try:
                 start_tts_service_process(config)
                 started = True
@@ -210,6 +414,13 @@ async def ensure_tts_service(config, wait_seconds=45, auto_start=True):
         if last_status.get("connected"):
             last_status["started"] = started
             return last_status
+    if port_was_open and not started:
+        return tts_status_payload(
+            config,
+            connected=False,
+            error=last_status.get("last_error") or "TTS port is open but health check did not become ready; skipped duplicate auto-start.",
+            started=False,
+        )
     return tts_status_payload(config, connected=False, error=last_status.get("last_error") or "TTS service did not become ready in time", started=started)
 
 def get_gradio_client(config):
@@ -225,10 +436,14 @@ def get_gradio_client(config):
             from gradio_client import Client
         except Exception as exc:
             raise RuntimeError("gradio_client is not installed. Please install project requirements.") from exc
+    timeout_seconds = max(60, int(tts.get("gradio_timeout_seconds") or TTS_GRADIO_TIMEOUT_SECONDS))
     return Client(
         normalize_tts_base_url((config.get("tts") or {}).get("base_url")),
         verbose=False,
-        httpx_kwargs={"trust_env": False},
+        httpx_kwargs={
+            "trust_env": False,
+            "timeout": httpx.Timeout(timeout_seconds, connect=10.0),
+        },
     )
 
 def tts_handle_file(path):
@@ -452,6 +667,14 @@ def extract_tts_audio_candidate(value):
             return text
     return ""
 
+def tts_output_write_failure(exc, output_path):
+    return {
+        "message": f"TTS 音频已生成，但保存到本地输出目录失败：{exc}",
+        "failure_type": "tts_output_write_failed",
+        "output_name": os.path.basename(output_path or ""),
+        "retryable": False,
+    }
+
 def save_tts_audio_candidate(candidate, output_path, config):
     if not candidate:
         return False
@@ -464,16 +687,64 @@ def save_tts_audio_candidate(candidate, output_path, config):
         if os.path.isfile(maybe):
             local = maybe
     if local:
-        shutil.copyfile(local, output_path)
+        try:
+            shutil.copyfile(local, output_path)
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=tts_output_write_failure(exc, output_path)) from exc
         return True
     if str(candidate).startswith(("http://", "https://")):
         with local_requests_session() as session:
             response = session.get(str(candidate), timeout=120)
             response.raise_for_status()
-        with open(output_path, "wb") as f:
-            f.write(response.content)
+        try:
+            with open(output_path, "wb") as f:
+                f.write(response.content)
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=tts_output_write_failure(exc, output_path)) from exc
         return True
     return False
+
+def tts_generation_timeout_seconds(text, config):
+    tts = config.get("tts") or {}
+    configured = tts.get("generation_timeout_seconds") or os.getenv("DIGITAL_HUMAN_TTS_GENERATION_TIMEOUT_SECONDS")
+    try:
+        base_timeout = int(configured) if configured else TTS_GRADIO_TIMEOUT_SECONDS
+    except Exception:
+        base_timeout = TTS_GRADIO_TIMEOUT_SECONDS
+    # IndexTTS can be much slower than real time for long Chinese scripts. Keep
+    # short prompts bounded, but give long copy enough room to finish.
+    text_len = len(str(text or "").strip())
+    dynamic_timeout = 900 + max(0, text_len - 180) * 3
+    return max(900, min(3600, max(base_timeout, dynamic_timeout)))
+
+def find_recent_tts_output_candidate(text, config, started_at):
+    root_dir = (config.get("tts") or {}).get("root_dir") or os.path.join(BASE_DIR, "index-tts-2")
+    output_dir = os.path.join(root_dir, "outputs")
+    if not os.path.isdir(output_dir):
+        return ""
+    earliest = float(started_at or 0) - 3
+    text_key = re.sub(r"\s+", "", str(text or "").strip())[:8].lower()
+    best = None
+    for name in os.listdir(output_dir):
+        path = os.path.join(output_dir, name)
+        if not os.path.isfile(path):
+            continue
+        lower = name.lower()
+        if not lower.endswith((".wav", ".mp3", ".m4a", ".ogg")):
+            continue
+        try:
+            modified = os.path.getmtime(path)
+        except OSError:
+            continue
+        if modified < earliest:
+            continue
+        if text_key:
+            name_key = re.sub(r"\s+", "", os.path.splitext(name)[0]).lower()
+            if text_key not in name_key:
+                continue
+        if not best or modified > best[0]:
+            best = (modified, path)
+    return best[1] if best else ""
 
 def save_tts_voice_sync(file_path, voice_name, config):
     client = get_gradio_client(config)
@@ -559,37 +830,49 @@ def generate_digital_human_tts_sync(text, voice_path, voice_name, config, output
         if not selected_voice or set(selected_voice) == {"?"}:
             selected_voice = "\u4f7f\u7528\u53c2\u8003\u97f3\u9891"
         client = get_gradio_client(config)
-        submit_raw = client.predict(
-            voices_dropdown=selected_voice,
-            speed=options["speed"],
-            prompt=tts_handle_file(reference_audio),
-            text=text,
-            emo_control_method=options["emo_control_method"],
-            emo_ref_path=tts_handle_file(emo_ref_path),
-            emo_weight=options["emo_weight"],
-            emo_text=options["emo_text"],
-            emo_random=options["emo_random"],
-            max_tokens=options["max_tokens"],
-            vec1=options["vec1"],
-            vec2=options["vec2"],
-            vec3=options["vec3"],
-            vec4=options["vec4"],
-            vec5=options["vec5"],
-            vec6=options["vec6"],
-            vec7=options["vec7"],
-            vec8=options["vec8"],
-            do_sample=options["do_sample"],
-            top_p=options["top_p"],
-            top_k=options["top_k"],
-            temperature=options["temperature"],
-            length_penalty=options["length_penalty"],
-            num_beams=options["num_beams"],
-            repetition_penalty=options["repetition_penalty"],
-            max_mel=options["max_mel"],
-            api_name="/submit_and_refresh",
-        )
+        submit_kwargs = {
+            "voices_dropdown": selected_voice,
+            "speed": options["speed"],
+            "prompt": tts_handle_file(reference_audio),
+            "text": text,
+            "emo_control_method": options["emo_control_method"],
+            "emo_ref_path": tts_handle_file(emo_ref_path),
+            "emo_weight": options["emo_weight"],
+            "emo_text": options["emo_text"],
+            "emo_random": options["emo_random"],
+            "max_tokens": options["max_tokens"],
+            "vec1": options["vec1"],
+            "vec2": options["vec2"],
+            "vec3": options["vec3"],
+            "vec4": options["vec4"],
+            "vec5": options["vec5"],
+            "vec6": options["vec6"],
+            "vec7": options["vec7"],
+            "vec8": options["vec8"],
+            "do_sample": options["do_sample"],
+            "top_p": options["top_p"],
+            "top_k": options["top_k"],
+            "temperature": options["temperature"],
+            "length_penalty": options["length_penalty"],
+            "num_beams": options["num_beams"],
+            "repetition_penalty": options["repetition_penalty"],
+            "max_mel": options["max_mel"],
+            "api_name": "/submit_and_refresh",
+        }
+        submit_started_at = time.time()
+        try:
+            submit_raw = client.predict(**submit_kwargs)
+        except Exception as exc:
+            if selected_voice != "\u4f7f\u7528\u53c2\u8003\u97f3\u9891" and "not in the list of choices" in str(exc):
+                selected_voice = "\u4f7f\u7528\u53c2\u8003\u97f3\u9891"
+                submit_kwargs["voices_dropdown"] = selected_voice
+                submit_raw = client.predict(**submit_kwargs)
+            else:
+                raise
         job_id = extract_tts_job_id(submit_raw)
-        deadline = time.monotonic() + 900
+        wait_seconds = tts_generation_timeout_seconds(text, config)
+        digital_human_log(f"TTS submitted job={job_id or '-'} wait_limit={wait_seconds}s text_len={len(text or '')}")
+        deadline = time.monotonic() + wait_seconds
         last_raw = submit_raw
         while time.monotonic() < deadline:
             time.sleep(2)
@@ -603,9 +886,13 @@ def generate_digital_human_tts_sync(text, voice_path, voice_name, config, output
             if isinstance(refresh_raw, (list, tuple)) and len(refresh_raw) >= 3:
                 candidate = extract_tts_audio_candidate([refresh_raw[1], refresh_raw[2]])
             candidate = candidate or extract_tts_audio_candidate(refresh_raw)
+            candidate = candidate or find_recent_tts_output_candidate(text, config, submit_started_at)
             if candidate and save_tts_audio_candidate(candidate, output_path, config):
                 return {"job_id": job_id, "submit": safe_upstream_summary(submit_raw), "refresh": safe_upstream_summary(refresh_raw)}
-        raise HTTPException(status_code=504, detail=f"TTS task timed out: {safe_upstream_summary(last_raw)}")
+        candidate = find_recent_tts_output_candidate(text, config, submit_started_at)
+        if candidate and save_tts_audio_candidate(candidate, output_path, config):
+            return {"job_id": job_id, "submit": safe_upstream_summary(submit_raw), "refresh": safe_upstream_summary(last_raw), "recovered_from_outputs": True}
+        raise HTTPException(status_code=504, detail=f"TTS task timed out after {wait_seconds}s: {safe_upstream_summary(last_raw)}")
 
 def list_tts_voices_sync(config):
     client = get_gradio_client(config)
@@ -631,7 +918,7 @@ async def run_subprocess_capture(cmd, cwd=None, timeout=900):
     return await asyncio.to_thread(_run)
 
 async def generate_digital_human_tts(text, voice_path, config, voice_name="", tts_options=None):
-    output_name = sanitize_output_filename(text[:24], "digital_tts", ".wav")
+    output_name = sanitize_output_filename("digital_tts", "digital_tts", ".wav")
     output_path = os.path.join(DIGITAL_HUMAN_AUDIO_DIR, output_name)
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     digital_human_log(f"TTS preparing text_len={len(text or '')} voice={voice_name or 'reference'} output={os.path.basename(output_path)}")

@@ -143,6 +143,7 @@ public sealed class ConsoleLogsPayload
 public sealed class SupervisorActionResult
 {
     public bool Ok { get; set; }
+    public bool TimedOut { get; set; }
     public string RawOutput { get; set; } = "";
     public int Started { get; set; }
     public int Reused { get; set; }
@@ -189,6 +190,9 @@ public sealed class ProjectBackendPids
 
     [JsonPropertyName("processes")]
     public List<ProjectBackendProcess> Processes { get; set; } = new();
+
+    [JsonPropertyName("conflicts")]
+    public List<ProjectBackendConflict> Conflicts { get; set; } = new();
 }
 
 public sealed class ProjectBackendProcess
@@ -201,6 +205,24 @@ public sealed class ProjectBackendProcess
 
     [JsonPropertyName("label")]
     public string Label { get; set; } = "";
+
+    [JsonPropertyName("command")]
+    public string Command { get; set; } = "";
+}
+
+public sealed class ProjectBackendConflict
+{
+    [JsonPropertyName("pid")]
+    public int Pid { get; set; }
+
+    [JsonPropertyName("key")]
+    public string Key { get; set; } = "";
+
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = "";
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = "";
 }
 
 public sealed class LauncherConfigRoot

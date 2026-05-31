@@ -184,6 +184,40 @@
             border: 1px solid #f1f5f9;
             box-shadow: 0 2px 15px rgba(0,0,0,0.02);
         }
+        .result-shell { display:flex; flex-direction:column; gap:14px; }
+        .result-toolbar { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; }
+        .result-toolbar-copy { min-width:0; display:grid; gap:6px; }
+        .result-kicker { font-size:10px; font-weight:900; letter-spacing:.18em; text-transform:uppercase; color:#94a3b8; }
+        .result-status { font-size:13px; font-weight:800; color:var(--accent); }
+        .result-hint { font-size:12px; line-height:1.6; color:var(--muted); }
+        .result-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+        .result-action {
+            height:36px; padding:0 14px; border-radius:999px; border:1px solid var(--line); background:var(--card);
+            color:var(--accent); font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
+            display:inline-flex; align-items:center; justify-content:center; gap:7px; transition:all .2s var(--easing);
+        }
+        .result-action:hover { background:#111827; border-color:#111827; color:#fff; }
+        .result-action.primary { background:#111827; border-color:#111827; color:#fff; }
+        .result-action.primary:hover { background:#000; border-color:#000; }
+        .record-card-actions {
+            position:absolute; top:12px; right:12px; display:flex; gap:6px; opacity:0; transform:translateY(-4px);
+            transition:all .2s var(--easing); z-index:14;
+        }
+        .masonry-item:hover .record-card-actions,
+        .masonry-item:focus-within .record-card-actions { opacity:1; transform:translateY(0); }
+        .record-action-btn {
+            width:34px; height:34px; border-radius:999px; border:1px solid rgba(255,255,255,.28); background:rgba(15,23,42,.72);
+            color:#fff; display:inline-flex; align-items:center; justify-content:center; backdrop-filter:blur(10px);
+            transition:all .2s var(--easing);
+        }
+        .record-action-btn:hover { background:#fff; color:#111827; border-color:#fff; }
+        .record-card-meta {
+            position:absolute; left:0; right:0; bottom:0; display:grid; gap:4px; padding:18px;
+            background:linear-gradient(to top, rgba(15,23,42,.86), rgba(15,23,42,.05)); color:#fff;
+        }
+        .record-card-title { font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; line-height:1.4; }
+        .record-card-sub { font-size:10px; color:rgba(255,255,255,.72); font-weight:700; }
+        .hidden-action { display:none !important; }
 
         .masonry-grid {
             display: grid;
@@ -451,7 +485,30 @@
                 </button>
             </div>
 
-            <div class="lg:col-span-7">
+            <div class="lg:col-span-7 space-y-6">
+                <div class="result-shell">
+                    <div class="result-toolbar">
+                        <div class="result-toolbar-copy">
+                            <span class="result-kicker" data-i18n="legacy.currentResult">Current Result</span>
+                            <span id="resultStatusText" class="result-status" data-i18n="legacy.ready">Ready</span>
+                            <span id="resultHintText" class="result-hint" data-i18n="legacy.resultHint">When generation finishes, download it, reveal the file, or reuse the prompt here.</span>
+                        </div>
+                        <div class="result-actions">
+                            <button id="reusePromptBtn" type="button" class="result-action">
+                                <i data-lucide="copy" class="w-4 h-4"></i><span data-i18n="legacy.reusePrompt">Reuse Prompt</span>
+                            </button>
+                            <button id="locateResultBtn" type="button" class="result-action hidden-action">
+                                <i data-lucide="folder-search-2" class="w-4 h-4"></i><span data-i18n="legacy.locateFile">Reveal File</span>
+                            </button>
+                            <button id="openOutputDirBtn" type="button" class="result-action">
+                                <i data-lucide="folder-open" class="w-4 h-4"></i><span data-i18n="legacy.openOutputDir">Output Folder</span>
+                            </button>
+                            <a id="downloadBtn" href="#" download class="result-action primary hidden-action">
+                                <i data-lucide="download" class="w-4 h-4"></i><span data-i18n="canvas.download">Download</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
                 <div id="resultBox"
                     class="result-frame min-h-[500px] lg:h-full flex items-center justify-center relative overflow-hidden group">
                     <div id="placeholder" class="text-center space-y-4 opacity-20">
@@ -465,23 +522,19 @@
                     <img id="outputImg"
                         class="hidden w-full h-full object-contain p-8 cursor-zoom-in transition-all duration-700"
                         onclick="zoomImage()">
-                    <a id="downloadBtn" href="#" download
-                        class="hidden absolute top-8 right-8 w-12 h-12 bg-white/90 backdrop-blur-md shadow-2xl rounded-2xl flex items-center justify-center hover:bg-black hover:text-white active:scale-95 transition-all">
-                        <i data-lucide="download" class="w-4 h-4"></i>
-                    </a>
                 </div>
             </div>
         </main>
 
         <section class="mt-32">
             <div class="flex items-center gap-6 mb-12">
-                <h2 class="text-[11px] font-black uppercase tracking-[0.5em]" data-i18n="studio.archives">Archives</h2>
+                <h2 class="text-[11px] font-black uppercase tracking-[0.5em]" data-i18n="legacy.history">Generated History</h2>
                 <div class="h-px flex-1 bg-gray-100"></div>
             </div>
             <div id="masonry" class="masonry-grid"></div>
             <div id="loadMoreTrigger"
                 class="py-20 text-center text-gray-300 text-[10px] font-bold uppercase tracking-widest cursor-pointer hover:text-black transition-colors">
-                <span data-i18n="studio.loadMore">Load More Archive</span>
+                <span data-i18n="legacy.historyEmpty">No generated history yet.</span>
             </div>
         </section>
     </div>
@@ -508,10 +561,6 @@
                     <div id="lightboxRes" data-no-pan
                         class="absolute top-6 left-6 bg-black/30 backdrop-blur-md border border-white/20 text-white px-3 py-1.5 rounded-full text-[10px] font-medium tracking-wider opacity-0 transition-opacity duration-300 pointer-events-none z-30">
                     </div>
-                    <button onclick="downloadLightboxImage()" data-no-pan
-                        class="absolute top-6 right-6 bg-black text-white w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl z-30 hover:scale-105 transition-transform pointer-events-auto">
-                        <i data-lucide="download" class="w-5 h-5"></i>
-                    </button>
                 </div>
             </div>
             <div class="w-full bg-white border border-gray-100 rounded-[2rem] p-8 shadow-sm flex justify-between items-center gap-8">
@@ -519,10 +568,19 @@
                     <span class="text-[9px] font-black text-gray-300 uppercase tracking-widest block mb-2" data-i18n="studio.promptExecution">Prompt Execution</span>
                     <p id="lightboxPrompt" class="text-gray-700 text-sm leading-relaxed"></p>
                 </div>
-                <button id="sameStyleBtn" onclick="applySameStyle()"
-                    class="hidden whitespace-nowrap bg-black text-white px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all active:scale-95 flex items-center gap-2">
-                    <i data-lucide="copy" class="w-4 h-4"></i><span data-i18n="studio.replicate">Replicate</span>
-                </button>
+                <div class="flex flex-wrap items-center justify-end gap-3">
+                    <button id="sameStyleBtn" onclick="applySameStyle()"
+                        class="hidden whitespace-nowrap bg-black text-white px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all active:scale-95 flex items-center gap-2">
+                        <i data-lucide="copy" class="w-4 h-4"></i><span data-i18n="studio.replicate">Replicate</span>
+                    </button>
+                    <button onclick="downloadLightboxImage()" data-no-pan
+                        class="result-action primary">
+                        <i data-lucide="download" class="w-4 h-4"></i><span data-i18n="canvas.download">Download</span>
+                    </button>
+                    <button id="lightboxLocateBtn" type="button" class="result-action">
+                        <i data-lucide="folder-search-2" class="w-4 h-4"></i><span data-i18n="legacy.locateFile">Reveal File</span>
+                    </button>
+                </div>
             </div>
             <button onclick="closeLightbox()"
                 class="absolute -top-12 -right-12 p-4 text-gray-400 hover:text-black transition-colors">
@@ -727,28 +785,27 @@
         if (document.body) {
             kleinDarkObserver.observe(document.body, {childList: true, subtree: true, attributes: true, attributeFilter: ['class']});
         }
-        function applyLanguage(lang){
-            if(lang && window.StudioI18n) StudioI18n.set(lang);
-            document.title = tr('nav.imageEdit');
-            const loader = document.getElementById('loadMoreTrigger');
-            if(loader && !isLoading) loader.innerText = tr('studio.loadMore');
+        function toast(message, kind=''){ window.StudioDialog?.toast?.(message, kind); }
+        function canLocateUrl(url){ return typeof url === 'string' && (url.startsWith('/assets/') || url.startsWith('/output/')); }
+        function historyTs(data){ return String(data?.timestamp || ''); }
+        function recordTimeText(ts){
+            const value = Number(ts || 0);
+            if(!value) return '';
+            return new Date(value).toLocaleString(window.StudioI18n?.lang?.() === 'en' ? 'en-US' : 'zh-CN', {hour12:false});
         }
-        window.addEventListener('message', event => {
-            if(event.data?.type === 'studio-lang') applyLanguage(event.data.lang);
-        });
-        window.addEventListener('studio-lang-change', () => { document.title = tr('nav.imageEdit'); });
+        function summarizePrompt(text){
+            const clean = String(text || '').replace(/\s+/g, ' ').trim();
+            if(!clean) return '';
+            return clean.length > 36 ? `${clean.slice(0, 36)}...` : clean;
+        }
+        function resultHint(key, fallback=''){
+            if(fallback) return fallback;
+            if(key === 'legacy.completed') return tr('legacy.resultHint');
+            return tr(key);
+        }
 
-        function generateUUID() {
-            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-                try { return crypto.randomUUID(); } catch (e) { }
-            }
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-        }
         const CLIENT_ID_KEY = "client_id";
-        let CLIENT_ID = localStorage.getItem(CLIENT_ID_KEY) || generateUUID();
+        let CLIENT_ID = localStorage.getItem(CLIENT_ID_KEY) || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
         localStorage.setItem(CLIENT_ID_KEY, CLIENT_ID);
 
         let uploadedNames = { 1: "", 2: "", 3: "" };
@@ -761,8 +818,105 @@
         let isLoading = false;
         let engine = 'local';
         let loraEnabled = false;
+        let currentResultStatusKey = 'legacy.ready';
+        let currentResultHintOverride = '';
 
-        // 引擎切换
+        const promptInput = document.getElementById('promptInput');
+        const outputImg = document.getElementById('outputImg');
+        const placeholder = document.getElementById('placeholder');
+        const loader = document.getElementById('loader');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const resultStatusText = document.getElementById('resultStatusText');
+        const resultHintText = document.getElementById('resultHintText');
+        const reusePromptBtn = document.getElementById('reusePromptBtn');
+        const locateResultBtn = document.getElementById('locateResultBtn');
+        const openOutputDirBtn = document.getElementById('openOutputDirBtn');
+        const lightboxLocateBtn = document.getElementById('lightboxLocateBtn');
+        const loadMoreTrigger = document.getElementById('loadMoreTrigger');
+
+        function setResultState(statusKey, hint=''){
+            currentResultStatusKey = statusKey;
+            currentResultHintOverride = hint || '';
+            resultStatusText.textContent = tr(statusKey);
+            resultHintText.textContent = resultHint(statusKey, hint);
+        }
+
+        function applyResultActions(data){
+            const url = data?.images?.[0] || '';
+            const canLocate = canLocateUrl(url);
+            downloadBtn.classList.toggle('hidden-action', !url);
+            downloadBtn.href = url || '#';
+            downloadBtn.download = url ? `Klein-${Date.now()}.png` : '';
+            locateResultBtn.classList.toggle('hidden-action', !canLocate);
+            lightboxLocateBtn.classList.toggle('hidden-action', !canLocate);
+        }
+
+        function showEmptyResult(){
+            currentResult = null;
+            placeholder.classList.remove('hidden');
+            loader.classList.add('hidden');
+            outputImg.classList.add('hidden');
+            applyResultActions(null);
+        }
+
+        function showImageResult(data){
+            currentResult = data;
+            outputImg.src = data.images[0];
+            outputImg.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+            loader.classList.add('hidden');
+            applyResultActions(data);
+            setResultState('legacy.completed');
+        }
+
+        async function revealOutput(url){
+            if(!canLocateUrl(url)){
+                toast(tr('legacy.locateFileFailed'), 'warn');
+                return;
+            }
+            try {
+                const res = await fetch('/api/output/open', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({url})
+                });
+                if(!res.ok){
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.detail || tr('legacy.locateFileFailed'));
+                }
+            } catch (err) {
+                toast(err.message || tr('legacy.locateFileFailed'), 'err');
+            }
+        }
+
+        async function openOutputDir(){
+            try {
+                const res = await fetch('/api/output/open-dir', {method:'POST'});
+                if(!res.ok){
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.detail || tr('legacy.openOutputDirFailed'));
+                }
+            } catch (err) {
+                toast(err.message || tr('legacy.openOutputDirFailed'), 'err');
+            }
+        }
+
+        function applyLanguage(lang){
+            if(lang && window.StudioI18n) window.StudioI18n.set(lang);
+            document.title = tr('nav.imageEdit');
+            if(!document.getElementById('genBtn')?.disabled){
+                document.getElementById('btnText').textContent = tr('studio.executeSynthesis');
+            }
+            if(!allHistory.length){
+                loadMoreTrigger.innerHTML = `<span data-i18n="legacy.historyEmpty">${tr('legacy.historyEmpty')}</span>`;
+            }
+            setResultState(currentResultStatusKey, currentResultHintOverride);
+        }
+        window.addEventListener('message', event => {
+            if(event.data?.type === 'studio-lang') applyLanguage(event.data.lang);
+        });
+        window.addEventListener('studio-lang-change', () => { document.title = tr('nav.imageEdit'); refreshHistoryFooter(); });
+
         function setEngine(mode) {
             engine = mode;
             document.getElementById('localBtn').classList.toggle('active', mode === 'local');
@@ -794,7 +948,6 @@
             bar.classList.toggle('visible', visible);
         }
 
-        // 拖拽上传
         let hoveredSlot = null;
         [1, 2, 3].forEach(id => {
             const zone = document.getElementById(`drop-zone-${id}`);
@@ -828,15 +981,17 @@
                 document.getElementById(`del${index}`).classList.remove('hidden');
             };
             reader.readAsDataURL(file);
-
-            // Also upload to ComfyUI for local mode
             const formData = new FormData();
             formData.append('files', file);
             try {
                 const res = await fetch('/api/upload', { method: 'POST', body: formData });
                 const data = await res.json();
                 uploadedNames[index] = data.files[0].comfy_name;
-            } catch (e) { uploadedNames[index] = file.name; }
+                setResultState('legacy.ready');
+            } catch (e) {
+                uploadedNames[index] = file.name;
+                toast(tr('studio.uploadFailed'), 'err');
+            }
         }
 
         function clearSlot(index, ev) {
@@ -849,30 +1004,26 @@
         }
 
         async function submitWorkflow() {
-            if (engine === 'cloud') {
-                await submitCloud();
-            } else {
-                await submitLocal();
-            }
+            if (engine === 'cloud') await submitCloud();
+            else await submitLocal();
         }
 
         async function submitLocal() {
-            if (!uploadedNames[1]) { StudioDialog.alert("Please upload Main Image (Slot 1)"); return; }
+            if (!uploadedNames[1]) {
+                StudioDialog.alert(tr('legacy.needMainImage'));
+                setResultState('legacy.failed', tr('legacy.needMainImage'));
+                return;
+            }
             const btn = document.getElementById('genBtn');
-            const loader = document.getElementById('loader');
-            const placeholder = document.getElementById('placeholder');
-            const outputImg = document.getElementById('outputImg');
-            const downloadBtn = document.getElementById('downloadBtn');
-
             btn.disabled = true;
             btn.style.backgroundColor = '#333';
-            btn.innerHTML = `<i data-lucide="zap" class="w-4 h-4 text-yellow-400 fill-yellow-400 animate-pulse"></i><span class="tracking-[0.3em] text-[11px] uppercase">Synthesizing...</span>`;
+            btn.innerHTML = `<i data-lucide="zap" class="w-4 h-4 text-yellow-400 fill-yellow-400 animate-pulse"></i><span class="tracking-[0.3em] text-[11px] uppercase">${tr('legacy.localGenerating')}</span>`;
             lucide.createIcons();
             placeholder.classList.add('hidden');
             loader.classList.remove('hidden');
-
+            setResultState('legacy.localGenerating');
             const payload = {
-                prompt: document.getElementById('promptInput').value,
+                prompt: promptInput.value,
                 workflow_json: "Flux2-Klein.json",
                 type: "klein",
                 params: {
@@ -885,7 +1036,6 @@
                     "314": { "value": uploadedNames[3] !== "" }
                 }
             };
-
             try {
                 const response = await fetch('/api/generate', {
                     method: 'POST',
@@ -893,20 +1043,15 @@
                     body: JSON.stringify({ ...payload, client_id: CLIENT_ID })
                 });
                 const result = await response.json();
-                if (result.images?.[0]) {
-                    currentResult = result;
-                    outputImg.src = result.images[0];
-                    outputImg.classList.remove('hidden');
-                    downloadBtn.classList.remove('hidden');
-                    downloadBtn.href = result.images[0];
-                    renderImageCard(result, true);
-                } else if (result.error) {
-                    StudioDialog.alert("Generation failed: " + result.error);
-                    placeholder.classList.remove('hidden');
-                }
+                if (result.error) throw new Error(result.error);
+                if (!result.images?.[0]) throw new Error(tr('legacy.noImageReturned'));
+                const record = { ...result, prompt: payload.prompt, timestamp: Date.now() / 1000, type: 'klein', params: payload.params, is_cloud:false };
+                showImageResult(record);
+                renderImageCard(record, true);
             } catch (err) {
-                StudioDialog.alert("Generation failed: " + err.message);
-                placeholder.classList.remove('hidden');
+                showEmptyResult();
+                setResultState('legacy.failed', err.message || tr('legacy.failed'));
+                StudioDialog.alert(err.message || tr('legacy.failed'));
             } finally {
                 loader.classList.add('hidden');
                 btn.disabled = false;
@@ -918,28 +1063,30 @@
 
         async function submitCloud() {
             const prompt = document.getElementById('promptInput').value.trim();
-            if (!prompt) { StudioDialog.alert("Please enter a prompt"); return; }
-            if (!base64Images[1]) { StudioDialog.alert("Please upload Main Image (Slot 1) for cloud generation"); return; }
+            if (!prompt) {
+                StudioDialog.alert(tr('legacy.needPrompt'));
+                setResultState('legacy.failed', tr('legacy.needPrompt'));
+                return;
+            }
+            if (!base64Images[1]) {
+                StudioDialog.alert(tr('legacy.needMainImageCloud'));
+                setResultState('legacy.failed', tr('legacy.needMainImageCloud'));
+                return;
+            }
 
             const btn = document.getElementById('genBtn');
-            const loader = document.getElementById('loader');
-            const placeholder = document.getElementById('placeholder');
-            const outputImg = document.getElementById('outputImg');
-            const downloadBtn = document.getElementById('downloadBtn');
-
             btn.disabled = true;
             btn.style.backgroundColor = '#333';
-            btn.innerHTML = `<i data-lucide="cloud" class="w-4 h-4 text-blue-400 animate-pulse"></i><span class="tracking-[0.3em] text-[11px] uppercase">${tr('studio.cloudProcessing')}</span>`;
+            btn.innerHTML = `<i data-lucide="cloud" class="w-4 h-4 text-blue-400 animate-pulse"></i><span class="tracking-[0.3em] text-[11px] uppercase">${tr('legacy.submitting')}</span>`;
             lucide.createIcons();
             placeholder.classList.add('hidden');
             loader.classList.remove('hidden');
-            setCloudStatus(tr('studio.submittingModelscope'));
+            setCloudStatus(tr('legacy.cloudQueued'));
+            setResultState('legacy.submitting');
 
-            // Collect image URLs (base64 data URIs)
             const imageUrls = [base64Images[1], base64Images[2], base64Images[3]].filter(Boolean);
-
             try {
-                setCloudStatus('Processing with FLUX.2-Klein...');
+                setCloudStatus(tr('legacy.cloudGenerating'));
                 const msPayload = {
                     prompt,
                     model: 'black-forest-labs/FLUX.2-klein-9B',
@@ -955,33 +1102,28 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(msPayload)
                 });
-
                 if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.detail || 'Cloud generation failed');
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err.detail || tr('legacy.failed'));
                 }
-
                 const result = await response.json();
-                if (result.url) {
-                    const resultData = {
-                        prompt,
-                        images: [result.url],
-                        timestamp: Date.now() / 1000,
-                        type: 'klein',
-                        model: 'black-forest-labs/FLUX.2-klein-9B'
-                    };
-                    currentResult = resultData;
-                    outputImg.src = result.url;
-                    outputImg.classList.remove('hidden');
-                    downloadBtn.classList.remove('hidden');
-                    downloadBtn.href = result.url;
-                    renderImageCard(resultData, true);
-                    setCloudStatus('Done!', false);
-                }
+                if (!result.url) throw new Error(tr('legacy.noImageReturned'));
+                const resultData = {
+                    prompt,
+                    images: [result.url],
+                    timestamp: Date.now() / 1000,
+                    type: 'klein',
+                    model: 'black-forest-labs/FLUX.2-klein-9B',
+                    is_cloud: true
+                };
+                showImageResult(resultData);
+                renderImageCard(resultData, true);
+                setCloudStatus(tr('legacy.completed'), false);
             } catch (err) {
-                setCloudStatus(err.message, false);
-                StudioDialog.alert("Cloud generation failed: " + err.message);
-                placeholder.classList.remove('hidden');
+                setCloudStatus(err.message || tr('legacy.failed'), false);
+                showEmptyResult();
+                setResultState('legacy.failed', err.message || tr('legacy.failed'));
+                StudioDialog.alert(err.message || tr('legacy.failed'));
             } finally {
                 loader.classList.add('hidden');
                 btn.disabled = false;
@@ -1038,7 +1180,8 @@
 
             let data = (typeof dataOrUrl === 'string') ? { images: [dataOrUrl] } : dataOrUrl;
             currentLightboxData = data;
-            promptEl.textContent = data.prompt || "No prompt metadata found";
+            promptEl.textContent = data.prompt || tr('legacy.historyEmpty');
+            lightboxLocateBtn.classList.toggle('hidden-action', !canLocateUrl(data.images?.[0] || ''));
             resPill.style.opacity = '0';
 
             const updateRes = (target) => {
@@ -1084,21 +1227,45 @@
 
         function renderImageCard(data, isNew = false) {
             const masonry = document.getElementById('masonry');
-            if (document.getElementById(`history-${data.timestamp}`)) return;
+            if (document.getElementById(`history-${historyTs(data)}`)) return;
             const card = document.createElement('div');
-            card.id = `history-${data.timestamp}`;
-            card.dataset.historyTs = data.timestamp;
+            card.id = `history-${historyTs(data)}`;
+            card.dataset.historyTs = historyTs(data);
             card.className = 'masonry-item group relative cursor-zoom-in';
             card.onclick = () => { if(document.body.classList.contains('history-bulk-selecting')) return; openLightbox(data); };
             card.innerHTML = `
                 <img src="${data.images[0]}" class="w-full h-full object-cover block transform group-hover:scale-105 transition-transform duration-1000" loading="lazy">
-                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all p-6 flex flex-col justify-end">
-                    <p class="text-white text-[10px] font-medium line-clamp-2 uppercase tracking-wider">${data.prompt || "Klein Archive"}</p>
-                    ${data.model ? `<p class="text-white/50 text-[9px] mt-1">${data.model.split('/').pop()}</p>` : ''}
+                <div class="record-card-actions">
+                    <button class="record-action-btn" type="button" data-action="preview"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                    <button class="record-action-btn" type="button" data-action="download"><i data-lucide="download" class="w-4 h-4"></i></button>
+                    <button class="record-action-btn ${canLocateUrl(data.images[0]) ? '' : 'hidden-action'}" type="button" data-action="locate"><i data-lucide="folder-search-2" class="w-4 h-4"></i></button>
+                    <button class="record-action-btn" type="button" data-action="delete"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                </div>
+                <div class="record-card-meta">
+                    <div class="record-card-title">${summarizePrompt(data.prompt) || 'Klein Archive'}</div>
+                    <div class="record-card-sub">${[data.model ? data.model.split('/').pop() : '', recordTimeText(data.timestamp)].filter(Boolean).join(' · ')}</div>
                 </div>
             `;
+            card.querySelector('[data-action="preview"]')?.addEventListener('click', (e) => { e.stopPropagation(); openLightbox(data); });
+            card.querySelector('[data-action="download"]')?.addEventListener('click', (e) => { e.stopPropagation(); downloadUrl(data.images[0], `Klein-${Date.now()}.png`); });
+            card.querySelector('[data-action="locate"]')?.addEventListener('click', (e) => { e.stopPropagation(); revealOutput(data.images[0]); });
+            card.querySelector('[data-action="delete"]')?.addEventListener('click', (e) => deleteHistoryItem(data.timestamp, e));
             isNew ? masonry.prepend(card) : masonry.appendChild(card);
             lucide.createIcons();
+        }
+
+        function refreshHistoryFooter(){
+            if (!allHistory.length) {
+                loadMoreTrigger.innerHTML = `<span data-i18n="legacy.historyEmpty">${tr('legacy.historyEmpty')}</span>`;
+                loadMoreTrigger.classList.remove('hidden');
+                return;
+            }
+            if (currentIndex >= allHistory.length) {
+                loadMoreTrigger.classList.add('hidden');
+                return;
+            }
+            loadMoreTrigger.classList.remove('hidden');
+            loadMoreTrigger.innerHTML = `<span data-i18n="legacy.loadMore">${tr('legacy.loadMore')}</span>`;
         }
 
         async function applySameStyle() {
@@ -1126,27 +1293,22 @@
             try {
                 isLoading = true;
                 if (page === 0) {
-                    loader.innerText = tr('studio.loadingArchives');
+                    loader.innerText = tr('legacy.loadMore');
                     const res = await fetch('/api/history?type=klein');
                     allHistory = await res.json();
                     document.getElementById('masonry').innerHTML = '';
                     currentIndex = 0;
                 } else {
-                    loader.innerText = "Loading...";
+                    loader.innerText = tr('common.loading');
                     await new Promise(r => setTimeout(r, 400));
                 }
                 const nextData = allHistory.slice(currentIndex, currentIndex + PAGE_SIZE);
                 nextData.forEach(item => renderImageCard(item));
                 currentIndex += nextData.length;
-                if (currentIndex >= allHistory.length) {
-                    loader.classList.add('hidden');
-                } else {
-                    loader.classList.remove('hidden');
-                    loader.innerText = "Load More Archive";
-                }
+                refreshHistoryFooter();
             } catch (e) {
                 console.error(e);
-                loader.textContent = "Error loading history";
+                loader.textContent = tr('legacy.historyLoadFailed');
             } finally {
                 isLoading = false;
             }
@@ -1157,34 +1319,53 @@
         function downloadLightboxImage() {
             const url = currentLightboxData?.images[0];
             if (!url) return;
+            downloadUrl(url, `Klein-${Date.now()}.png`);
+        }
+
+        function downloadUrl(url, filename) {
             const link = document.createElement('a');
             link.href = url;
-            link.download = `Klein-${Date.now()}.png`;
+            link.download = filename;
             link.click();
         }
 
         async function deleteHistoryItem(ts, ev) {
             ev.stopPropagation();
-            if (!await StudioDialog.confirm("Delete this archive?", {title:'Delete archive', danger:true, confirmText:'Delete'})) return;
+            if (!await StudioDialog.confirm(tr('legacy.recordDeleteConfirm'), {title:tr('legacy.recordDeleteTitle'), danger:true, confirmText:tr('common.delete')})) return;
             try {
                 const res = await fetch('/api/history/delete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ timestamp: ts })
                 });
-                if ((await res.json()).success) {
-                    document.getElementById(`history-${ts}`).remove();
-                }
-            } catch (e) { StudioDialog.alert("Delete failed"); }
+                const data = await res.json().catch(() => ({}));
+                if (!data.success) throw new Error(tr('legacy.recordDeleteFailed'));
+                document.getElementById(`history-${ts}`)?.remove();
+                allHistory = allHistory.filter(item => String(item.timestamp) !== String(ts));
+                refreshHistoryFooter();
+            } catch (e) { StudioDialog.alert(e.message || tr('legacy.recordDeleteFailed')); }
         }
 
         const observer = new IntersectionObserver((entries) => {
             if (entries[0].isIntersecting && !isLoading && currentIndex < allHistory.length) loadHistory(1);
         }, { threshold: 0.1 });
 
+        reusePromptBtn.addEventListener('click', () => {
+            const text = currentResult?.prompt || promptInput.value || '';
+            if (!text) return;
+            promptInput.value = text;
+            navigator.clipboard?.writeText(text).catch(() => {});
+            toast(tr('legacy.copyPromptDone'), 'ok');
+        });
+        locateResultBtn.addEventListener('click', () => revealOutput(currentResult?.images?.[0] || ''));
+        lightboxLocateBtn.addEventListener('click', () => revealOutput(currentLightboxData?.images?.[0] || ''));
+        openOutputDirBtn.addEventListener('click', openOutputDir);
+
         window.onload = () => {
             ensureKleinDarkOverrides();
             applyLanguage();
+            setResultState('legacy.ready');
+            showEmptyResult();
             loadHistory(0).then(() => {
                 window.HistoryBulkManager?.attach({masonry:'#masonry'});
                 const trigger = document.getElementById('loadMoreTrigger');
