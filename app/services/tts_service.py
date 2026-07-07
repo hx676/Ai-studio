@@ -24,7 +24,8 @@ def __getattr__(name):
     return getattr(legacy, name)
 
 
-TTS_VOICE_EXTENSIONS = {".wav", ".mp3", ".m4a", ".ogg"}
+TTS_VOICE_EXTENSION_ORDER = (".wav", ".mp3", ".m4a", ".ogg")
+TTS_VOICE_EXTENSIONS = set(TTS_VOICE_EXTENSION_ORDER)
 TTS_EMO_METHODS = {
     "与音色参考音频相同",
     "使用情感参考音频",
@@ -552,6 +553,49 @@ def save_tts_voice_preview_audio(config, source_path, voice_name):
     shutil.copyfile(source_path, target)
     return target
 
+def list_local_tts_voice_items(config):
+    library = tts_voice_library_dir(config)
+    if not os.path.isdir(library):
+        return []
+    priority = {ext: index for index, ext in enumerate(TTS_VOICE_EXTENSION_ORDER)}
+    voices = {}
+    try:
+        names = sorted(os.listdir(library), key=lambda value: value.casefold())
+    except OSError:
+        return []
+    for filename in names:
+        path = os.path.abspath(os.path.join(library, filename))
+        if not os.path.isfile(path):
+            continue
+        stem, ext = os.path.splitext(filename)
+        ext = ext.lower()
+        if ext not in TTS_VOICE_EXTENSIONS:
+            continue
+        voice_name = stem.strip()
+        if not voice_name:
+            continue
+        try:
+            if os.path.commonpath([library, path]) != library:
+                continue
+        except ValueError:
+            continue
+        item = {
+            "name": voice_name,
+            "value": voice_name,
+            "path": path,
+            "preview_url": digital_human_media_url(path),
+            "deletable": True,
+        }
+        key = voice_name.casefold()
+        current = voices.get(key)
+        if not current:
+            voices[key] = item
+            continue
+        current_ext = os.path.splitext(current.get("path") or "")[1].lower()
+        if priority.get(ext, 99) < priority.get(current_ext, 99):
+            voices[key] = item
+    return list(voices.values())
+
 def enrich_tts_voice_item(config, item):
     name = str((item or {}).get("name") or (item or {}).get("value") or "").strip()
     value = str((item or {}).get("value") or name).strip()
@@ -568,6 +612,26 @@ def enrich_tts_voice_item(config, item):
 def is_audio_backed_tts_voice(item):
     path = str((item or {}).get("path") or "").strip()
     return bool(path and os.path.isfile(path))
+
+def merge_tts_voice_items(*groups):
+    merged = []
+    index_by_key = {}
+    for group in groups:
+        for item in group or []:
+            name = str((item or {}).get("name") or (item or {}).get("value") or "").strip()
+            value = str((item or {}).get("value") or name).strip()
+            if not value:
+                continue
+            key = value.casefold()
+            if key not in index_by_key:
+                index_by_key[key] = len(merged)
+                merged.append(dict(item, name=name or value, value=value))
+                continue
+            existing = merged[index_by_key[key]]
+            for field in ("name", "path", "preview_url", "deletable"):
+                if not existing.get(field) and (item or {}).get(field):
+                    existing[field] = item.get(field)
+    return [item for item in merged if is_audio_backed_tts_voice(item)]
 
 def normalize_tts_voice_list(raw, config=None):
     names = []
@@ -901,16 +965,17 @@ def list_tts_voices_sync(config):
 
 async def list_tts_voices(config=None, auto_start=True):
     config = normalize_digital_human_config(config)
+    local_voices = list_local_tts_voice_items(config)
     status = await ensure_tts_service(config, wait_seconds=30 if auto_start else 2, auto_start=auto_start)
     if not status.get("connected"):
-        return [], status
+        return local_voices, status
     try:
         voices = await asyncio.to_thread(list_tts_voices_sync, config)
-        return voices, status
+        return merge_tts_voice_items(local_voices, voices), status
     except Exception as exc:
         status["connected"] = False
         status["last_error"] = str(exc)
-        return [], status
+        return local_voices, status
 
 async def run_subprocess_capture(cmd, cwd=None, timeout=900):
     def _run():
