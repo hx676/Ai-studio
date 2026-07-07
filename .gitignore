@@ -40,6 +40,8 @@ Thumbs.db
 .vscode/
 .idea/
 .claude/
+.playwright-mcp/
+.ruff_cache/
 .sisyphus/
 _archive/
 
