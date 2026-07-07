@@ -10,6 +10,34 @@
             return langIsEn() ? `${label} failed${detail ? `: ${detail}` : ''}` : `${label}失败${detail ? `：${detail}` : ''}`;
         }
         function noReturnedImage(labelKey){ return langIsEn() ? `${tr(labelKey)} failed: no image returned` : `${tr(labelKey)}失败：未返回图片`; }
+
+        // Event handler management to avoid memory leaks from window.onmousemove overwriting
+        let _currentMouseMoveHandler = null;
+        let _currentMouseUpHandler = null;
+        function setMouseMoveHandler(handler) {
+            if(_currentMouseMoveHandler) {
+                window.removeEventListener('mousemove', _currentMouseMoveHandler);
+            }
+            _currentMouseMoveHandler = handler;
+            window.addEventListener('mousemove', handler, {passive: false});
+        }
+        function setMouseUpHandler(handler) {
+            if(_currentMouseUpHandler) {
+                window.removeEventListener('mouseup', _currentMouseUpHandler);
+            }
+            _currentMouseUpHandler = handler;
+            window.addEventListener('mouseup', handler);
+        }
+        function clearMouseHandlers() {
+            if(_currentMouseMoveHandler) {
+                window.removeEventListener('mousemove', _currentMouseMoveHandler);
+                _currentMouseMoveHandler = null;
+            }
+            if(_currentMouseUpHandler) {
+                window.removeEventListener('mouseup', _currentMouseUpHandler);
+                _currentMouseUpHandler = null;
+            }
+        }
         function applyLanguage(lang){
             if(lang && window.StudioI18n) StudioI18n.set(lang);
             document.title = tr('canvas.title');
@@ -143,6 +171,31 @@
         let localImageModels = [];
         let localChatModels = [];
         const HIDDEN_CANVAS_NODE_TYPES = new Set(['comfy', 'msgen']);
+
+        // Image cache to avoid repeated loading of the same URL
+        const imageCache = new Map();
+        const IMAGE_CACHE_MAX = 100;
+        function getCachedImage(url) {
+            if (!url) return null;
+            if (imageCache.has(url)) {
+                return imageCache.get(url);
+            }
+            const img = new Image();
+            img.src = url;
+            // Evict oldest entries if cache is full
+            if (imageCache.size >= IMAGE_CACHE_MAX) {
+                const firstKey = imageCache.keys().next().value;
+                imageCache.delete(firstKey);
+            }
+            imageCache.set(url, img);
+            return img;
+        }
+        function preloadImage(url) {
+            if (!url) return;
+            if (!imageCache.has(url)) {
+                getCachedImage(url);
+            }
+        }
         const MS_GEN_MODELS = {
             zimage:    { label: 'ZImage',     modelId: 'Tongyi-MAI/Z-Image-Turbo',            supportsImage: false, endpoint: '/generate'            },
             qwen_edit: { label: 'Qwen Edit',  modelId: 'Qwen/Qwen-Image-Edit-2511',            supportsImage: true,  endpoint: '/api/angle/generate'  },
@@ -297,6 +350,27 @@
         }
         function defaultApiProviders(){
             return [{id:'comfly', name:'Comfly', base_url:'', enabled:true, image_models:imageModels, chat_models:chatModels, video_models:videoModels.length ? videoModels : DEFAULT_VIDEO_MODELS, has_key:false, key_preview:''}];
+        }
+        function normalizeApiProviderList(providers){
+            if(!Array.isArray(providers)) return [];
+            return providers
+                .filter(provider => provider && typeof provider === 'object' && provider.id)
+                .map(provider => ({
+                    ...provider,
+                    id:String(provider.id || '').trim(),
+                    name:String(provider.name || provider.id || '').trim(),
+                    image_models:uniqueModels(provider.image_models || []),
+                    chat_models:uniqueModels(provider.chat_models || []),
+                    video_models:uniqueModels(provider.video_models || []),
+                    ms_loras:Array.isArray(provider.ms_loras) ? provider.ms_loras : []
+                }))
+                .filter(provider => provider.id);
+        }
+        async function loadApiProvidersFallback(){
+            const res = await fetch('/api/providers', {cache:'no-store'});
+            if(!res.ok) throw new Error(`/api/providers ${res.status}`);
+            const data = await res.json();
+            return normalizeApiProviderList(data.providers || []);
         }
         function normalizeProviderId(value){
             return String(value || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-').slice(0, 40);
@@ -947,14 +1021,22 @@
         async function loadConfig(){
             loadLocalModelLists();
             try {
-                const res = await fetch('/api/config', {cache:'no-store'});
-                if(!res.ok) throw new Error(`/api/config ${res.status}`);
-                const cfg = await res.json();
+                let cfg = {};
+                try {
+                    const res = await fetch('/api/config', {cache:'no-store'});
+                    if(!res.ok) throw new Error(`/api/config ${res.status}`);
+                    cfg = await res.json();
+                } catch(configError) {
+                    cfg = {api_providers: await loadApiProvidersFallback()};
+                    console.warn('API config unavailable, loaded providers directly', configError);
+                }
+                const cfgProviders = normalizeApiProviderList(cfg.api_providers || []);
+                if(!cfgProviders.length) cfgProviders.push(...await loadApiProvidersFallback());
                 imageModels = cfg.image_models?.length ? cfg.image_models : imageModels;
                 chatModels = cfg.chat_models?.length ? cfg.chat_models : chatModels;
                 videoModels = cfg.video_models?.length ? cfg.video_models : DEFAULT_VIDEO_MODELS;
                 msChatModels = cfg.ms_chat_models?.length ? cfg.ms_chat_models : msChatModels;
-                apiProviders = Array.isArray(cfg.api_providers) && cfg.api_providers.length ? cfg.api_providers : defaultApiProviders();
+                apiProviders = cfgProviders.length ? cfgProviders : defaultApiProviders();
                 models.nano = imageModels.find(m => m.toLowerCase().includes('nano')) || 'nano-banana-pro';
                 models.gpt = imageModels.find(m => !m.toLowerCase().includes('nano')) || cfg.image_model || 'gpt-image-2';
                 configLoadErrorShown = false;
@@ -3545,7 +3627,10 @@
             const outputScrolls = captureOutputScrolls();
             applyViewport();
             nodesEl.innerHTML = '';
-            nodes.filter(node => !HIDDEN_CANVAS_NODE_TYPES.has(node?.type)).forEach(node => nodesEl.appendChild(renderNode(node)));
+            // Use DocumentFragment to batch DOM insertions
+            const fragment = document.createDocumentFragment();
+            nodes.filter(node => !HIDDEN_CANVAS_NODE_TYPES.has(node?.type)).forEach(node => fragment.appendChild(renderNode(node)));
+            nodesEl.appendChild(fragment);
             restoreOutputScrolls(outputScrolls);
             refreshGeometry();
             refreshGeometryAfterLayout();
@@ -4633,8 +4718,8 @@
                 inputStart:Math.max(70, node.llmInputHeight || 110),
                 outputStart:Math.max(70, node.llmOutputHeight || 150)
             };
-            window.onmousemove = onLLMPaneResize;
-            window.onmouseup = endDrag;
+            setMouseMoveHandler(onLLMPaneResize);
+            setMouseUpHandler(endDrag);
         }
         function onLLMPaneResize(e){
             if(!llmPaneDrag) return;
@@ -6961,8 +7046,8 @@
             document.body.classList.add('canvas-selecting');
             selectionBox.style.display = 'block';
             updateSelectionBox(e.clientX, e.clientY);
-            window.onmousemove = e2 => updateSelectionBox(e2.clientX, e2.clientY);
-            window.onmouseup = finishSelection;
+            setMouseMoveHandler(e2 => updateSelectionBox(e2.clientX, e2.clientY));
+            setMouseUpHandler(finishSelection);
         }
         function updateSelectionBox(x, y){
             if(!selectDrag) return;
@@ -6986,8 +7071,7 @@
             });
             selectDrag = null;
             document.body.classList.remove('canvas-selecting');
-            window.onmousemove = null;
-            window.onmouseup = null;
+            clearMouseHandlers();
             render();
         }
         function renderSelectionHub(){
@@ -6999,14 +7083,13 @@
             e.stopPropagation();
             const p = screenToWorld(e.clientX, e.clientY);
             tempLink = {from:`selection:${kind}`, x1:p.x, y1:p.y, x2:p.x, y2:p.y};
-            window.onmousemove = e2 => { const next = screenToWorld(e2.clientX, e2.clientY); tempLink.x2 = next.x; tempLink.y2 = next.y; renderLinks(); };
-            window.onmouseup = e2 => {
+            setMouseMoveHandler(e2 => { const next = screenToWorld(e2.clientX, e2.clientY); tempLink.x2 = next.x; tempLink.y2 = next.y; renderLinks(); });
+            setMouseUpHandler(e2 => {
                 const targetPort = nearestPort(e2.clientX, e2.clientY, 'in');
                 const target = targetPort?.closest('.generator-node');
                 if(target) connectSelectionToGenerator(kind, target.dataset.id);
                 tempLink = null;
-                window.onmousemove = null;
-                window.onmouseup = null;
+                clearMouseHandlers();
                 render();
                 scheduleSave();
             };
@@ -7129,8 +7212,8 @@
             const children = [...collected.values()];
             dragNode = {node: dragTarget, children, sx:e.clientX, sy:e.clientY, ox:dragTarget.x, oy:dragTarget.y};
             document.body.classList.add('canvas-node-drag');
-            window.onmousemove = onNodeDrag;
-            window.onmouseup = endDrag;
+            setMouseMoveHandler(onNodeDrag);
+            setMouseUpHandler(endDrag);
         }
         function onNodeDrag(e){
             if(!dragNode) return;
@@ -7169,8 +7252,8 @@
                 sh:(rect?.height ? rect.height / viewport.scale : node.h || defaultNodeSize(node.type).h || 160)
             };
             document.body.classList.add('canvas-node-resize');
-            window.onmousemove = onNodeResize;
-            window.onmouseup = endDrag;
+            setMouseMoveHandler(onNodeResize);
+            setMouseUpHandler(endDrag);
         }
         function onNodeResize(e){
             if(!resizeNode) return;
@@ -7195,13 +7278,13 @@
             const src = portPoint(originId, originKind);
             const source = nodes.find(n => n.id === originId);
             tempLink = {from:originId, originKind, x1:src.x, y1:src.y, x2:src.x, y2:src.y};
-            window.onmousemove = e2 => {
+            setMouseMoveHandler(e2 => {
                 const p = screenToWorld(e2.clientX, e2.clientY);
                 tempLink.x2 = p.x;
                 tempLink.y2 = p.y;
                 renderLinks();
-            };
-            window.onmouseup = e2 => {
+            });
+            setMouseUpHandler(e2 => {
                 const targetKind = originKind === 'out' ? 'in' : 'out';
                 const targetPort = nearestPort(e2.clientX, e2.clientY, targetKind);
                 const target = targetPort?.closest('.node');
@@ -7232,8 +7315,7 @@
                     openLinkCreateMenu(originId, originKind, e2.clientX, e2.clientY);
                 }
                 tempLink = null;
-                window.onmousemove = null;
-                window.onmouseup = null;
+                clearMouseHandlers();
                 renderLinks();
             };
         }
@@ -7328,8 +7410,7 @@
             if(!event?.shiftKey) setKnifeMode(false);
             if(textSelectionGuard) textSelectionGuard.active = false;
             document.body.classList.remove('canvas-node-drag', 'canvas-node-resize', 'canvas-selecting', 'canvas-board-pan');
-            window.onmousemove = null;
-            window.onmouseup = null;
+            clearMouseHandlers();
             if(shouldRenderKnife) render();
             scheduleMinimapRender();
             scheduleSave();
@@ -7622,8 +7703,8 @@
             knifePoint = screenToWorld(e.clientX, e.clientY);
             knifeTrail = [knifePoint];
             renderLinks();
-            window.onmousemove = continueKnifeDrag;
-            window.onmouseup = endDrag;
+            setMouseMoveHandler(continueKnifeDrag);
+            setMouseUpHandler(endDrag);
             return true;
         }
         function continueKnifeDrag(e){
@@ -7649,15 +7730,14 @@
             e.stopPropagation();
             minimapDrag = true;
             centerViewportOnWorldPoint(minimapEventToWorld(e));
-            window.onmousemove = e2 => {
+            setMouseMoveHandler(e2 => {
                 if(minimapDrag) centerViewportOnWorldPoint(minimapEventToWorld(e2));
-            };
-            window.onmouseup = () => {
+            });
+            setMouseUpHandler(() => {
                 minimapDrag = false;
-                window.onmousemove = null;
-                window.onmouseup = null;
+                clearMouseHandlers();
                 scheduleSave();
-            };
+            });
         });
         function startBoardPan(e){
             if(!canvas) return false;
@@ -7668,12 +7748,12 @@
             if(document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
             dragBoard = {sx:e.clientX, sy:e.clientY, ox:viewport.x, oy:viewport.y};
             document.body.classList.add('canvas-board-pan');
-            window.onmousemove = e2 => {
+            setMouseMoveHandler(e2 => {
                 viewport.x = dragBoard.ox + e2.clientX - dragBoard.sx;
                 viewport.y = dragBoard.oy + e2.clientY - dragBoard.sy;
                 applyViewport();
-            };
-            window.onmouseup = endDrag;
+            });
+            setMouseUpHandler(endDrag);
             return true;
         }
 
@@ -7891,8 +7971,7 @@
                 selectionBox.style.display = 'none';
                 selectDrag = null;
                 document.body.classList.remove('canvas-selecting');
-                window.onmousemove = null;
-                window.onmouseup = null;
+                clearMouseHandlers();
             }
         });
         function deleteSelectedNodes(){

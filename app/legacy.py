@@ -443,7 +443,7 @@ def check_images_exist(backend_addr, images):
             r = requests.get(url, stream=True, timeout=0.5)
             r.close()
             if r.status_code != 200: return False
-        except: return False
+        except (requests.RequestException, requests.ConnectionError, requests.Timeout): return False
     return True
 
 def get_best_backend(required_images: List[str] = None):
@@ -3807,7 +3807,7 @@ async def generate_angle_cloud(req: CloudGenRequest):
             if submit_res.status_code != 200:
                 try:
                     detail = submit_res.json()
-                except:
+                except ValueError:
                     detail = submit_res.text
                 raise HTTPException(status_code=submit_res.status_code, detail=detail)
 
@@ -3905,7 +3905,7 @@ async def generate_cloud(req: CloudGenRequest):
             if submit_res.status_code != 200:
                 try:
                     detail = submit_res.json()
-                except:
+                except ValueError:
                     detail = submit_res.text
                 raise HTTPException(status_code=submit_res.status_code, detail=detail)
 
@@ -4004,7 +4004,7 @@ async def ms_generate(req: MsGenerateRequest):
             if submit_res.status_code != 200:
                 try:
                     detail = submit_res.json()
-                except:
+                except ValueError:
                     detail = submit_res.text
                 raise HTTPException(status_code=submit_res.status_code, detail=detail)
 
@@ -4103,7 +4103,7 @@ def generate(req: GenerateRequest):
                 resp.close()
                 if resp.status_code != 200:
                     need_sync = True
-            except:
+            except requests.RequestException:
                 need_sync = True
 
             if need_sync:
@@ -4118,7 +4118,7 @@ def generate(req: GenerateRequest):
                             image_content = r.content
                             image_type = r.headers.get("Content-Type", "image/png")
                             break
-                    except: continue
+                    except requests.RequestException: continue
 
                 if image_content:
                     try:

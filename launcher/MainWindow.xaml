@@ -1099,8 +1099,11 @@
                         <RowDefinition Height="Auto"/>
                       </Grid.RowDefinitions>
                       
-                      <TextBlock Grid.Row="0" Text="主应用地址" VerticalAlignment="Center" Margin="0,0,12,12" FontSize="13"/>
-                      <TextBox Grid.Row="0" Grid.Column="1" x:Name="MainBaseUrlBox" Margin="0,0,0,12"/>
+                      <TextBlock Grid.Row="0" Text="主应用首选地址" VerticalAlignment="Center" Margin="0,0,12,12" FontSize="13"/>
+                      <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,12">
+                        <TextBox x:Name="MainBaseUrlBox"/>
+                        <TextBlock Text="默认首选 3000；冲突时自动切换到 3001-3099，不覆盖这里的配置。" Foreground="#94A3B8" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                      </StackPanel>
                       
                       <TextBlock Grid.Row="1" Text="主应用 Python" VerticalAlignment="Center" Margin="0,0,12,12" FontSize="13"/>
                       <TextBox Grid.Row="1" Grid.Column="1" x:Name="MainPythonBox" Margin="0,0,0,12"/>

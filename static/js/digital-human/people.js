@@ -149,6 +149,13 @@ function currentPerson() {
             return '<span class="status">无预览</span>';
         }
 
+        function personCoverAspectStyleAttr(person) {
+            const videos = person?.videos || []; /* 获取当前角色关联的所有动作视频 */ /* 注释 */
+            const video = videos.find(v => v.id === person.current_video_id) || videos[0] || null; /* 查找选中或默认的视频素材 */ /* 注释 */
+            if (video) return videoAspectStyleAttr(video); /* 转换并返回带纵横比属性的样式代码 */ /* 注释 */
+            return ''; /* 无视频时返回空样式 */ /* 注释 */
+        }
+
         function renderPeopleLibrary() {
             const el = $('people-library');
             $('people-summary').textContent = `共 ${state.people.length} 个人物`;
@@ -197,7 +204,7 @@ function currentPerson() {
             const detail = selectedPerson ? `
                 <div class="person-detail">
                     <div class="person-detail-hero">
-                        <div class="person-detail-cover">${personCoverVideo(selectedPerson)}</div>
+                        <div class="person-detail-cover" ${personCoverAspectStyleAttr(selectedPerson)}>${personCoverVideo(selectedPerson)}</div> <!-- 注入视频自适应纵横比属性 --> <!-- 注释 -->
                         <div class="person-detail-main">
                             <div class="person-detail-title">
                                 <div>
@@ -470,20 +477,20 @@ function currentPerson() {
                         <div class="asset-name">${escapeHtml(video.name || '驱动视频')}</div>
                         <div class="asset-note">${active ? '当前生成视频' : '可切换使用'}</div>
                     </div>
-                    <div class="asset-video-actions">
-                        <button class="btn small" type="button" data-video-action="use">
-                            <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                            使用
-                        </button>
-                        <button class="btn small" type="button" data-video-action="rename">
-                            <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"></path></svg>
-                            改名
-                        </button>
-                        <button class="btn small" type="button" data-video-action="remove">
-                            <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                            移除
-                        </button>
-                    </div>
+                    <div class="asset-video-actions"> <!-- 视频卡片操作区域 --> <!-- HTML注释 -->
+                        <button class="btn small" type="button" data-video-action="use" title="使用此视频作为当前动作驱动"> <!-- 使用该驱动视频按钮 --> <!-- HTML注释 -->
+                            <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> <!-- 勾选图标 --> <!-- HTML注释 -->
+                            使用 <!-- 按钮文字 --> <!-- HTML注释 -->
+                        </button> <!-- 按钮结束 --> <!-- HTML注释 -->
+                        <button class="btn small" type="button" data-video-action="rename" title="修改此驱动视频的名字"> <!-- 重命名按钮 --> <!-- HTML注释 -->
+                            <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"></path></svg> <!-- 铅笔图标 --> <!-- HTML注释 -->
+                            改名 <!-- 按钮文字 --> <!-- HTML注释 -->
+                        </button> <!-- 按钮结束 --> <!-- HTML注释 -->
+                        <button class="btn small" type="button" data-video-action="remove" title="从该角色库中移除此动作视频"> <!-- 移除或删除按钮 --> <!-- HTML注释 -->
+                            <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg> <!-- 垃圾箱图标 --> <!-- HTML注释 -->
+                            移除 <!-- 按钮文字 --> <!-- HTML注释 -->
+                        </button> <!-- 按钮结束 --> <!-- HTML注释 -->
+                    </div> <!-- 操作区结束 --> <!-- HTML注释 -->
                 </div>`;
         }
 

@@ -46,6 +46,9 @@ RUNTIME_FILE = DATA_DIR / "service_supervisor.json"
 LAUNCHER_CONFIG_FILE = DATA_DIR / "launcher_config.json"
 DIGITAL_HUMAN_CONFIG_FILE = DATA_DIR / "digital_human_config.json"
 MAIN_URL = "http://127.0.0.1:3000/"
+MAIN_PORT_START = 3000
+MAIN_PORT_MAX = 3099
+MAIN_PORT_ENV = "SYNCANVAS_MAIN_PORT"
 LAUNCHER_PORT = 2999
 MIN_FREE_BYTES = 10 * 1024 * 1024 * 1024
 CUDA_PROBE_CACHE: Dict[str, Dict] = {}
@@ -126,6 +129,46 @@ def url_port(value: str, fallback: int) -> int:
     except Exception:
         pass
     return fallback
+
+
+def local_url_for_port(port: int, template: str = MAIN_URL) -> str:
+    try:
+        parsed = urllib.parse.urlparse(normalize_local_url(template, MAIN_URL))
+        scheme = parsed.scheme or "http"
+        host = parsed.hostname or "127.0.0.1"
+        if host in {"0.0.0.0", "::", "localhost", "::1", "0:0:0:0:0:0:0:1"}:
+            host = "127.0.0.1"
+        netloc = f"{host}:{int(port)}"
+        return urllib.parse.urlunparse(parsed._replace(scheme=scheme, netloc=netloc, path="/", params="", query="", fragment=""))
+    except Exception:
+        return f"http://127.0.0.1:{int(port)}/"
+
+
+def base_url_from_check(check: HealthCheck) -> str:
+    parsed = urllib.parse.urlparse(check.url)
+    if not parsed.scheme or not parsed.netloc:
+        return MAIN_URL
+    return urllib.parse.urlunparse(parsed._replace(path="/", params="", query="", fragment=""))
+
+
+def port_is_free(host: str, port: int) -> bool:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind((host, int(port)))
+        return True
+    except OSError:
+        return False
+
+
+def find_free_port(start: int = MAIN_PORT_START, max: int = MAIN_PORT_MAX) -> int:
+    start_port = int(start)
+    max_port = int(max)
+    if start_port > max_port:
+        raise RuntimeError(f"No free main app port in range {start_port}-{max_port}")
+    for port in range(start_port, max_port + 1):
+        if port_is_free("127.0.0.1", port):
+            return port
+    raise RuntimeError(f"No free main app port in range {start_port}-{max_port}")
 
 
 def load_json_file(path: Path) -> Dict:
@@ -238,6 +281,70 @@ def now_text() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def main_health_url(base_url: str) -> str:
+    return urllib.parse.urljoin(normalize_local_url(base_url, MAIN_URL), "api/app-info")
+
+
+def main_runtime_payload(runtime: Dict) -> Dict:
+    payload = (runtime.get("services") or {}).get("main") or {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def runtime_main_base_url(runtime: Dict, validate_external: bool = True) -> Optional[str]:
+    payload = main_runtime_payload(runtime)
+    actual_url = payload.get("actual_base_url")
+    if not actual_url:
+        return None
+    actual_url = normalize_local_url(str(actual_url), MAIN_URL)
+    try:
+        pid = int(payload.get("pid") or 0)
+    except (TypeError, ValueError):
+        pid = 0
+    if pid and is_pid_running(pid):
+        return actual_url
+    if validate_external:
+        ok, _ = http_health(main_health_url(actual_url), timeout=0.5)
+        if ok:
+            return actual_url
+        return None
+    return actual_url
+
+
+def preferred_main_base_url() -> str:
+    cfg = load_launcher_config()
+    return normalize_local_url(cfg["main"].get("base_url"), MAIN_URL)
+
+
+def main_effective_base_url(runtime: Optional[Dict] = None, validate_external: bool = True) -> str:
+    runtime = runtime or load_runtime()
+    actual_url = runtime_main_base_url(runtime, validate_external=validate_external)
+    return actual_url or preferred_main_base_url()
+
+
+def set_runtime_main_actual(runtime: Dict, port: int, source: str, base_url: Optional[str] = None) -> Dict:
+    actual_port = int(port)
+    actual_base_url = normalize_local_url(base_url or local_url_for_port(actual_port, preferred_main_base_url()), MAIN_URL)
+    services = runtime.setdefault("services", {})
+    payload = dict(services.get("main") or {})
+    payload.update(
+        {
+            "actual_port": actual_port,
+            "actual_base_url": actual_base_url,
+            "actual_source": source,
+            "actual_selected_at": now_text(),
+        }
+    )
+    services["main"] = payload
+    save_runtime(runtime)
+    return payload
+
+
+def main_check_for_url(base_url: str) -> HealthCheck:
+    url = normalize_local_url(base_url, MAIN_URL)
+    port = url_port(url, MAIN_PORT_START)
+    return HealthCheck("main", "Main app", main_health_url(url), "127.0.0.1", port)
+
+
 def ensure_dirs() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -294,6 +401,9 @@ def save_runtime(runtime: Dict) -> None:
 
 def clear_runtime_if_empty(runtime: Dict) -> None:
     if runtime.get("services"):
+        save_runtime(runtime)
+        return
+    if runtime.get("last_exited_services") or runtime.get("last_stop"):
         save_runtime(runtime)
         return
     try:
@@ -762,7 +872,13 @@ def main_command() -> List[str]:
 
 
 def main_env() -> Dict[str, str]:
-    return base_env()
+    cfg = load_launcher_config()
+    runtime = load_runtime()
+    base_url = main_effective_base_url(runtime, validate_external=False)
+    port = url_port(base_url, int(cfg["main"].get("port") or MAIN_PORT_START))
+    env = base_env()
+    env[MAIN_PORT_ENV] = str(port)
+    return env
 
 
 def tts_root() -> Path:
@@ -944,10 +1060,7 @@ def heygem_env() -> Dict[str, str]:
 
 
 def main_check() -> HealthCheck:
-    cfg = load_launcher_config()
-    url = normalize_url(cfg["main"]["base_url"], "http://127.0.0.1:3000/")
-    port = int(cfg["main"].get("port") or url_port(url, 3000))
-    return HealthCheck("main", "Main app", urllib.parse.urljoin(url, "api/app-info"), "127.0.0.1", port)
+    return main_check_for_url(main_effective_base_url())
 
 
 def tts_check() -> HealthCheck:
@@ -1031,7 +1144,9 @@ def start_process(spec: ServiceSpec, runtime: Dict) -> ServiceState:
         out_fh.close()
         err_fh.close()
 
-    runtime.setdefault("services", {})[spec.key] = {
+    services = runtime.setdefault("services", {})
+    previous = dict(services.get(spec.key) or {})
+    payload = {
         "pid": process.pid,
         "cwd": str(spec.cwd),
         "cmd": command,
@@ -1039,6 +1154,17 @@ def start_process(spec: ServiceSpec, runtime: Dict) -> ServiceState:
         "logs": {"stdout": str(out_path), "stderr": str(err_path)},
         "log_offsets": {"stdout": out_offset, "stderr": err_offset},
     }
+    if spec.key == "main":
+        actual_port = int(previous.get("actual_port") or spec.checks[0].port)
+        payload.update(
+            {
+                "actual_port": actual_port,
+                "actual_base_url": previous.get("actual_base_url") or base_url_from_check(spec.checks[0]),
+                "actual_source": previous.get("actual_source") or "started",
+                "actual_selected_at": previous.get("actual_selected_at") or now_text(),
+            }
+        )
+    services[spec.key] = payload
     (runtime.get("last_exited_services") or {}).pop(spec.key, None)
     save_runtime(runtime)
     return ServiceState(spec.key, spec.label, "started", pid=process.pid, process=process)
@@ -1065,6 +1191,46 @@ def check_port_conflicts(spec: ServiceSpec, check_results: Optional[Dict[str, Tu
         if tcp_port_open(check.host, check.port):
             conflicts.append(f"{check.label} port {check.port} is occupied but health check failed: {error}")
     return conflicts
+
+
+def with_main_check(spec: ServiceSpec, base_url: str) -> ServiceSpec:
+    return ServiceSpec(
+        spec.key,
+        spec.label,
+        (main_check_for_url(base_url),),
+        spec.command_builder,
+        spec.cwd,
+        spec.env_builder,
+        spec.ready_timeout,
+    )
+
+
+def prepare_main_start(spec: ServiceSpec, runtime: Dict) -> ServiceSpec:
+    if spec.key != "main":
+        return spec
+
+    active_url = runtime_main_base_url(runtime)
+    if active_url:
+        return with_main_check(spec, active_url)
+
+    preferred_url = preferred_main_base_url()
+    preferred_port = url_port(preferred_url, MAIN_PORT_START)
+    preferred_check = main_check_for_url(preferred_url)
+    ok, _ = http_health(preferred_check.url, timeout=2)
+    if ok:
+        set_runtime_main_actual(runtime, preferred_port, "external", preferred_url)
+        return with_main_check(spec, preferred_url)
+
+    if port_is_free("127.0.0.1", preferred_port):
+        set_runtime_main_actual(runtime, preferred_port, "preferred", preferred_url)
+        return with_main_check(spec, preferred_url)
+
+    scan_start = preferred_port if MAIN_PORT_START <= preferred_port <= MAIN_PORT_MAX else MAIN_PORT_START
+    actual_port = find_free_port(start=scan_start, max=MAIN_PORT_MAX)
+    actual_url = local_url_for_port(actual_port, preferred_url)
+    set_runtime_main_actual(runtime, actual_port, "auto", actual_url)
+    print(f"[PORT ] Main app preferred port {preferred_port} is occupied; using {actual_port}")
+    return with_main_check(spec, actual_url)
 
 
 def prepare_heygem_start(spec: ServiceSpec, check_results: Dict[str, Tuple[bool, str]]) -> Dict[str, Tuple[bool, str]]:
@@ -1096,6 +1262,7 @@ def prepare_heygem_start(spec: ServiceSpec, check_results: Dict[str, Tuple[bool,
 
 
 def ensure_service(spec: ServiceSpec, runtime: Dict) -> ServiceState:
+    spec = prepare_main_start(spec, runtime)
     pid = runtime_pid(runtime, spec)
     check_results = run_checks(spec.checks, timeout=2)
     if checks_ready(check_results):
@@ -1202,9 +1369,10 @@ def wait_for_services(
                 ready[spec.key] = True
                 print(f"[READY] {spec.label}")
                 if spec.key == "main" and open_browser and not browser_opened:
-                    webbrowser.open(MAIN_URL)
+                    main_url = base_url_from_check(spec.checks[0])
+                    webbrowser.open(main_url)
                     browser_opened = True
-                    print(f"[OPEN ] {MAIN_URL}")
+                    print(f"[OPEN ] {main_url}")
                 continue
 
             all_done = False
@@ -1265,10 +1433,11 @@ def stop_tracked_services() -> int:
     return exit_code
 
 
-def stop_services_by_keys(keys: Iterable[str]) -> int:
+def stop_services_by_keys(keys: Iterable[str], reason: str = "stop requested") -> int:
     key_set = set(keys)
     runtime = load_runtime()
     services = runtime.get("services") or {}
+    last_exited = runtime.setdefault("last_exited_services", {})
     exit_code = 0
     for key in list(key_set):
         payload = services.get(key) or {}
@@ -1280,20 +1449,30 @@ def stop_services_by_keys(keys: Iterable[str]) -> int:
         if not pid:
             continue
         if not is_pid_running(pid):
+            stale = dict(payload or {})
+            stale["pid"] = pid
+            stale["stopped_at"] = now_text()
+            stale["stop_reason"] = reason
+            last_exited[key] = stale
             services.pop(key, None)
             continue
         print(f"[STOP ] {key} PID {pid}")
         if kill_process_tree(pid):
+            stopped = dict(payload or {})
+            stopped["pid"] = pid
+            stopped["stopped_at"] = now_text()
+            stopped["stop_reason"] = reason
+            last_exited[key] = stopped
             services.pop(key, None)
         else:
             print(f"[ERROR] Failed to stop {key} PID {pid}")
             exit_code = 1
     if "heygem" in key_set:
-        cleanup_project_heygem_rest_only("stop requested")
+        cleanup_project_heygem_rest_only(reason)
     runtime["services"] = services
+    runtime["last_stop"] = {"keys": sorted(key_set), "reason": reason, "stopped_at": now_text(), "exit_code": exit_code}
     if not services:
         runtime.pop("last_start", None)
-        runtime.pop("last_exited_services", None)
     clear_runtime_if_empty(runtime)
     return exit_code
 
@@ -1457,6 +1636,7 @@ def log_diagnostic_for_service(spec: ServiceSpec, runtime: Dict) -> Optional[Dic
 
 def service_status_payload(spec: ServiceSpec, runtime: Dict, quick: bool = False) -> Dict:
     tracked = (runtime.get("services") or {}).get(spec.key) or {}
+    exited = (runtime.get("last_exited_services") or {}).get(spec.key) or {}
     pid = None
     try:
         pid = int(tracked.get("pid") or 0) or None
@@ -1493,10 +1673,11 @@ def service_status_payload(spec: ServiceSpec, runtime: Dict, quick: bool = False
         state = "ready"
     elif partial:
         state = "partial"
-    elif managed or port_open:
+    elif managed or (port_open and spec.key != "main"):
         state = "starting"
     else:
         state = "stopped"
+    warming = port_open and spec.key != "main"
     return {
         "key": spec.key,
         "label": spec.label,
@@ -1504,13 +1685,14 @@ def service_status_payload(spec: ServiceSpec, runtime: Dict, quick: bool = False
         "ready": ready,
         "managed": managed,
         "pid": pid if managed else None,
-        "source": "managed" if managed else ("external" if ready else ("partial" if partial else ("warming" if port_open else "none"))),
+        "source": "managed" if managed else ("external" if ready else ("partial" if partial else ("warming" if warming else "none"))),
         "checks": checks,
         "logs": tracked.get("logs")
         or {
             "stdout": str(LOG_DIR / f"{spec.key}.out.log"),
             "stderr": str(LOG_DIR / f"{spec.key}.err.log"),
         },
+        "last_exit": exited,
     }
 
 
@@ -1834,11 +2016,12 @@ def build_status(include_gpu: bool = True, quick: bool = False) -> Dict:
         "time": now_text(),
         "root": str(BASE_DIR),
         "config": cfg,
-        "main_url": cfg["main"]["base_url"],
+        "main_url": main_effective_base_url(runtime),
         "launcher_url": f"http://127.0.0.1:{cfg['launcher']['port']}/",
         "log_dir": str(LOG_DIR),
         "runtime_file": str(RUNTIME_FILE),
         "services": services,
+        "last_stop": runtime.get("last_stop") or {},
         "diagnostics": diagnostics,
         "counts": counts,
     }
@@ -2050,15 +2233,26 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-gpu", action="store_true", help="Skip slow CUDA diagnostics.")
     parser.add_argument("--quick", action="store_true", help="Skip HTTP health checks for services with no tracked PID and closed ports.")
     parser.add_argument("--no-browser", action="store_true", help="Do not open the main app in a browser.")
-    return parser.parse_args()
+    parser.add_argument("services", nargs="*", help="Optional service keys for --start-once or --stop.")
+    args = parser.parse_args()
+    valid_services = {"main", "tts", "heygem"}
+    invalid_services = [item for item in args.services if item not in valid_services]
+    if invalid_services:
+        parser.error(
+            "argument services: invalid choice: "
+            f"{invalid_services[0]!r} (choose from 'main', 'tts', 'heygem')"
+        )
+    return args
 
 
 def main() -> int:
     args = parse_args()
     if args.stop:
+        if args.services:
+            return stop_services_by_keys(args.services)
         return stop_tracked_services()
     if args.start_once:
-        result = start_services_once()
+        result = start_services_once(args.services or None)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result.get("ok") else 1
     if args.logs:

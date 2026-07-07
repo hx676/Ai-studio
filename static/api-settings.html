@@ -7,7 +7,7 @@
     <script>
         (function(){
             try {
-                var theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
+                const theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
                 if(theme === 'dark') {
                     document.documentElement.classList.add('studio-theme-dark');
                     document.documentElement.classList.add('theme-dark');
@@ -95,27 +95,6 @@
         .provider-switch.is-on .provider-switch-knob { transform:translateX(14px); background:#fff; }
         .add-btn { width:100%; height:40px; border:1px dashed var(--line-strong); border-radius:12px; color:var(--muted); display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:12px; font-weight:800; transition:all .15s ease; }
         .add-btn:hover { color:var(--text); border-color:var(--faint); background:var(--soft); }
-        .api-link-btn { width:100%; height:40px; border:1px solid var(--line); border-radius:12px; background:var(--soft); color:var(--text); display:inline-flex; align-items:center; justify-content:center; gap:6px; font-size:12px; font-weight:850; text-decoration:none; transition:all .15s ease; }
-        .api-link-btn:hover { border-color:var(--text); background:var(--text); color:var(--bg); transform:translateY(-1px); box-shadow:0 8px 18px rgba(15,23,42,.12); }
-        body.studio-theme-dark .api-link-btn,
-        html.studio-theme-dark body .api-link-btn { background:#f5f6f8; border-color:#f5f6f8; color:#0e1014; box-shadow:0 8px 18px rgba(0,0,0,.24); }
-        body.studio-theme-dark .api-link-btn:hover,
-        html.studio-theme-dark body .api-link-btn:hover { background:#ffffff; border-color:#ffffff; color:#05070b; }
-        .recommend-api-body { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; padding:18px 20px 6px; }
-        .recommend-card { min-width:0; border:1px solid var(--line); border-radius:16px; background:var(--panel); padding:16px; display:flex; flex-direction:column; gap:12px; box-shadow:0 10px 24px rgba(15,23,42,.06); }
-        .recommend-card:hover { border-color:var(--line-strong); box-shadow:0 14px 30px rgba(15,23,42,.1); }
-        .recommend-name { display:flex; align-items:center; justify-content:space-between; gap:10px; color:var(--text); font-size:16px; font-weight:950; letter-spacing:.02em; }
-        .recommend-badge { height:22px; padding:0 8px; border-radius:999px; background:var(--soft); color:var(--muted); border:1px solid var(--line); display:inline-flex; align-items:center; font-size:10px; font-weight:850; white-space:nowrap; }
-        .recommend-tags { display:flex; gap:6px; flex-wrap:wrap; }
-        .recommend-tag { height:24px; padding:0 8px; border-radius:8px; background:var(--soft); color:var(--text); border:1px solid var(--line); display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:850; }
-        .recommend-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:auto; padding-top:10px; }
-        .recommend-actions a,.recommend-actions button { min-width:0; height:34px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; gap:6px; text-decoration:none; font-size:11.5px; font-weight:900; border:1px solid var(--line); transition:all .15s ease; }
-        .recommend-register { background:var(--text); color:var(--bg); border-color:var(--text) !important; }
-        .recommend-register:hover { transform:translateY(-1px); box-shadow:0 8px 18px rgba(15,23,42,.18); }
-        .recommend-fill { background:var(--soft); color:var(--text); }
-        .recommend-fill:hover { border-color:var(--text); }
-        .recommend-note { margin:8px 20px 18px; padding:10px 12px; border-radius:12px; background:var(--soft); color:var(--muted); border:1px solid var(--line); font-size:11px; line-height:1.55; font-weight:750; }
-        @media (max-width:720px) { .recommend-api-body { grid-template-columns:1fr; } }
         /* Content */
         .content { display:flex; flex-direction:column; gap:20px; min-width:0; }
         .content-head { display:flex; align-items:end; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:20px 24px; background:var(--panel); border:1px solid var(--line); border-radius:16px; }
@@ -355,7 +334,6 @@
                     <div class="side-section-title" data-i18n="api.providersTitle">平台列表</div>
                     <div id="providerList" class="provider-list"></div>
                     <button class="add-btn" type="button" onclick="addProvider()"><i data-lucide="plus" class="w-4 h-4"></i><span data-i18n="api.addProvider">新增平台</span></button>
-                    <button class="api-link-btn" type="button" onclick="openRecommendApi()"><i data-lucide="sparkles" class="w-4 h-4"></i><span data-i18n="api.recommendApi">推荐API</span></button>
                 </aside>
 
                 <main class="content">
@@ -469,7 +447,7 @@
                                     </label>
                                 </div>
                             </div>
-                            <div id="verifyResult" style="display:none;padding:2px 0;grid-column:1/-1"></div>
+                            <div id="verifyResult" style="display:none;padding:2px 0;grid-column:1/-1" role="alert" aria-live="polite"></div>
                         </div>
                     </section>
 
@@ -550,20 +528,6 @@
     </div>
 
     <!-- 模型选择浮层 -->
-    <div id="recommendApiOverlay" class="picker-overlay">
-        <div class="picker-modal">
-            <div class="picker-head">
-                <div>
-                    <div class="picker-title" data-i18n="api.recommendApi">推荐API</div>
-                    <div class="picker-count" data-i18n="api.recommendApiDesc">选择平台后可以一键填写请求地址和协议。</div>
-                </div>
-                <div class="picker-close" onclick="closeRecommendApi()"><i data-lucide="x" class="w-4 h-4"></i></div>
-            </div>
-            <div id="recommendApiList" class="recommend-api-body"></div>
-            <div class="recommend-note" data-i18n="api.recommendApiNote">提示：账户内需要至少 0.05 元余额，才能验证地址并拉取模型。</div>
-        </div>
-    </div>
-
     <div id="modelPickerOverlay" class="picker-overlay">
         <div class="picker-modal">
             <div class="picker-head">
@@ -576,10 +540,10 @@
             <div class="picker-toolbar">
                 <input id="pickerFilter" class="picker-search" type="text" placeholder="按名称搜索模型…" oninput="renderModelPicker()">
                 <div class="picker-cat-tabs">
-                    <button class="picker-cat-tab active" data-cat="all" onclick="selectPickerCat('all')">全部 <span class="cat-count">0</span></button>
-                    <button class="picker-cat-tab" data-cat="image" onclick="selectPickerCat('image')">生图 <span class="cat-count">0</span></button>
-                    <button class="picker-cat-tab" data-cat="chat" onclick="selectPickerCat('chat')">LLM <span class="cat-count">0</span></button>
-                    <button class="picker-cat-tab" data-cat="video" onclick="selectPickerCat('video')">视频 <span class="cat-count">0</span></button>
+                    <button class="picker-cat-tab active" type="button" data-cat="all" onclick="selectPickerCat('all')">全部 <span class="cat-count">0</span></button>
+                    <button class="picker-cat-tab" type="button" data-cat="image" onclick="selectPickerCat('image')">生图 <span class="cat-count">0</span></button>
+                    <button class="picker-cat-tab" type="button" data-cat="chat" onclick="selectPickerCat('chat')">LLM <span class="cat-count">0</span></button>
+                    <button class="picker-cat-tab" type="button" data-cat="video" onclick="selectPickerCat('video')">视频 <span class="cat-count">0</span></button>
                 </div>
             </div>
             <div id="pickerList" class="picker-body"></div>
@@ -623,29 +587,11 @@
         const videoModelList = document.getElementById('videoModelList');
         const msLoraBlock = document.getElementById('msLoraBlock');
         const msLoraList = document.getElementById('msLoraList');
-        const recommendApiOverlay = document.getElementById('recommendApiOverlay');
-        const recommendApiList = document.getElementById('recommendApiList');
         const MS_BUILTIN_IMAGE_MODELS = [
             'Tongyi-MAI/Z-Image-Turbo',
             'Qwen/Qwen-Image-2512',
             'Qwen/Qwen-Image-Edit-2511',
             'black-forest-labs/FLUX.2-klein-9B'
-        ];
-        const RECOMMENDED_APIS = [
-            {
-                name:'APIMART',
-                base_url:'https://api.apimart.ai',
-                protocol:'apimart',
-                register_url:'https://apimart.ai/zh/register?aff=1uyAbb',
-                tags:['图像模型','视频模型','LLM模型']
-            },
-            {
-                name:'FHL',
-                base_url:'https://www.fhl.mom',
-                protocol:'openai',
-                register_url:'https://www.fhl.mom/register?aff=86L574B4T2N9',
-                tags:['Codex','GPT image 2模型']
-            }
         ];
 
         function refreshIcons(){ if(window.lucide) lucide.createIcons(); }
@@ -819,78 +765,6 @@
             const value = String(protocolInput.value || 'openai').toLowerCase();
             item.protocol = ['openai', 'apimart', 'gemini', 'volcengine'].includes(value) ? value : 'openai';
             clearVerifyResult();
-        }
-        function openRecommendApi(){
-            renderRecommendApi();
-            if(recommendApiOverlay) recommendApiOverlay.style.display = 'flex';
-            refreshIcons();
-        }
-        function closeRecommendApi(){
-            if(recommendApiOverlay) recommendApiOverlay.style.display = 'none';
-        }
-        function renderRecommendApi(){
-            if(!recommendApiList) return;
-            recommendApiList.innerHTML = RECOMMENDED_APIS.map((api, index) => `
-                <section class="recommend-card">
-                    <div class="recommend-name">
-                        <span>${escapeHtml(api.name)}</span>
-                        <span class="recommend-badge">${escapeHtml(api.protocol === 'apimart' ? 'APIMart' : 'OpenAI')}</span>
-                    </div>
-                    <div class="recommend-tags">
-                        ${api.tags.map(tag => `<span class="recommend-tag"><i data-lucide="${tag.toLowerCase().includes('视频') ? 'clapperboard' : tag.toLowerCase().includes('llm') || tag.toLowerCase().includes('codex') ? 'bot' : 'image'}" class="w-3 h-3"></i>${escapeHtml(tag)}</span>`).join('')}
-                    </div>
-                    <div class="recommend-actions">
-                        <a class="recommend-register" href="${escapeAttr(api.register_url)}" target="_blank" rel="noopener noreferrer"><i data-lucide="external-link" class="w-3.5 h-3.5"></i><span data-i18n="api.register">注册</span></a>
-                        <button class="recommend-fill" type="button" onclick="applyRecommendedApi(${index})"><i data-lucide="wand-sparkles" class="w-3.5 h-3.5"></i><span data-i18n="api.autoFill">自动填写</span></button>
-                    </div>
-                </section>
-            `).join('');
-            if(window.StudioI18n) window.StudioI18n.apply(recommendApiList);
-        }
-        function applyRecommendedApi(index){
-            const api = RECOMMENDED_APIS[index];
-            if(!api) return;
-            syncEditor();
-            let item = providers.find(provider => String(provider.name || '').toLowerCase() === api.name.toLowerCase());
-            if(!item){
-                const baseId = normalizeId(api.name) || 'custom-api';
-                let id = baseId;
-                let suffix = 2;
-                while(providers.some(provider => provider.id === id)) id = `${baseId}-${suffix++}`;
-                item = {
-                    id,
-                    name:api.name,
-                    base_url:api.base_url,
-                    protocol:api.protocol,
-                    image_generation_endpoint:'',
-                    image_edit_endpoint:'',
-                    logo_url:'',
-                    enabled:true,
-                    primary:false,
-                    image_models:[],
-                    chat_models:[],
-                    video_models:[],
-                    has_key:false,
-                    key_preview:''
-                };
-                providers.push(item);
-            }
-            selectedId = item.id;
-            renderEditor();
-            nameInput.value = api.name;
-            baseInput.value = api.base_url;
-            if(protocolInput){
-                protocolInput.value = api.protocol;
-                protocolInput.dispatchEvent(new Event('change'));
-            }
-            if(imageGenerationEndpointInput) imageGenerationEndpointInput.value = '';
-            if(imageEditEndpointInput) imageEditEndpointInput.value = '';
-            syncEditor();
-            updateIdPreview();
-            renderProviderList();
-            editorTitle.textContent = item.name || item.id;
-            closeRecommendApi();
-            setStatus(`已填写 ${api.name}，请填入 API Key 后保存或验证。`);
         }
         function sortedProviders(){
             const order = ['modelscope', 'runninghub', 'comfly'];
@@ -1161,7 +1035,9 @@
                 pickerState.selected[id] = existing.image.has(id) || existing.chat.has(id) || existing.video.has(id);
             });
             // 默认 tab 切回「全部」
-            document.querySelectorAll('.picker-cat-tab').forEach(t => t.classList.toggle('active', t.dataset.cat === 'all'));
+            document.querySelectorAll('.picker-cat-tab').forEach(t => {
+                t.classList.toggle('active', t.dataset.cat === 'all');
+            });
             document.getElementById('modelPickerOverlay').style.display = 'flex';
             renderModelPicker();
         }
@@ -1223,7 +1099,9 @@
             togglePickerRow(id);
         }
         function selectPickerCat(cat){
-            document.querySelectorAll('.picker-cat-tab').forEach(t => t.classList.toggle('active', t.dataset.cat === cat));
+            document.querySelectorAll('.picker-cat-tab').forEach(t => {
+                t.classList.toggle('active', t.dataset.cat === cat);
+            });
             renderModelPicker();
         }
         function applyModelPicker(){
@@ -1530,12 +1408,8 @@
                 renderEditor();
             }
         });
-        recommendApiOverlay?.addEventListener('mousedown', event => {
-            if(event.target === recommendApiOverlay) closeRecommendApi();
-        });
         window.addEventListener('studio-lang-change', () => {
             renderEditor();
-            if(recommendApiOverlay?.style.display === 'flex') renderRecommendApi();
         });
         window.onload = () => {
             if(window.StudioTheme) window.StudioTheme.apply();

@@ -20,9 +20,10 @@ async function loadConfig() {
     startTaskPolling();
 }
 
-async function loadHeyGemStatus() {
+async function loadHeyGemStatus(autoStart = false) {
     try {
-        return await requestJson("/api/digital-human/heygem/status", {}, "HeyGem 状态读取失败");
+        const suffix = autoStart ? "?auto_start=true" : "";
+        return await requestJson(`/api/digital-human/heygem/status${suffix}`, {}, "HeyGem 状态读取失败");
     } catch (err) {
         return { connected: false, last_error: err.message };
     }
@@ -43,7 +44,7 @@ async function ensureTtsReady() {
 }
 
 async function ensureHeyGemReady() {
-    const data = await loadHeyGemStatus();
+    const data = await loadHeyGemStatus(true);
     state.heygemStatus = data;
     if (!data.connected) throw new Error(`HeyGem 未就绪，${SERVICE_START_HINT}`);
     return data;
@@ -262,12 +263,13 @@ function taskStageTimeline(task) {
         .join("");
 }
 
-function queueResourceText(resource) {
+function queueResourceText(resource, release) {
     const active = resource?.active || "idle";
     const waiting = Number(resource?.waiting_tts || 0) + Number(resource?.waiting_heygem || 0);
     const suffix = waiting > 0 ? ` · 等绿灯 ${waiting}` : "";
     if (active === "tts") return `红灯：TTS 运行中${suffix}`;
     if (active === "heygem") return `红灯：HeyGem 合成中${suffix}`;
+    if (release?.at) return "绿灯：空闲，显存已释放，生成时会自动启动";
     return "绿灯：空闲";
 }
 
@@ -277,7 +279,7 @@ function renderTaskQueue() {
     if (!el || !summary) return;
     const tasks = state.tasks || [];
     const queueState = state.queueState || {};
-    const resourceText = queueResourceText(queueState.resource || {});
+    const resourceText = queueResourceText(queueState.resource || {}, queueState.gpu_release || null);
     const runningCount = tasks.filter((task) => task.status === "running").length;
     const queuedCount = tasks.filter((task) => task.status === "queued" || task.status === "pending").length;
     if (!tasks.length) {

@@ -1,36 +1,43 @@
         :root {
-            --bg: #f6f7fb;
-            --panel: #ffffff;
-            --text: #111827;
-            --muted: #6b7280;
-            --line: #e5e7eb;
-            --soft: #f3f4f6;
-            --soft-strong: #eef2f7;
-            --accent: #111827;
-            --accent-soft: rgba(17, 24, 39, .08);
-            --danger: #b91c1c;
-            --ok: #047857;
-            --warn: #b45309;
-            --shadow: 0 10px 28px rgba(15, 23, 42, .06);
+            --bg: #f8fafc; /* 升级为雅致的蓝灰偏白背景底色 */ /* 变量注释 */
+            --panel: rgba(255, 255, 255, 0.82); /* 亮色面板半透明毛玻璃底色 */ /* 变量注释 */
+            --text: #0f172a; /* 极深 slate 蓝黑文字色 */ /* 变量注释 */
+            --muted: #64748b; /* 优雅的灰色辅助文字色 */ /* 变量注释 */
+            --line: rgba(226, 232, 240, 0.8); /* 极细柔和灰色描边 */ /* 变量注释 */
+            --soft: #f1f5f9; /* 输入框及卡片淡灰底板色 */ /* 变量注释 */
+            --soft-strong: #e2e8f0; /* 输入框与卡片悬停高亮底色 */ /* 变量注释 */
+            --accent: #4f46e5; /* 优雅的科技靛蓝主强调色 */ /* 变量注释 */
+            --accent-soft: rgba(79, 70, 229, 0.08); /* 极淡靛蓝交互高光 */ /* 变量注释 */
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%); /* 炫丽的紫蓝双色渐变 */ /* 变量注释 */
+            --accent-glow: rgba(99, 102, 241, 0.15); /* 选中及发光呼吸投影色 */ /* 变量注释 */
+            --danger: #ef4444; /* 警示红色 */ /* 变量注释 */
+            --ok: #10b981; /* 成功翡翠绿色 */ /* 变量注释 */
+            --warn: #f59e0b; /* 警告琥珀色 */ /* 变量注释 */
+            --shadow: 0 12px 32px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.02); /* 柔和长投影 */ /* 变量注释 */
+            --theme-audio-filter: none; /* 亮色模式下音频控件滤镜置空 */ /* 变量注释 */
+            --easing: cubic-bezier(0.4, 0, 0.2, 1); /* 行业标准物理缓动函数 */ /* 变量注释 */
         }
         html.theme-dark,
         html.studio-theme-dark,
         body.theme-dark,
         body.studio-theme-dark {
-            --bg: #0f141d;
-            --panel: #171d29;
-            --text: #e5e9f0;
-            --muted: #8f9aab;
-            --line: #2a3444;
-            --soft: #111722;
-            --soft-strong: #1d2533;
-            --accent: #d8dee9;
-            --accent-soft: rgba(216, 222, 233, .12);
-            --danger: #f87171;
-            --ok: #34d399;
-            --warn: #fbbf24;
-            --shadow: 0 18px 44px rgba(0, 0, 0, .24);
-            color-scheme: dark;
+            --bg: #090d16; /* 深邃神秘科技暗黑背景色 */ /* 变量注释 */
+            --panel: rgba(20, 27, 41, 0.8); /* 磨砂半透明暗色画板背景 */ /* 变量注释 */
+            --text: #f1f5f9; /* 亮灰白高对比文字色 */ /* 变量注释 */
+            --muted: #94a3b8; /* 浅暗蓝灰色辅助文字色 */ /* 变量注释 */
+            --line: rgba(255, 255, 255, 0.06); /* 暗夜微妙高光极细描边 */ /* 变量注释 */
+            --soft: #121824; /* 极深蓝黑底板色 */ /* 变量注释 */
+            --soft-strong: #1e293b; /* 悬浮深蓝黑强化色 */ /* 变量注释 */
+            --accent: #6366f1; /* 暗色下的炫目靛蓝主调色 */ /* 变量注释 */
+            --accent-soft: rgba(99, 102, 241, 0.12); /* 极淡蓝靛交互发光 */ /* 变量注释 */
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%); /* 炫丽的紫蓝双色渐变 */ /* 变量注释 */
+            --accent-glow: rgba(99, 102, 241, 0.25); /* 选中及发光呼吸投影色 */ /* 变量注释 */
+            --danger: #f87171; /* 柔和浅红警示色 */ /* 变量注释 */
+            --ok: #34d399; /* 柔和浅绿成功色 */ /* 变量注释 */
+            --warn: #fbbf24; /* 柔和浅黄警告色 */ /* 变量注释 */
+            --shadow: 0 20px 48px rgba(0, 0, 0, 0.32), 0 6px 18px rgba(0, 0, 0, 0.2); /* 深邃暗色投影 */ /* 变量注释 */
+            --theme-audio-filter: invert(0.92) hue-rotate(180deg) brightness(1.25); /* 暗色模式下对原生audio控件实施偏色与反相滤镜以完美融合暗色面板 */ /* 变量注释 */
+            color-scheme: dark; /* 告诉浏览器渲染暗色控件 */ /* 选项注释 */
         }
         * { box-sizing: border-box; }
         body {
@@ -38,150 +45,206 @@
             min-height: 100vh;
             background: var(--bg);
             color: var(--text);
-            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-family: 'Plus Jakarta Sans', 'Outfit', 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; /* 融入高级西文字体体系 */ /* 字体注释 */
+            -webkit-font-smoothing: antialiased; /* 抗锯齿渲染 */ /* 渲染注释 */
+            -moz-osx-font-smoothing: grayscale; /* 兼容 Firefox 抗锯齿 */ /* 渲染注释 */
         }
         button, input, textarea, select { font: inherit; }
         button { color: inherit; }
         .page {
             width: min(1480px, calc(100vw - 48px));
             margin: 0 auto;
-            padding: 28px 0 36px;
+            padding: 32px 0 48px; /* 适度加大上下内间距 */ /* 边距注释 */
         }
         .topbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 18px;
-            margin-bottom: 18px;
+            display: flex; /* 弹性布局 */ /* 布局注释 */
+            align-items: center; /* 纵向居中对齐 */ /* 对齐注释 */
+            justify-content: space-between; /* 两端分布对齐 */ /* 对齐注释 */
+            gap: 18px; /* 间隙大小 */ /* 间距注释 */
+            margin-bottom: 24px; /* 适度加大底部外边距 */ /* 边距注释 */
         }
         .title {
-            font-size: 22px;
-            font-weight: 760;
-            letter-spacing: 0;
+            font-size: 24px; /* 标题字号 */ /* 字号注释 */
+            font-weight: 850; /* 极致粗体 */ /* 字重注释 */
+            letter-spacing: -0.02em; /* 紧凑字间距提升高端感 */ /* 字距注释 */
+            background: linear-gradient(135deg, var(--text) 30%, color-mix(in srgb, var(--text) 70%, #6366f1) 100%); /* 渐变标题字色 */ /* 背景注释 */
+            -webkit-background-clip: text; /* 裁剪背景到文本 */ /* 裁剪注释 */
+            -webkit-text-fill-color: transparent; /* 透明化原文字填充色 */ /* 填充注释 */
         }
         .subtitle {
-            margin-top: 4px;
-            color: var(--muted);
-            font-size: 13px;
+            margin-top: 6px; /* 顶边距微调 */ /* 边距注释 */
+            color: var(--muted); /* 次要文本色 */ /* 颜色注释 */
+            font-size: 13.5px; /* 字号大小 */ /* 字号注释 */
+            font-weight: 500; /* 中等粗细 */ /* 字重注释 */
         }
         .grid {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) 430px;
-            gap: 16px;
-            align-items: start;
+            display: grid; /* 网格布局 */ /* 布局注释 */
+            grid-template-columns: minmax(0, 1fr) 430px; /* 双栏布局比例 */ /* 布局注释 */
+            gap: 20px; /* 大呼吸感间隙 */ /* 间距注释 */
+            align-items: start; /* 置顶对齐 */ /* 对齐注释 */
         }
         body.library-mode .grid {
-            grid-template-columns: minmax(0, 1fr);
+            grid-template-columns: minmax(0, 1fr); /* 库模式下全屏宽铺开 */ /* 布局注释 */
         }
         body.library-mode .grid > aside {
-            display: none;
+            display: none; /* 库模式隐藏右侧边栏 */ /* 显示注释 */
         }
         .panel {
-            background: var(--panel);
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            box-shadow: var(--shadow);
-            overflow: hidden;
+            background: var(--panel) !important; /* 玻璃化面板底板色 */ /* 背景注释 */
+            backdrop-filter: blur(24px) saturate(1.15); /* 加深毛玻璃饱和度 */ /* 滤镜注释 */
+            -webkit-backdrop-filter: blur(24px) saturate(1.15); /* 兼容 Safari 浏览器 */ /* 滤镜注释 */
+            border: 1px solid var(--line) !important; /* 极细微妙的高光边框 */ /* 边框注释 */
+            border-radius: 24px; /* 更饱满的24px圆角 */ /* 圆角注释 */
+            box-shadow: var(--shadow); /* 优雅层次的长投影 */ /* 阴影注释 */
+            overflow: hidden; /* 超出隐藏 */ /* 溢出注释 */
+            transition: border-color 0.3s var(--easing), box-shadow 0.3s var(--easing); /* 面板物理反馈过渡 */ /* 动画注释 */
         }
         .panel-head {
-            min-height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 0 16px;
-            border-bottom: 1px solid var(--line);
-            font-weight: 700;
+            min-height: 56px; /* 适度加大标题栏高度 */ /* 高度注释 */
+            display: flex; /* 弹性布局 */ /* 布局注释 */
+            align-items: center; /* 纵向居中对齐 */ /* 对齐注释 */
+            justify-content: space-between; /* 两端对齐 */ /* 对齐注释 */
+            gap: 12px; /* 内部间隙 */ /* 间距注释 */
+            padding: 0 24px; /* 加大两侧留白 */ /* 边距注释 */
+            border-bottom: 1px solid var(--line); /* 底部细切分割线 */ /* 边框注释 */
+            font-weight: 850; /* 极致粗体 */ /* 字重注释 */
+            letter-spacing: -0.015em; /* 紧凑字距 */ /* 字距注释 */
+            font-size: 15px; /* 标题字号 */ /* 字号注释 */
         }
-        .panel-body { padding: 16px; }
-        .panel-body.flush { padding: 0; }
-        .stack { display: grid; gap: 16px; }
+        .panel-body { padding: 24px; } /* 加大体部内边距，提高呼吸感 */ /* 边距注释 */
+        .panel-body.flush { padding: 0; } /* 满幅无边距布局 */ /* 边距注释 */
+        .stack { display: grid; gap: 20px; } /* 纵向堆叠呼吸间距 */ /* 布局注释 */
         .tabs {
-            display: inline-flex;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            overflow: hidden;
-            background: var(--panel);
+            display: inline-flex; /* 行内弹性排版 */ /* 布局注释 */
+            border: 1px solid var(--line); /* 极细胶囊圈线 */ /* 边框注释 */
+            border-radius: 999px; /* 胶囊大圆角 */ /* 圆角注释 */
+            overflow: hidden; /* 裁剪 */ /* 溢出注释 */
+            background: var(--soft); /* 软衬底色 */ /* 背景注释 */
+            padding: 4px; /* 为内部按钮留出舒适边隙 */ /* 边距注释 */
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.03); /* 微内凹阴影 */ /* 阴影注释 */
         }
         .tab-btn {
-            min-height: 38px;
-            border: 0;
-            border-right: 1px solid var(--line);
-            background: transparent;
-            color: var(--muted);
-            padding: 0 16px;
-            cursor: pointer;
-            font-weight: 650;
+            min-height: 34px; /* 选项高度 */ /* 高度注释 */
+            border: 0; /* 移除外框 */ /* 边框注释 */
+            border-radius: 999px; /* 选项药丸状圆角 */ /* 圆角注释 */
+            background: transparent; /* 背景默认透明 */ /* 背景注释 */
+            color: var(--muted); /* 次要字色 */ /* 颜色注释 */
+            padding: 0 20px; /* 适当拓宽水平留白 */ /* 边距注释 */
+            cursor: pointer; /* 手势显示 */ /* 手势注释 */
+            font-weight: 700; /* 加粗 */ /* 字重注释 */
+            font-size: 13px; /* 字号大小 */ /* 字号注释 */
+            transition: all 0.25s var(--easing); /* 平滑过渡效果 */ /* 动画注释 */
         }
-        .tab-btn:last-child { border-right: 0; }
+        .tab-btn:last-child { border-right: 0; } /* 移除尾部多余线 */ /* 边框注释 */
+        .tab-btn:hover {
+            color: var(--text); /* 移入时文字高亮 */ /* 颜色注释 */
+        }
         .tab-btn.active {
-            background: var(--accent);
-            color: var(--bg);
+            background: var(--accent-gradient); /* 激活时使用科技炫彩渐变 */ /* 背景注释 */
+            color: #ffffff !important; /* 激活时文字强制高反差白 */ /* 颜色注释 */
+            box-shadow: 0 4px 12px var(--accent-glow); /* 精美的主色发光投影 */ /* 阴影注释 */
         }
-        .tab-page { display: none; }
-        .tab-page.active { display: block; }
+        .tab-page { display: none; } /* 默认隐藏选项页 */ /* 显示注释 */
+        .tab-page.active { display: block; } /* 激活时显示选项页 */ /* 显示注释 */
         .row {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
+            display: flex; /* 弹性在一行排列 */ /* 布局注释 */
+            gap: 12px; /* 水平微空隙 */ /* 间距注释 */
+            align-items: center; /* 纵向对齐 */ /* 对齐注释 */
+            flex-wrap: wrap; /* 允许换行 */ /* 换行注释 */
         }
         .btn {
-            min-height: 38px;
-            border-radius: 7px;
-            border: 1px solid var(--line);
-            background: var(--panel);
-            color: var(--text);
-            padding: 0 12px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            cursor: pointer;
-            white-space: nowrap;
-            text-decoration: none;
+            min-height: 38px; /* 按钮默认高度 */ /* 高度注释 */
+            border-radius: 10px; /* 统一升级为大气的10px圆角 */ /* 圆角注释 */
+            border: 1px solid var(--line); /* 默认细描边 */ /* 边框注释 */
+            background: var(--panel); /* 依托磨砂底板 */ /* 背景注释 */
+            color: var(--text); /* 默认主字色 */ /* 颜色注释 */
+            padding: 0 16px; /* 加大水平内边距 */ /* 边距注释 */
+            display: inline-flex; /* 弹性内容 */ /* 布局注释 */
+            align-items: center; /* 居中对齐 */ /* 对齐注释 */
+            justify-content: center; /* 集中放置 */ /* 对齐注释 */
+            gap: 8px; /* 图标与文本留隙 */ /* 间距注释 */
+            cursor: pointer; /* 手势指示 */ /* 手势注释 */
+            white-space: nowrap; /* 单行单向 */ /* 换行注释 */
+            text-decoration: none; /* 消除链接样式 */ /* 装饰注释 */
+            font-weight: 600; /* 加粗 */ /* 字重注释 */
+            font-size: 13.5px; /* 字号大小 */ /* 字号注释 */
+            transition: all 0.25s var(--easing); /* 优雅的物理过渡 */ /* 动画注释 */
         }
-        .btn:hover { background: var(--soft); }
+        .btn:hover {
+            background: var(--soft-strong); /* 悬浮时加深背景反馈 */ /* 背景注释 */
+            transform: translateY(-1.5px); /* 悬浮微升，物理空间感 */ /* 动画注释 */
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05); /* 悬浮微投影 */ /* 阴影注释 */
+        }
+        .btn:active {
+            transform: translateY(0) scale(0.97); /* 点击时物理回弹 */ /* 动画注释 */
+        }
         .btn.primary {
-            background: var(--accent);
-            color: var(--bg);
-            border-color: var(--accent);
-            font-weight: 700;
+            background: var(--accent-gradient); /* 升级为主色炫彩渐变 */ /* 背景注释 */
+            color: #ffffff !important; /* 强制白字 */ /* 颜色注释 */
+            border: none; /* 扁平化，移除多余描边 */ /* 边框注释 */
+            font-weight: 700; /* 极粗体 */ /* 字重注释 */
+            box-shadow: 0 4px 14px var(--accent-glow); /* 渐变发光投影 */ /* 阴影注释 */
         }
-        .btn:disabled { opacity: .55; cursor: not-allowed; }
+        .btn.primary:hover {
+            box-shadow: 0 6px 20px var(--accent-glow); /* 悬停时发光投影蔓延 */ /* 阴影注释 */
+            filter: brightness(1.08); /* 悬浮时微微提亮 */ /* 滤镜注释 */
+        }
+        .btn:disabled {
+            opacity: 0.45; /* 禁用时透明度柔化 */ /* 透明度注释 */
+            cursor: not-allowed; /* 禁用手势 */ /* 手势注释 */
+            transform: none !important; /* 禁用动效 */ /* 动画注释 */
+            box-shadow: none !important; /* 禁用阴影 */ /* 阴影注释 */
+        }
         .btn.small {
-            min-height: 32px;
-            padding: 0 10px;
-            font-size: 12px;
+            min-height: 32px; /* 小号高度 */ /* 高度注释 */
+            padding: 0 12px; /* 水平微留白 */ /* 边距注释 */
+            font-size: 12px; /* 小字号 */ /* 字号注释 */
+            border-radius: 8px; /* 适当精简圆角 */ /* 圆角注释 */
         }
         .field label, .section-label {
-            display: block;
-            font-size: 12px;
-            color: var(--muted);
-            margin-bottom: 6px;
+            display: block; /* 独立区块占满 */ /* 布局注释 */
+            font-size: 12.5px; /* 字号大小 */ /* 字号注释 */
+            font-weight: 700; /* 加粗 */ /* 字重注释 */
+            color: var(--muted); /* 辅助字色 */ /* 颜色注释 */
+            margin-bottom: 8px; /* 加大底部距离 */ /* 边距注释 */
         }
         textarea, select, input[type="text"], input[type="number"], input[type="range"] {
-            width: 100%;
-            border: 1px solid var(--line);
-            background: var(--panel);
-            color: var(--text);
-            border-radius: 7px;
-            outline: none;
+            width: 100%; /* 横轴铺满 */ /* 宽度注释 */
+            border: 1px solid var(--line); /* 默认细描边 */ /* 边框注释 */
+            background: var(--soft); /* 输入控件统一采用淡色衬底 */ /* 背景注释 */
+            color: var(--text); /* 主字色 */ /* 颜色注释 */
+            border-radius: 10px; /* 升级为大气的10px圆角 */ /* 圆角注释 */
+            outline: none; /* 移除选中蓝框 */ /* 轮廓注释 */
+            transition: all 0.25s var(--easing); /* 高级交互过渡 */ /* 动画注释 */
         }
-        select { height: 38px; padding: 0 10px; }
-        input[type="text"], input[type="number"] { height: 38px; padding: 0 10px; }
-        input[type="range"] { accent-color: var(--accent); }
+        select {
+            height: 38px; /* 高度设定 */ /* 高度注释 */
+            padding: 0 12px; /* 水平内留白 */ /* 边距注释 */
+            cursor: pointer; /* 鼠标变手 */ /* 手势注释 */
+        }
+        input[type="text"], input[type="number"] {
+            height: 38px; /* 高度设定 */ /* 高度注释 */
+            padding: 0 12px; /* 水平内留白 */ /* 边距注释 */
+        }
+        input[type="range"] {
+            accent-color: var(--accent); /* 定制亮蓝色滑块主色 */ /* 颜色注释 */
+        }
         textarea {
-            min-height: 156px;
-            resize: vertical;
-            padding: 12px;
-            line-height: 1.55;
+            min-height: 156px; /* 最小高度 */ /* 高度注释 */
+            resize: vertical; /* 允许纵向拉伸 */ /* 拉伸注释 */
+            padding: 14px; /* 宽松内留白 */ /* 边距注释 */
+            line-height: 1.6; /* 舒适的文字行高 */ /* 行高注释 */
         }
-        textarea:focus, select:focus, input[type="text"]:focus, input[type="number"]:focus { border-color: var(--accent); }
+        textarea:focus, select:focus, input[type="text"]:focus, input[type="number"]:focus {
+            border-color: var(--accent); /* 聚焦高亮边线 */ /* 边框注释 */
+            background: var(--panel); /* 聚焦时背景回白 */ /* 背景注释 */
+            box-shadow: 0 0 0 4px var(--accent-glow); /* 科技感的发光呼吸圈 */ /* 阴影注释 */
+            transform: translateY(-0.5px); /* 微升回馈 */ /* 动画注释 */
+        }
         .creator-layout {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) 360px;
-            min-height: 560px;
+            display: grid; /* 网格布局 */ /* 布局注释 */
+            grid-template-columns: minmax(0, 1fr) 360px; /* 生成与预览详情分栏 */ /* 布局注释 */
+            min-height: 560px; /* 最小高度 */ /* 高度注释 */
         }
         .selection-grid {
             display: grid;
@@ -189,196 +252,239 @@
             gap: 12px;
         }
         .selection-card {
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            background: var(--panel);
-            padding: 12px;
-            display: grid;
-            gap: 8px;
-            min-width: 0;
+            border: 1px solid var(--line); /* 改用极细描边增强边界感 */ /* 边框注释 */
+            border-radius: 16px; /* 圆角增加到16px */ /* 圆角注释 */
+            background: color-mix(in srgb, var(--panel) 62%, var(--soft)); /* 融合半透明底色 */ /* 背景注释 */
+            padding: 18px; /* 适度加大内留白 */ /* 边距注释 */
+            display: grid; /* 栅格排版 */ /* 布局注释 */
+            gap: 8px; /* 间隙大小 */ /* 间距注释 */
+            min-width: 0; /* 防溢出尺寸 */ /* 规格注释 */
+            transition: all 0.3s var(--easing); /* 优雅的物理缓动 */ /* 动画注释 */
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.02); /* 默认微投影 */ /* 阴影注释 */
+        }
+        .selection-card:hover {
+            background: var(--soft-strong); /* 悬浮加深背景 */ /* 背景注释 */
+            transform: translateY(-4px); /* 悬浮物理微抬 */ /* 动画注释 */
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06), 0 4px 8px rgba(15, 23, 42, 0.02); /* 悬浮深投影 */ /* 阴影注释 */
+            border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); /* 悬浮时边框向强调色微偏 */ /* 边框注释 */
         }
         .library-toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 14px;
+            display: flex; /* 弹性布局 */ /* 布局注释 */
+            justify-content: space-between; /* 两侧对齐 */ /* 对齐注释 */
+            align-items: center; /* 纵向居中对齐 */ /* 对齐注释 */
+            gap: 12px; /* 内部缝隙 */ /* 间距注释 */
+            margin-bottom: 20px; /* 加大底部距离 */ /* 边距注释 */
         }
         .library-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-            gap: 12px;
+            display: grid; /* 网格自适应填充 */ /* 布局注释 */
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); /* 网格自适应分栏 */ /* 布局注释 */
+            gap: 16px; /* 大空隙 */ /* 间距注释 */
         }
         #people-library {
-            display: block;
+            display: block; /* 显式声明区块 */ /* 显示注释 */
         }
         .library-card {
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            background: var(--panel);
-            padding: 12px;
-            display: grid;
-            gap: 10px;
-            min-width: 0;
+            border: 1px solid var(--line); /* 极细底圈边线 */ /* 边框注释 */
+            border-radius: 16px; /* 圆角扩大到16px */ /* 圆角注释 */
+            background: var(--soft); /* 衬托极淡背景 */ /* 背景注释 */
+            padding: 16px; /* 加大留白 */ /* 边距注释 */
+            display: grid; /* 栅格排列 */ /* 布局注释 */
+            gap: 12px; /* 子项间距 */ /* 间距注释 */
+            min-width: 0; /* 防撑开 */ /* 规格注释 */
+            transition: all 0.3s var(--easing); /* 移入与激活缓动 */ /* 动画注释 */
+        }
+        .library-card:hover {
+            transform: translateY(-3px); /* 悬浮微抬 */ /* 动画注释 */
+            background: var(--soft-strong); /* 悬停背景深色反馈 */ /* 背景注释 */
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05); /* 悬浮微投影 */ /* 阴影注释 */
         }
         .library-card.active {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 2px var(--accent-soft);
+            box-shadow: 0 0 0 2px var(--accent), 0 8px 24px var(--accent-glow); /* 激活时炫彩发光高亮圈 */ /* 选中注释 */
+            border-color: var(--accent); /* 激活主描边色 */ /* 边框注释 */
+            background: var(--panel); /* 激活时底色回亮 */ /* 背景注释 */
         }
             /* 彻底重构人物库角色工坊布局 */ /* 布局注释 */
         .people-workspace {
-            display: grid; /* 格子布局 */ /* 布局注释 */
-            grid-template-columns: 260px minmax(0, 1fr); /* 侧栏精简为260px，右侧详情充裕 */ /* 比例注释 */
-            gap: 24px; /* 两大区块间距24px */ /* 间距注释 */
-            min-height: 720px; /* 整体最低层高 */ /* 尺寸注释 */
+            display: grid; /* 大格子布局 */ /* 布局注释 */
+            grid-template-columns: 280px minmax(0, 1fr); /* 侧栏拓宽到280px */ /* 比例注释 */
+            gap: 28px; /* 间隙加宽 */ /* 间距注释 */
+            min-height: 720px; /* 最低整体层高 */ /* 尺寸注释 */
         }
         /* 侧栏超精致无框头像墙 */ /* 侧栏注释 */
         .people-sidebar {
-            background: transparent; /* 背景完全透明 */ /* 背景注释 */
-            border: none; /* 移除外边框以显清爽 */ /* 边框注释 */
-            display: flex; /* 弹性 */ /* 布局注释 */
-            flex-direction: column; /* 垂直排版 */ /* 方向注释 */
-            gap: 16px; /* 间隙大小 */ /* 间距注释 */
+            background: transparent; /* 保持透明 */ /* 背景注释 */
+            border: none; /* 移除外描边 */ /* 边框注释 */
+            display: flex; /* 垂直排版 */ /* 布局注释 */
+            flex-direction: column; /* 纵向方向 */ /* 方向注释 */
+            gap: 20px; /* 大间隙呼吸感 */ /* 间距注释 */
         }
         /* 侧栏顶端标头 */ /* 侧栏标头注释 */
         .people-sidebar-head {
-            display: flex; /* 弹性 */ /* 布局注释 */
-            align-items: center; /* 垂直对中 */ /* 对齐注释 */
+            display: flex; /* 弹性在一行排列 */ /* 布局注释 */
+            align-items: center; /* 纵轴居中对齐 */ /* 对齐注释 */
             justify-content: space-between; /* 左右两侧分隔 */ /* 对齐注释 */
-            padding-bottom: 8px; /* 下底边留距 */ /* 边距注释 */
-            border-bottom: 1px solid var(--line); /* 优雅底边界线 */ /* 边框注释 */
+            padding-bottom: 12px; /* 下部空隙 */ /* 边距注释 */
+            border-bottom: 1px solid var(--line); /* 底部高档分隔横线 */ /* 边框注释 */
         }
         /* 人物卡片列表 */ /* 人物卡片列表注释 */
         .people-list {
-            display: grid; /* 网格 */ /* 布局注释 */
-            gap: 10px; /* 选项间距10px */ /* 间距注释 */
-            max-height: 620px; /* 卡片流高度限制 */ /* 高度注释 */
-            overflow-y: auto; /* 允许纵向纯净滚动 */ /* 溢出注释 */
-            padding-right: 4px; /* 避让滚动条 */ /* 边距注释 */
+            display: grid; /* 网格单列 */ /* 布局注释 */
+            gap: 12px; /* 选项间距拓宽为12px */ /* 间距注释 */
+            max-height: 620px; /* 限高 */ /* 高度注释 */
+            overflow-y: auto; /* 纵向允许完美滚动 */ /* 溢出注释 */
+            padding-right: 6px; /* 避免轨道挤压内容 */ /* 边距注释 */
         }
         /* 定制美化滚动条 */ /* 滚动条注释 */
         .people-list::-webkit-scrollbar {
-            width: 4px; /* 极细滚动条 */ /* 宽度注释 */
+            width: 5px; /* 极细5px滚动轨 */ /* 宽度注释 */
         }
         .people-list::-webkit-scrollbar-track {
-            background: transparent; /* 轨道背景完全透明 */ /* 背景注释 */
+            background: transparent; /* 轨道透明 */ /* 背景注释 */
         }
         .people-list::-webkit-scrollbar-thumb {
-            background: var(--line); /* 滚动条主色 */ /* 背景注释 */
-            border-radius: 10px; /* 圆角 */ /* 圆角注释 */
+            background: var(--line); /* 滚动条使用高光线色 */ /* 背景注释 */
+            border-radius: 999px; /* 大胶囊滑块圆角 */ /* 圆角注释 */
         }
         /* 侧栏单个人物名片 - 极致扁平 */ /* 人物名片注释 */
         .person-list-card {
-            border: 1px solid transparent; /* 默认无边框以显扁平 */ /* 边框注释 */
-            border-radius: 12px; /* 圆角化 */ /* 圆角注释 */
-            background: color-mix(in srgb, var(--panel) 94%, transparent); /* 轻量透亮背景 */ /* 背景注释 */
-            padding: 10px 12px; /* 适度内边距 */ /* 边距注释 */
-            width: 100%; /* 横轴通铺 */ /* 宽度注释 */
-            display: flex; /* 改用弹性布局 */ /* 布局注释 */
-            align-items: center; /* 纵向居中 */ /* 对齐注释 */
-            gap: 12px; /* 间隙大小 */ /* 间距注释 */
-            cursor: pointer; /* 指针变手势 */ /* 手势注释 */
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); /* 高级微动过渡 */ /* 动画注释 */
+            border: 1px solid var(--line); /* 改为极细透光描边 */ /* 边框注释 */
+            border-radius: 14px; /* 升级为大气的14px圆角 */ /* 圆角注释 */
+            background: color-mix(in srgb, var(--panel) 82%, transparent); /* 轻盈透亮背景 */ /* 背景注释 */
+            padding: 12px 14px; /* 加大内留白 */ /* 边距注释 */
+            width: 100%; /* 横轴全铺 */ /* 宽度注释 */
+            display: flex; /* 弹性布局 */ /* 布局注释 */
+            align-items: center; /* 垂直居中对齐 */ /* 对齐注释 */
+            gap: 14px; /* 大间隙 */ /* 间距注释 */
+            cursor: pointer; /* 鼠标手势 */ /* 手势注释 */
+            transition: all 0.3s var(--easing); /* 丝滑物理过渡 */ /* 动画注释 */
             text-align: left; /* 左对齐 */ /* 对齐注释 */
         }
         /* 名片卡悬停与激活态 */ /* 交互反馈注释 */
         .person-list-card:hover {
-            background: var(--soft); /* 悬浮淡底色 */ /* 背景注释 */
-            transform: scale(1.02); /* 悬停微缩放 */ /* 动画注释 */
+            background: var(--soft-strong); /* 悬浮深背景 */ /* 背景注释 */
+            transform: scale(1.02) translateY(-2px); /* 悬浮微抬与微放大 */ /* 动画注释 */
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03); /* 悬浮轻影 */ /* 阴影注释 */
         }
         .person-list-card.active {
-            background: color-mix(in srgb, var(--accent) 6%, var(--panel)); /* 混入微量主调背景 */ /* 背景注释 */
-            border-color: var(--accent); /* 激活边框颜色 */ /* 边框注释 */
-            box-shadow: 0 4px 12px var(--accent-soft); /* 柔和科技晕染 */ /* 阴影注释 */
+            background: color-mix(in srgb, var(--accent) 7%, var(--panel)); /* 混入微量高光底色 */ /* 背景注释 */
+            border-color: var(--accent); /* 激活边框高亮 */ /* 边框注释 */
+            box-shadow: 0 8px 24px var(--accent-glow); /* 炫丽的呼吸选中投影 */ /* 阴影注释 */
         }
         /* 名片卡小头像 */ /* 卡头像注释 */
         .person-list-thumb {
-            width: 48px; /* 头像缩小为48px */ /* 宽度注释 */
-            height: 48px; /* 头像高度48px */ /* 高度注释 */
-            border-radius: 50%; /* 圆形头像更加亲和 */ /* 圆角注释 */
-            background: var(--soft); /* 中性封面底色 */ /* 背景注释 */
-            overflow: hidden; /* 溢出截断 */ /* 溢出注释 */
-            display: grid; /* 网格 */ /* 布局注释 */
-            place-items: center; /* 头像置中 */ /* 对齐注释 */
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* 头像投影 */ /* 阴影注释 */
+            width: 52px; /* 头像稍微放大为52px */ /* 宽度注释 */
+            height: 52px; /* 高度52px */ /* 高度注释 */
+            border-radius: 14px; /* 改为现代感极强的圆角矩形，放弃普通正圆 */ /* 圆角注释 */
+            background: var(--soft); /* 衬底底色 */ /* 背景注释 */
+            overflow: hidden; /* 裁剪超出头像框的内容 */ /* 溢出注释 */
+            display: flex; /* 弹性对齐排布 */ /* 布局注释 */
+            align-items: center; /* 纵向居中 */ /* 对齐注释 */
+            justify-content: center; /* 横向居中 */ /* 对齐注释 */
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08); /* 边缘阴影 */ /* 阴影注释 */
+            border: 1px solid var(--line); /* 极细发光圈 */ /* 边框注释 */
         }
-        .person-list-thumb video {
-            width: 100%; /* 撑满 */ /* 宽度注释 */
-            height: 100%; /* 撑满 */ /* 高度注释 */
-            object-fit: cover; /* 居中裁剪 */ /* 裁剪注释 */
-            display: block; /* 消除间隙 */ /* 显示注释 */
-            transition: transform 0.3s ease; /* 缩放过渡 */ /* 动画注释 */
+        /* 缩略图外框撑满头像 */ /* 头像外框注释 */
+        .person-list-thumb .video-poster-frame {
+            width: 100%; /* 宽度占满头像框 */ /* 宽度注释 */
+            height: 100%; /* 高度占满头像框 */ /* 高度注释 */
+            display: block; /* 块状化展示 */ /* 显示注释 */
         }
-        .person-list-card:hover .person-list-thumb video {
-            transform: scale(1.1); /* 移入时头像视频微放大 */ /* 动画注释 */
+        /* 头像内部的多媒体元素与海报图 */ /* 头像元素注释 */
+        .person-list-thumb img,
+        .person-list-thumb video,
+        .person-list-thumb .video-poster-frame img,
+        .person-list-thumb .video-poster-frame video {
+            width: 100%; /* 宽度撑满头像框架 */ /* 宽度注释 */
+            height: 100%; /* 高度撑满头像框架 */ /* 高度注释 */
+            object-fit: cover; /* 居中裁切完美对齐人脸画面 */ /* 裁剪注释 */
+            display: block; /* 消除块级底隙 */ /* 显示注释 */
+            transition: transform 0.4s var(--easing); /* 优雅平滑的缩放过渡 */ /* 动画注释 */
+        }
+        /* 鼠标移入时头像框内缩略图的高级微放大动效 */ /* 悬停过渡注释 */
+        .person-list-card:hover .person-list-thumb img,
+        .person-list-card:hover .person-list-thumb video,
+        .person-list-card:hover .person-list-thumb .video-poster-frame img,
+        .person-list-card:hover .person-list-thumb .video-poster-frame video {
+            transform: scale(1.12); /* 悬停时小图像微放大 */ /* 动画注释 */
         }
         /* 信息层级组 */ /* 元信息注释 */
         .person-list-meta {
-            display: grid; /* 网格 */ /* 布局注释 */
-            gap: 3px; /* 说明行行距 */ /* 间距注释 */
-            min-width: 0; /* 强力防爆宽度 */ /* 尺寸注释 */
+            display: grid; /* 网格单列 */ /* 布局注释 */
+            gap: 4px; /* 行距空隙 */ /* 间距注释 */
+            min-width: 0; /* 防撑开 */ /* 尺寸注释 */
         }
         /* 信息层文字说明修剪 */ /* 备注裁切注释 */
         .person-list-meta .asset-note {
-            font-size: 11px; /* 微缩辅助字号 */ /* 字号注释 */
-            color: var(--muted); /* 文字灰色柔化 */ /* 颜色注释 */
-            line-height: 1.4; /* 精适的行高 */ /* 行高注释 */
-            white-space: nowrap; /* 单行单向不折行 */ /* 换行注释 */
-            overflow: hidden; /* 溢出视域抹除 */ /* 溢出注释 */
-            text-overflow: ellipsis; /* 精准省略号切除 */ /* 省略号注释 */
+            font-size: 11.5px; /* 微缩辅助字号 */ /* 字号注释 */
+            color: var(--muted); /* 文字辅助灰 */ /* 颜色注释 */
+            line-height: 1.45; /* 紧凑行高 */ /* 行高注释 */
+            white-space: nowrap; /* 不折行 */ /* 换换注释 */
+            overflow: hidden; /* 裁剪超出 */ /* 溢出注释 */
+            text-overflow: ellipsis; /* 省略号切除 */ /* 省略号注释 */
         }
         /* 人物深度详情画壁 */ /* 详情面板注释 */
         .person-detail {
-            border: none; /* 移除沉重边框线 */ /* 边框注释 */
-            border-radius: 20px; /* 大气20px大圆角 */ /* 圆角注释 */
-            background: var(--panel); /* 面板色底板 */ /* 背景注释 */
-            padding: 28px; /* 宽松内距 */ /* 边距注释 */
-            display: grid; /* 网格排版 */ /* 布局注释 */
-            gap: 24px; /* 间隙大小 */ /* 间距注释 */
+            border: 1px solid var(--line) !important; /* 增加精致透光外围线线 */ /* 边框注释 */
+            border-radius: 24px; /* 升级为大气的24px大圆角 */ /* 圆角注释 */
+            background: var(--panel); /* 依托主底板 */ /* 背景注释 */
+            padding: 32px; /* 增加舒适大内边距 */ /* 边距注释 */
+            display: grid; /* 栅格排版 */ /* 布局注释 */
+            gap: 28px; /* 区块间缝宽阔 */ /* 间距注释 */
             align-content: start; /* 置顶对齐 */ /* 对齐注释 */
-            min-width: 0; /* 限制宽度 */ /* 尺寸注释 */
-            box-shadow: var(--shadow); /* 加载全局阴影 */ /* 阴影注释 */
+            min-width: 0; /* 防撑开 */ /* 尺寸注释 */
+            box-shadow: var(--shadow); /* 加载高规格投影 */ /* 阴影注释 */
         }
         /* 大图与详情信息混编 */ /* 展示区注释 */
         .person-detail-hero {
-            display: grid; /* 双栏网格 */ /* 布局注释 */
-            grid-template-columns: 280px minmax(0, 1fr); /* 合理的详情分栏 */ /* 布局注释 */
-            gap: 24px; /* 封面与说明栏间隙 */ /* 间距注释 */
-            align-items: center; /* 纵向居中对齐 */ /* 对齐注释 */
+            display: grid; /* 网格双栏 */ /* 布局注释 */
+            grid-template-columns: 280px minmax(0, 1fr); /* 详情双栏黄金比例 */ /* 布局注释 */
+            gap: 28px; /* 封面与内容大留隙 */ /* 间距注释 */
+            align-items: center; /* 纵轴对称对齐 */ /* 对齐注释 */
         }
         /* 详情主封面大图 */ /* 大封面注释 */
         .person-detail-cover {
-            border-radius: 16px; /* 更大圆润角 */ /* 圆角注释 */
-            background: var(--soft); /* 中性封面底色 */ /* 背景注释 */
-            height: 240px; /* 大视频高度 */ /* 高度注释 */
-            overflow: hidden; /* 溢出裁剪 */ /* 溢出注释 */
-            display: grid; /* 置中 */ /* 布局注释 */
-            place-items: center; /* 放置中心 */ /* 对齐注释 */
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); /* 影视级阴影 */ /* 阴影注释 */
-            position: relative; /* 定位 */ /* 定位注释 */
-            border: 1px solid rgba(255, 255, 255, 0.08); /* 发光边线 */ /* 边框注释 */
+            width: 100%; /* 宽度撑满左侧分栏 */ /* 宽度注释 */
+            height: auto; /* 高度自动由比例计算 */ /* 高度注释 */
+            aspect-ratio: var(--video-aspect-ratio, 16 / 9); /* 注入视频的宽高比自适应 */ /* 比例注释 */
+            max-height: min(480px, 65vh); /* 限制最高高度以防竖屏拉得过高 */ /* 高度限制注释 */
+            border-radius: 20px; /* 大圆角20px */ /* 圆角注释 */
+            background: var(--soft); /* 衬底背景色 */ /* 背景注释 */
+            overflow: hidden; /* 强制裁剪溢出 */ /* 溢出注释 */
+            display: flex; /* 弹性布局居中 */ /* 布局注释 */
+            align-items: center; /* 纵向对齐置中 */ /* 对齐注释 */
+            justify-content: center; /* 横向对齐置中 */ /* 对齐注释 */
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08); /* 影视级双重投影 */ /* 阴影注释 */
+            position: relative; /* 定位锚点 */ /* 定位注释 */
+            border: 1px solid rgba(255, 255, 255, 0.06); /* 上边缘高光 */ /* 边框注释 */
         }
-        /* 封面主播放器适配 */ /* 播放器注释 */
-        .person-detail-cover video {
-            width: 100%; /* 横轴通铺 */ /* 宽度注释 */
-            height: 100%; /* 纵轴通铺 */ /* 高度注释 */
-            object-fit: cover; /* 保证全屏无裂缝 */ /* 裁剪注释 */
-            display: block; /* 消除默认排版间隙 */ /* 显示注释 */
+        /* 封面主播放器与海报组件适配 */ /* 播放器注释 */
+        .person-detail-cover .video-poster-frame {
+            width: 100%; /* 宽度占满封面容器 */ /* 宽度注释 */
+            height: 100%; /* 高度占满封面容器 */ /* 高度注释 */
+            display: block; /* 块状化排布 */ /* 显示注释 */
+        }
+        .person-detail-cover video,
+        .person-detail-cover .video-poster-frame img,
+        .person-detail-cover .video-poster-frame video {
+            width: 100%; /* 宽度通铺 */ /* 宽度注释 */
+            height: 100%; /* 高度通铺 */ /* 高度注释 */
+            object-fit: contain; /* 包含比例确保画面完整不裁剪 */ /* 裁剪注释 */
+            display: block; /* 消除行内块空隙 */ /* 显示注释 */
         }
         /* 核心详情信息文本块 */ /* 文本主板注释 */
         .person-detail-main {
-            display: grid; /* 网格 */ /* 布局注释 */
-            gap: 16px; /* 间隙大小 */ /* 间距注释 */
+            display: grid; /* 网格排版 */ /* 布局注释 */
+            gap: 20px; /* 大呼吸间隙 */ /* 间距注释 */
             align-content: start; /* 置顶靠右 */ /* 对齐注释 */
-            min-width: 0; /* 终极防撑开设计 */ /* 尺寸注释 */
+            min-width: 0; /* 防撑开设计 */ /* 尺寸注释 */
         }
         /* 标题配置栏 */ /* 标题配置栏注释 */
         .person-detail-title {
-            display: flex; /* 弹性 */ /* 布局注释 */
-            justify-content: space-between; /* 两翼分开分布 */ /* 对齐注释 */
-            align-items: flex-start; /* 顶部轴对齐 */ /* 对齐注释 */
-            gap: 16px; /* 按钮与名字微距 */ /* 间距注释 */
-            flex-wrap: wrap; /* 空间不够自动回弹折行 */ /* 换行注释 */
+            display: flex; /* 弹性布局 */ /* 布局注释 */
+            justify-content: space-between; /* 两翼分展分布 */ /* 对齐注释 */
+            align-items: flex-start; /* 置顶对齐 */ /* 对齐注释 */
+            gap: 16px; /* 间隙大小 */ /* 间距注释 */
+            flex-wrap: wrap; /* 空间不够自动换行 */ /* 换行注释 */
         }
         /* 人物名字主文本 */ /* 名字主文注释 */
         .person-detail-title .asset-name {
@@ -389,31 +495,35 @@
         /* 重新设计人物数值参数面板 */ /* 参数面板注释 */
         .person-stats {
             display: grid; /* 网格拼装 */ /* 布局注释 */
-            grid-template-columns: repeat(3, minmax(0, 1fr)); /* 三列匀称等宽 */ /* 布局注释 */
-            gap: 12px; /* 参数格子之间距 */ /* 间距注释 */
+            grid-template-columns: repeat(3, minmax(0, 1fr)); /* 三列等宽分栏 */ /* 布局注释 */
+            gap: 14px; /* 加大参数格子之间距 */ /* 间距注释 */
         }
         /* 精致属性小格子 */ /* 属性格子注释 */
         .person-stat {
-            border: 1px solid var(--line); /* 默认浅细边线 */ /* 边框注释 */
-            border-radius: 12px; /* 卡片圆润角 */ /* 圆角注释 */
-            background: var(--soft); /* 衬底极淡背景 */ /* 背景注释 */
-            padding: 12px 14px; /* 宽松内边距 */ /* 边距注释 */
-            min-width: 0; /* 尺寸截流 */ /* 尺寸注释 */
-            transition: all 0.25s ease; /* 平滑轻量互动 */ /* 动画注释 */
+            border: 1px solid var(--line); /* 默认极细高光边 */ /* 边框注释 */
+            border-radius: 14px; /* 升级为大气的14px圆角 */ /* 圆角注释 */
+            background: color-mix(in srgb, var(--panel) 42%, var(--soft)); /* 融合半透明底板 */ /* 背景注释 */
+            padding: 12px 16px; /* 宽松内边距 */ /* 边距注释 */
+            min-width: 0; /* 防挤压 */ /* 尺寸注释 */
+            transition: all 0.3s var(--easing); /* 优雅微交互过渡 */ /* 动画注释 */
             position: relative; /* 定位锚点 */ /* 定位注释 */
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.01); /* 极细投影 */ /* 阴影注释 */
         }
         /* 属性格子互动微调 */ /* 互动微调注释 */
         .person-stat:hover {
-            border-color: var(--accent); /* 边框变高亮 */ /* 边框注释 */
-            background: color-mix(in srgb, var(--accent) 3%, var(--soft)); /* 混入微量主色 */ /* 背景注释 */
+            border-color: var(--accent); /* 边框变高亮蓝 */ /* 边框注释 */
+            background: color-mix(in srgb, var(--accent) 4%, var(--panel)); /* 混入微量高光 */ /* 背景注释 */
+            transform: translateY(-2px); /* 悬浮微抬 */ /* 动画注释 */
+            box-shadow: 0 6px 14px rgba(15, 23, 42, 0.04); /* 微微浮光投影 */ /* 阴影注释 */
         }
         /* 指标文字小标签 */ /* 格子标签注释 */
         .person-stat .section-label {
-            font-size: 10px; /* 微小科技标签 */ /* 字号注释 */
-            color: var(--muted); /* 辅助字色 */ /* 颜色注释 */
-            text-transform: uppercase; /* 单词标准化大写 */ /* 大写注释 */
-            letter-spacing: 0.5px; /* 精巧加宽字间距 */ /* 字距注释 */
-            margin-bottom: 4px; /* 隔开底文 */ /* 边距注释 */
+            font-size: 10.5px; /* 极小科技标签 */ /* 字号注释 */
+            color: var(--muted); /* 辅助灰字 */ /* 颜色注释 */
+            text-transform: uppercase; /* 自动英文大写 */ /* 大写注释 */
+            letter-spacing: 0.8px; /* 拓宽字距提升精细感 */ /* 字距注释 */
+            margin-bottom: 6px; /* 隔开数据 */ /* 边距注释 */
+            font-weight: 700; /* 加粗 */ /* 字重注释 */
         }
         /* 指标核心数据值 */ /* 核心值注释 */
         .person-stat strong {
@@ -430,172 +540,24 @@
         /* 声音绑定下拉选择器 */ /* 下拉绑定器注释 */
         .inline-voice-binder {
             display: flex; /* 弹性 */ /* 布局注释 */
-            align-items: center; /* 垂直居中 */ /* 对齐注释 */
-            gap: 6px; /* 间隙紧凑 */ /* 间距注释 */
-            width: 100%; /* 横轴铺满 */ /* 宽度注释 */
+            align-items: center; /* 垂直对中 */ /* 对齐注释 */
+            gap: 6px; /* 间隙紧密 */ /* 间距注释 */
+            width: 100%; /* 横轴通铺 */ /* 宽度注释 */
         }
         .inline-voice-binder select {
-            flex: 1; /* 撑满剩余宽度 */ /* 弹性注释 */
-            height: 32px; /* 适中紧凑高度 */ /* 高度注释 */
-            border-radius: 8px; /* 柔和圆角 */ /* 圆角注释 */
-            padding: 0 8px; /* 水平边距 */ /* 边距注释 */
+            flex: 1; /* 撑满 */ /* 弹性注释 */
+            height: 34px; /* 加高为34px方便交互 */ /* 高度注释 */
+            border-radius: 10px; /* 升级为10px圆角 */ /* 圆角注释 */
+            padding: 0 10px; /* 增加水平留白 */ /* 边距注释 */
             font-size: 12px; /* 小号字 */ /* 字号注释 */
-            border: 1px solid var(--line); /* 默认细边线 */ /* 边框注释 */
-            background: var(--panel); /* 依托面板底色 */ /* 背景注释 */
-            color: var(--text); /* 文字颜色 */ /* 颜色注释 */
-            cursor: pointer; /* 鼠标手势 */ /* 手势注释 */
-            outline: none; /* 移除外轮廓 */ /* 轮廓注释 */
+            border: 1px solid var(--line); /* 默认线色 */ /* 边框注释 */
+            background: var(--panel); /* 面板白衬底 */ /* 背景注释 */
+            color: var(--text); /* 文字色 */ /* 颜色注释 */
+            cursor: pointer; /* 手势 */ /* 手势注释 */
+            outline: none; /* 移除选中线 */ /* 轮廓注释 */
+            font-weight: 600; /* 次粗体 */ /* 字重注释 */
+            transition: all 0.25s var(--easing); /* 丝滑过渡 */ /* 动画注释 */
         }
-        /* 库操作栏 */ /* 库操作栏注释 */
-        .library-actions {
-            display: flex; /* 弹性 */ /* 布局注释 */
-            flex-wrap: wrap; /* 空间不够自动折行 */ /* 换行注释 */
-            gap: 8px; /* 按钮间缝隙 */ /* 间距注释 */
-            margin-top: 6px; /* 顶端推进外距 */ /* 边距注释 */
-        }
-        /* 驱动视频网格头部 */ /* 视频头部注释 */
-        .video-library-head {
-            display: flex; /* 弹性 */ /* 布局注释 */
-            align-items: center; /* 轴线中心对齐 */ /* 对齐注释 */
-            justify-content: space-between; /* 左右两侧分隔 */ /* 对齐注释 */
-            gap: 12px; /* 间隙大小 */ /* 间距注释 */
-            border-top: 1px solid var(--line); /* 顶部切刀分割线 */ /* 边框注释 */
-            padding-top: 16px; /* 上部离空 */ /* 边距注释 */
-            margin-top: 2px; /* 上部外推微距 */ /* 边距注释 */
-        }
-        /* 驱动视频的弹性网格 */ /* 视频网格注释 */
-        .video-card-grid {
-            display: grid; /* 自适应排列网格 */ /* 布局注释 */
-            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); /* 精确等列填充 */ /* 布局注释 */
-            gap: 16px; /* 视频格子间距 */ /* 间距注释 */
-        }
-        /* 升级视频卡片 - 无框、磨砂、悬浮遮罩 */ /* 视频卡片升级注释 */
-        .asset-video-card {
-            border: 1px solid var(--line); /* 基础细轮廓 */ /* 边框注释 */
-            border-radius: 14px; /* 卡片大圆润角 */ /* 圆角注释 */
-            background: var(--panel); /* 核心主面板色 */ /* 背景注释 */
-            overflow: hidden; /* 强制超出隐藏 */ /* 溢出注释 */
-            display: flex; /* 垂直排列 */ /* 布局注释 */
-            flex-direction: column; /* 纵向一贯流 */ /* 布局注释 */
-            min-width: 0; /* 防挤压 */ /* 尺寸注释 */
-            position: relative; /* 核心相对定位，用以容纳绝对定位遮罩 */ /* 定位注释 */
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); /* 平滑弹力过渡 */ /* 动画注释 */
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02); /* 微阴影 */ /* 阴影注释 */
-        }
-        /* 视频卡片互动反馈 */ /* 交互反馈注释 */
-        .asset-video-card:hover {
-            transform: translateY(-4px); /* 滑过上移起飞 */ /* 动画注释 */
-            border-color: var(--accent); /* 边框变主调色 */ /* 边框注释 */
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06); /* 软透投影 */ /* 阴影注释 */
-        }
-        .asset-video-card.active {
-            border-color: var(--accent); /* 强制使用主调色彩 */ /* 边框注释 */
-            box-shadow: 0 0 0 3px var(--accent-soft); /* 高亮外霓虹发光环 */ /* 阴影注释 */
-        }
-        /* 视频图窗外框 */ /* 图窗外框注释 */
-        .asset-video-thumb {
-            position: relative; /* 相对基准点 */ /* 定位注释 */
-            aspect-ratio: 16 / 10; /* 精美的16:10视野比 */ /* 比例注释 */
-            background: var(--soft); /* 中性封面底色 */ /* 背景注释 */
-            display: grid; /* 网格轴中央 */ /* 布局注释 */
-            place-items: center; /* 集中放置 */ /* 对齐注释 */
-            overflow: hidden; /* 保证视频本身能被裁圆 */ /* 溢出注释 */
-        }
-        /* 极客式适配立式竖排视频图窗 */ /* 竖图窗注释 */
-        .asset-video-thumb.portrait {
-            width: 100%; /* 横轴铺满 */ /* 宽度注释 */
-            aspect-ratio: 9 / 14; /* 竖屏适配 */ /* 比例注释 */
-            margin: 0; /* 移除外边距 */ /* 边距注释 */
-            border-radius: 0; /* 保持边缘一致 */ /* 圆角注释 */
-        }
-        /* 图屏内嵌播放微件 */ /* 内嵌播放注释 */
-        .asset-video-thumb video {
-            width: 100%; /* 通用满幅 */ /* 宽度注释 */
-            height: 100%; /* 通用满幅 */ /* 高度注释 */
-            object-fit: cover; /* 充满画幅，居中裁剪 */ /* 裁剪注释 */
-            display: block; /* 消除默认排版间隙 */ /* 显示注释 */
-        }
-        .video-poster-frame {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            min-height: inherit;
-            display: grid;
-            place-items: center;
-            overflow: hidden;
-            color: var(--muted);
-            background: color-mix(in srgb, var(--soft) 84%, #ffffff);
-        }
-        .video-poster-frame img,
-        .video-poster-frame video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-        .video-poster-frame video {
-            position: absolute;
-            inset: 0;
-            opacity: 0;
-            transition: opacity .16s ease;
-        }
-        .video-poster-frame.previewing video {
-            opacity: 1;
-        }
-        .video-poster-placeholder {
-            display: grid;
-            place-items: center;
-            width: 100%;
-            height: 100%;
-            padding: 12px;
-            font-size: 12px;
-            color: var(--muted);
-            text-align: center;
-            background: linear-gradient(135deg, rgba(148, 163, 184, .14), rgba(148, 163, 184, .05));
-        }
-        /* 视频底卡名注组 */ /* 底卡名注组注释 */
-        .asset-video-info {
-            display: grid; /* 网格排版 */ /* 布局注释 */
-            gap: 3px; /* 名字与备注行微距 */ /* 间距注释 */
-            padding: 14px; /* 宽松内边距 */ /* 边距注释 */
-            min-width: 0; /* 精确保障宽度 */ /* 尺寸注释 */
-            flex-grow: 1; /* 撑满剩余高度 */ /* 弹性注释 */
-        }
-        .asset-video-info .asset-name {
-            font-size: 13px; /* 适度大小 */ /* 字号注释 */
-            font-weight: 700; /* 重点突出 */ /* 字重注释 */
-        }
-        .asset-video-info .asset-note {
-            font-size: 11px; /* 辅助文字大小 */ /* 字号注释 */
-            color: var(--muted); /* 辅助字色 */ /* 颜色注释 */
-        }
-        /* 重磅！悬浮毛玻璃遮罩操作层 */ /* 悬浮遮罩注释 */
-        .video-overlay {
-            position: absolute; /* 绝对定位充满卡片 */ /* 定位注释 */
-            top: 0; /* 置顶 */ /* 定位注释 */
-            left: 0; /* 靠左 */ /* 定位注释 */
-            width: 100%; /* 横轴充满 */ /* 宽度注释 */
-            height: 100%; /* 纵轴充满 */ /* 高度注释 */
-            background: rgba(15, 20, 29, 0.65); /* 磨砂半透明背景 */ /* 背景注释 */
-            backdrop-filter: blur(8px); /* 开启毛玻璃 */ /* 滤镜注释 */
-            display: flex; /* 弹性 */ /* 布局注释 */
-            flex-direction: column; /* 垂直排版 */ /* 方向注释 */
-            align-items: center; /* 横轴居中 */ /* 对齐注释 */
-            justify-content: center; /* 纵轴居中 */ /* 对齐注释 */
-            gap: 8px; /* 按钮微隙 */ /* 间距注释 */
-            padding: 16px; /* 卡内留白 */ /* 边距注释 */
-            opacity: 0; /* 默认完全透明隐藏 */ /* 透明度注释 */
-            pointer-events: none; /* 屏蔽交互 */ /* 交互注释 */
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* 过渡动画 */ /* 动画注释 */
-            z-index: 10; /* 置于顶层 */ /* 图层注释 */
-        }
-        .asset-video-card:hover .video-overlay {
-            opacity: 1; /* 悬停展现 */ /* 透明度注释 */
-            pointer-events: auto; /* 开启交互 */ /* 交互注释 */
-        }
-        /* 遮罩内精致胶囊按键样式 */ /* 遮罩内按键注释 */
-        .video-overlay .btn {
-            width: min(150px, 90%); /* 限定宽度 */ /* 宽度注释 */
             min-height: 32px; /* 宽松高度 */ /* 高度注释 */
             font-size: 12px; /* 适中字号 */ /* 字号注释 */
             border-radius: 20px; /* 药丸状高颜值圆角 */ /* 圆角注释 */
@@ -633,26 +595,24 @@
         }
         /* 声音专属拟物感卡片 */ /* 声音卡片注释 */
         .voice-card {
-            border: 1px solid var(--line); /* 精致浅薄边框 */ /* 边框注释 */
-            border-radius: 12px; /* 卡片采用大圆润角 */ /* 圆角注释 */
-            background: var(--panel); /* 主背景面板色 */ /* 背景注释 */
-            padding: 14px; /* 恰当的内边距 */ /* 边距注释 */
-            display: grid; /* 网格自上而下排布 */ /* 布局注释 */
+            border: none; /* 移除描边以消除卡片嵌套厚重感 */ /* 边框注释 */
+            border-radius: 16px; /* 统一升级为更圆润的16px大圆角 */ /* 圆角注释 */
+            background: var(--soft); /* 选用极淡底板底色以消弭嵌套感 */ /* 背景注释 */
+            padding: 16px; /* 扩展舒适间距 */ /* 边距注释 */
+            display: grid; /* 格子排部 */ /* 布局注释 */
             gap: 12px; /* 子项间隙 */ /* 间距注释 */
-            min-width: 0; /* 极限防爆宽 */ /* 尺寸注释 */
-            transition: all 0.28s cubic-bezier(0.25, 0.8, 0.25, 1); /* 平滑缓冲交互动画 */ /* 动画注释 */
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.01); /* 轻度投影 */ /* 阴影注释 */
+            min-width: 0; /* 规格限制 */ /* 规格注释 */
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); /* 平滑物理弹性过渡 */ /* 动画注释 */
         }
         /* 声音卡片悬停表现 */ /* 悬停交互注释 */
         .voice-card:hover {
-            transform: translateY(-3px); /* 向上优雅浮起 */ /* 动画注释 */
-            border-color: var(--accent); /* 边框变高亮色 */ /* 边框注释 */
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04); /* 软化浮动投影 */ /* 阴影注释 */
+            transform: translateY(-4px); /* 悬浮微升以显灵动 */ /* 动画注释 */
+            background: var(--soft-strong); /* 悬浮时背景微加深 */ /* 悬浮注释 */
+            box-shadow: var(--shadow); /* 加载全局柔和投影 */ /* 阴影注释 */
         }
         /* 声音激活发光态 */ /* 活动态注释 */
         .voice-card.active {
-            border-color: var(--accent); /* 活动主色线 */ /* 边框注释 */
-            box-shadow: 0 0 0 3px var(--accent-soft); /* 高亮外霓虹光晕 */ /* 阴影注释 */
+            box-shadow: 0 0 0 2px var(--accent); /* 选中时加粗主线高亮圈 */ /* 选中注释 */
         }
         /* 声音卡片头部装配区 */ /* 卡片头部注释 */
         .voice-card-head {
@@ -677,12 +637,20 @@
             transform: scale(1.08); /* 悬浮时图标微缩放 */ /* 动画注释 */
         }
         /* 原生播放器精致微调 */ /* 播放器美化注释 */
-        .voice-card audio {
+        .voice-card audio, audio {
             width: 100%; /* 满幅宽度 */ /* 宽度注释 */
             min-width: 0; /* 极限收缩 */ /* 尺寸注释 */
             height: 32px; /* 紧凑小高 */ /* 高度注释 */
-            border-radius: 6px; /* 圆角外壳 */ /* 圆角注释 */
-            background: var(--soft); /* 软淡底色衬托 */ /* 背景注释 */
+            border-radius: 999px; /* 改为药丸状大胶囊圆角 */ /* 圆角注释 */
+            background: var(--soft-strong); /* 融于背景衬底 */ /* 背景注释 */
+            border: 1px solid var(--line); /* 极细描边 */ /* 边框注释 */
+            outline: none; /* 去除选中外边框 */ /* 轮廓注释 */
+            overflow: hidden; /* 裁剪 */ /* 裁剪注释 */
+        }
+        /* 针对 Webkit 浏览器的原生 audio 轨道与按钮深度融合美化 */ /* 浏览器美化注释 */
+        audio::-webkit-media-controls-panel {
+            background-color: var(--soft-strong) !important; /* 原生面板背景色融合 */ /* 背景注释 */
+            filter: var(--theme-audio-filter, none); /* 亮暗色完美自适应滤镜 */ /* 滤镜注释 */
         }
         /* 按钮功能槽 */ /* 功能槽注释 */
         .voice-actions {
@@ -757,119 +725,189 @@
             border-right: 1px solid var(--line);
         }
         .driver-column {
-            padding: 16px;
-            display: grid;
-            gap: 12px;
-            align-content: start;
-            background: color-mix(in srgb, var(--panel) 78%, var(--soft));
+            padding: 20px; /* 大边距 */ /* 边距注释 */
+            display: grid; /* 网格 */ /* 布局注释 */
+            gap: 14px; /* 间距 */ /* 间距注释 */
+            align-content: start; /* 置顶对齐 */ /* 对齐注释 */
+            background: color-mix(in srgb, var(--panel) 78%, var(--soft)); /* 融合底色 */ /* 背景注释 */
         }
         .voice-row {
-            display: grid;
-            grid-template-columns: minmax(180px, 1fr) auto auto auto;
-            gap: 10px;
-            align-items: end;
+            display: grid; /* 网格排版 */ /* 布局注释 */
+            grid-template-columns: minmax(180px, 1fr) auto auto auto; /* 分栏比例 */ /* 布局注释 */
+            gap: 12px; /* 间隙大小 */ /* 间距注释 */
+            align-items: end; /* 下端对齐 */ /* 对齐注释 */
         }
         .audio-chip {
-            display: none;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            background: var(--soft);
-            padding: 10px;
-            gap: 10px;
-            align-items: center;
+            display: none; /* 默认隐藏 */ /* 显示注释 */
+            border: 1px solid var(--line); /* 极细描边 */ /* 边框注释 */
+            border-radius: 12px; /* 12px大圆角 */ /* 圆角注释 */
+            background: color-mix(in srgb, var(--panel) 50%, var(--soft)); /* 磨砂亮衬底 */ /* 背景注释 */
+            padding: 12px; /* 宽松内留白 */ /* 边距注释 */
+            gap: 12px; /* 空隙大小 */ /* 间距注释 */
+            align-items: center; /* 轴线对称 */ /* 对齐注释 */
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.02); /* 默认微影 */ /* 阴影注释 */
         }
-        .audio-chip.show { display: grid; }
-        .audio-chip audio { width: 100%; min-width: 0; }
+        .audio-chip.show { display: grid; } /* 触发时显示 */ /* 显示注释 */
+        .audio-chip audio { width: 100%; min-width: 0; } /* 原生 audio 满铺 */ /* 宽度注释 */
         .chip-meta {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 10px;
-            align-items: center;
+            display: grid; /* 网格 */ /* 布局注释 */
+            grid-template-columns: minmax(0, 1fr) auto; /* 双栏比例 */ /* 布局注释 */
+            gap: 10px; /* 空隙 */ /* 间距注释 */
+            align-items: center; /* 纵向居中 */ /* 对齐注释 */
         }
         .tts-panel {
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            padding: 12px;
-            display: grid;
-            gap: 12px;
-            background: color-mix(in srgb, var(--panel) 82%, var(--soft));
+            border: 1px solid var(--line); /* 周边界线 */ /* 边框注释 */
+            border-radius: 14px; /* 14px饱满圆角 */ /* 圆角注释 */
+            padding: 16px; /* 宽松留白 */ /* 边距注释 */
+            display: grid; /* 布局 */ /* 布局注释 */
+            gap: 16px; /* 间隙大小 */ /* 间距注释 */
+            background: color-mix(in srgb, var(--panel) 82%, var(--soft)); /* 高亮衬底 */ /* 背景注释 */
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.01); /* 投影 */ /* 阴影注释 */
         }
         .tts-row {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px;
-            align-items: end;
+            display: grid; /* 网格 */ /* 布局注释 */
+            grid-template-columns: repeat(2, minmax(0, 1fr)); /* 双栏等宽 */ /* 布局注释 */
+            gap: 14px; /* 缝隙大小 */ /* 间距注释 */
+            align-items: end; /* 底部轴对齐 */ /* 对齐注释 */
         }
         .control-line {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) 76px;
-            gap: 10px;
-            align-items: center;
+            display: grid; /* 栅格 */ /* 布局注释 */
+            grid-template-columns: minmax(0, 1fr) 76px; /* 比例 */ /* 布局注释 */
+            gap: 12px; /* 缝隙 */ /* 间距注释 */
+            align-items: center; /* 居中 */ /* 对齐注释 */
+        }
+        /* 彻底美化原生 Range Slider */ /* 滑块升级注释 */
+        input[type="range"] {
+            -webkit-appearance: none; /* 禁用默认样式 */ /* 样式注释 */
+            appearance: none; /* 禁用默认 */ /* 样式注释 */
+            width: 100%; /* 通用满幅 */ /* 宽度注释 */
+            height: 6px; /* 极细优雅高度 */ /* 高度注释 */
+            border-radius: 99px; /* 胶囊圆角 */ /* 圆角注释 */
+            background: var(--soft-strong); /* 轨道底色 */ /* 背景注释 */
+            outline: none; /* 移除外边框 */ /* 轮廓注释 */
+            border: none; /* 移除描边 */ /* 边框注释 */
+            cursor: pointer; /* 鼠标手势 */ /* 手势注释 */
+            transition: all 0.2s var(--easing); /* 滑杆过渡 */ /* 动画注释 */
+        }
+        /* 针对 Webkit 内核的 Slider 轨道美化 */ /* 轨道美化注释 */
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%; /* 横轴全铺 */ /* 宽度注释 */
+            height: 6px; /* 轨高度 */ /* 高度注释 */
+            background: var(--soft-strong); /* 轨道底板色 */ /* 背景注释 */
+            border-radius: 99px; /* 大圆角 */ /* 圆角注释 */
+            transition: background 0.3s; /* 过渡 */ /* 动画注释 */
+        }
+        /* 针对 Webkit 内核的 Slider 滑块美化 */ /* 滑块美化注释 */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; /* 禁用默认 */ /* 样式注释 */
+            appearance: none; /* 禁用默认 */ /* 样式注释 */
+            width: 18px; /* 宽18px */ /* 宽度注释 */
+            height: 18px; /* 高18px */ /* 高度注释 */
+            border-radius: 50%; /* 正圆形滑球 */ /* 圆角注释 */
+            background: #ffffff; /* 纯白滑球 */ /* 背景注释 */
+            border: 2px solid var(--accent); /* 靛蓝高亮边界线 */ /* 边框注释 */
+            box-shadow: 0 3px 8px var(--accent-glow); /* 带有主色微弱呼吸发光的投影 */ /* 阴影注释 */
+            margin-top: -6px; /* 垂直微调以对齐轨道 */ /* 边距注释 */
+            transition: transform 0.2s var(--easing), background 0.2s; /* 滑球缩放过渡 */ /* 动画注释 */
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.18); /* 悬浮时滑块微微放大 */ /* 动画注释 */
+            background: var(--accent); /* 滑块底色变为靛蓝 */ /* 背景注释 */
+            border-color: #ffffff; /* 边框线变为纯白高反差 */ /* 边框注释 */
+            box-shadow: 0 4px 12px var(--accent-glow); /* 强化发光 */ /* 阴影注释 */
+        }
+        /* 针对 Firefox 的滑轨与滑块定制 */ /* 狐猴浏览器适配注释 */
+        input[type="range"]::-moz-range-track {
+            width: 100%; /* 宽度 */ /* 宽度注释 */
+            height: 6px; /* 高 */ /* 高度注释 */
+            background: var(--soft-strong); /* 轨衬底 */ /* 背景注释 */
+            border-radius: 99px; /* 圆角 */ /* 圆角注释 */
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 16px; /* 宽 */ /* 宽度注释 */
+            height: 16px; /* 高 */ /* 高度注释 */
+            border-radius: 50%; /* 圆 */ /* 圆角注释 */
+            background: #ffffff; /* 纯白 */ /* 背景注释 */
+            border: 2px solid var(--accent); /* 边框 */ /* 边框注释 */
+            box-shadow: 0 3px 8px var(--accent-glow); /* 阴影 */ /* 阴影注释 */
+            cursor: pointer; /* 手势 */ /* 手势注释 */
+            transition: transform 0.2s var(--easing); /* 过渡 */ /* 动画注释 */
+        }
+        input[type="range"]::-moz-range-thumb:hover {
+            transform: scale(1.18); /* 悬浮放大 */ /* 动画注释 */
         }
         .conditional-panel {
-            display: none;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            padding: 10px;
-            background: var(--panel);
-            gap: 10px;
+            display: none; /* 默认折叠 */ /* 显示注释 */
+            border: 1px solid var(--line); /* 细线框 */ /* 边框注释 */
+            border-radius: 12px; /* 12px圆角 */ /* 圆角注释 */
+            padding: 12px; /* 内间距 */ /* 边距注释 */
+            background: var(--panel); /* 面板色衬底 */ /* 背景注释 */
+            gap: 12px; /* 间隙大小 */ /* 间距注释 */
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02); /* 微内凹阴影 */ /* 阴影注释 */
         }
-        .conditional-panel.show { display: grid; }
+        .conditional-panel.show { display: grid; } /* 显示时以网格展开 */ /* 显示注释 */
         .advanced-panel {
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            overflow: hidden;
-            background: var(--panel);
+            border: 1px solid var(--line); /* 外边框 */ /* 边框注释 */
+            border-radius: 12px; /* 12px圆角 */ /* 圆角注释 */
+            overflow: hidden; /* 裁剪 */ /* 溢出注释 */
+            background: var(--panel); /* 背景衬底 */ /* 背景注释 */
+            transition: all 0.3s var(--easing); /* 优雅过渡 */ /* 动画注释 */
         }
         .advanced-toggle {
-            width: 100%;
-            border: 0;
-            border-bottom: 1px solid transparent;
-            background: transparent;
-            min-height: 38px;
-            padding: 0 10px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-            font-weight: 650;
+            width: 100%; /* 横轴全铺 */ /* 宽度注释 */
+            border: 0; /* 无描边 */ /* 边框注释 */
+            border-bottom: 1px solid transparent; /* 默认透明底部 */ /* 边框注释 */
+            background: transparent; /* 透明衬底 */ /* 背景注释 */
+            min-height: 40px; /* 适度加高 */ /* 高度注释 */
+            padding: 0 14px; /* 水平内留白 */ /* 边距注释 */
+            display: flex; /* 弹性布局 */ /* 布局注释 */
+            align-items: center; /* 纵轴对称 */ /* 对齐注释 */
+            justify-content: space-between; /* 两侧分展 */ /* 对齐注释 */
+            cursor: pointer; /* 鼠标变手 */ /* 手势注释 */
+            font-weight: 700; /* 加粗 */ /* 字重注释 */
+            font-size: 13px; /* 字号大小 */ /* 字号注释 */
+            color: var(--text); /* 主文字色 */ /* 颜色注释 */
+            transition: background 0.25s var(--easing); /* 背景过渡 */ /* 动画注释 */
+        }
+        .advanced-toggle:hover {
+            background: var(--soft); /* 悬浮高亮反馈 */ /* 背景注释 */
         }
         .advanced-body {
-            display: none;
-            border-top: 1px solid var(--line);
-            padding: 12px;
-            gap: 12px;
+            display: none; /* 默认隐藏 */ /* 显示注释 */
+            border-top: 1px solid var(--line); /* 顶部细割线 */ /* 边框注释 */
+            padding: 14px; /* 内留白 */ /* 边距注释 */
+            gap: 14px; /* 选项间距 */ /* 间距注释 */
         }
-        .advanced-panel.open .advanced-body { display: grid; }
+        .advanced-panel.open .advanced-body { display: grid; } /* 激活时展示网格 */ /* 显示注释 */
         .vector-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 10px;
+            display: grid; /* 网格 */ /* 布局注释 */
+            grid-template-columns: repeat(4, minmax(0, 1fr)); /* 四列等宽 */ /* 布局注释 */
+            gap: 10px; /* 间距 */ /* 间距注释 */
         }
         .advanced-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 10px;
+            display: grid; /* 网格 */ /* 布局注释 */
+            grid-template-columns: repeat(3, minmax(0, 1fr)); /* 三列等宽 */ /* 布局注释 */
+            gap: 10px; /* 间隙 */ /* 间距注释 */
         }
         .check-row {
-            display: flex;
-            gap: 14px;
-            align-items: center;
-            flex-wrap: wrap;
+            display: flex; /* 弹性在一行 */ /* 布局注释 */
+            gap: 14px; /* 留空 */ /* 间距注释 */
+            align-items: center; /* 纵轴对称 */ /* 对齐注释 */
+            flex-wrap: wrap; /* 换行 */ /* 换行注释 */
         }
         .check-row label {
-            margin: 0;
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            color: var(--text);
-            font-size: 13px;
+            margin: 0; /* 移除外距 */ /* 边距注释 */
+            display: inline-flex; /* 内联弹性 */ /* 布局注释 */
+            align-items: center; /* 轴线对称 */ /* 对齐注释 */
+            gap: 7px; /* 框与文字间隙 */ /* 间距注释 */
+            color: var(--text); /* 字色 */ /* 颜色注释 */
+            font-size: 13px; /* 字号大小 */ /* 字号注释 */
         }
         .video-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
+            display: flex; /* 弹性 */ /* 布局注释 */
+            align-items: center; /* 对齐 */ /* 对齐注释 */
+            justify-content: space-between; /* 两翼分展 */ /* 对齐注释 */
+            gap: 12px; /* 间隙 */ /* 间距注释 */
         }
         .dh-dialog-modal {
             position: fixed;
@@ -1051,39 +1089,40 @@
             background: var(--soft);
         }
         .selected-preview-media {
-            position: relative;
-            width: 100%;
-            aspect-ratio: var(--video-aspect-ratio, 16 / 9);
-            max-height: min(460px, 62vh);
-            background: var(--soft);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #d1d5db;
-            overflow: hidden;
-            transition: width .16s ease, aspect-ratio .16s ease, margin .16s ease, border-radius .16s ease;
+            position: relative; /* 相对定位 */ /* 定位注释 */
+            width: 100%; /* 宽度撑满外层卡片 */ /* 宽度注释 */
+            aspect-ratio: var(--video-aspect-ratio, 16 / 9); /* 默认横屏比例 */ /* 比例注释 */
+            max-height: min(560px, 75vh); /* 限制最高高度以防极高竖屏无限拉长 */ /* 高度注释 */
+            background: var(--soft); /* 灰色底色 */ /* 背景注释 */
+            display: flex; /* 弹性布局 */ /* 布局注释 */
+            align-items: center; /* 纵向居中 */ /* 对齐注释 */
+            justify-content: center; /* 横向居中 */ /* 对齐注释 */
+            color: #d1d5db; /* 默认辅助色 */ /* 颜色注释 */
+            overflow: hidden; /* 超出隐藏 */ /* 溢出注释 */
+            transition: all .16s ease; /* 顺滑过渡动画 */ /* 动画注释 */
         }
         .selected-preview-media.portrait {
-            width: min(72%, 240px);
-            aspect-ratio: var(--video-aspect-ratio, 9 / 16);
-            margin: 12px auto 0;
-            border-radius: 8px;
+            aspect-ratio: var(--video-aspect-ratio, 9 / 16); /* 竖屏比例自适应 */ /* 比例注释 */
         }
         .selected-preview-media.square {
-            width: min(86%, 300px);
-            aspect-ratio: var(--video-aspect-ratio, 1 / 1);
-            margin: 12px auto 0;
-            border-radius: 8px;
+            aspect-ratio: var(--video-aspect-ratio, 1 / 1); /* 正方形比例自适应 */ /* 比例注释 */
+        }
+        .selected-preview-media .video-poster-frame {
+            width: 100%; /* 撑满父容器宽 */ /* 宽度注释 */
+            height: 100%; /* 撑满父容器高 */ /* 高度注释 */
+            display: block; /* 块状化展示 */ /* 显示注释 */
         }
         .selected-preview-media .video-poster-frame img,
         .selected-preview-media .video-poster-frame video {
-            object-fit: contain;
+            width: 100%; /* 宽度撑满 */ /* 宽度注释 */
+            height: 100%; /* 高度撑满 */ /* 高度注释 */
+            object-fit: contain; /* 比例居中包含不拉伸 */ /* 裁剪注释 */
         }
         .selected-preview-media video {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            display: block;
+            width: 100%; /* 视频宽撑满 */ /* 宽度注释 */
+            height: 100%; /* 视频高撑满 */ /* 高度注释 */
+            object-fit: contain; /* 比例居中包含不裁剪 */ /* 裁剪注释 */
+            display: block; /* 消除底边空隙 */ /* 显示注释 */
         }
         .selected-preview-meta {
             display: grid;
@@ -1098,6 +1137,108 @@
             padding: 24px;
             text-align: center;
             color: var(--muted);
+        }
+        /* 动作视频库卡片网格布局 */ /* 布局注释 */
+        .video-card-grid {
+            display: grid; /* 启用网格布局 */ /* 布局注释 */
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); /* 网格按最小160px宽度自适应填充 */ /* 布局注释 */
+            gap: 16px; /* 网格间呼吸缝隙 */ /* 间距注释 */
+            margin-top: 14px; /* 上边距微调 */ /* 边距注释 */
+        }
+        /* 动作视频单个卡片 */ /* 卡片注释 */
+        .asset-video-card {
+            border: 1px solid var(--line); /* 极细轻描边 */ /* 边框注释 */
+            border-radius: 14px; /* 升级为大气的 14px 圆角 */ /* 圆角注释 */
+            background: color-mix(in srgb, var(--panel) 90%, var(--soft)); /* 采用加固暗白底衬 */ /* 背景注释 */
+            padding: 12px; /* 适当内缩留白 */ /* 边距注释 */
+            display: flex; /* 弹性垂直方向排列 */ /* 布局注释 */
+            flex-direction: column; /* 纵向排布 */ /* 排列注释 */
+            gap: 10px; /* 卡片内元素缝隙 */ /* 间距注释 */
+            min-width: 0; /* 防止内容过宽撑开网格 */ /* 规格注释 */
+            transition: all 0.25s var(--easing); /* 交互微动过渡 */ /* 动画注释 */
+        }
+        /* 卡片悬浮状态 */ /* 悬停注释 */
+        .asset-video-card:hover {
+            transform: translateY(-3px); /* 悬浮微升 */ /* 动画注释 */
+            background: var(--soft-strong); /* 悬停时稍微加深底板色 */ /* 背景注释 */
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05); /* 悬停投影 */ /* 阴影注释 */
+        }
+        /* 卡片被当前选中使用状态 */ /* 选中注释 */
+        .asset-video-card.active {
+            border-color: var(--accent); /* 边框亮起主色 */ /* 边框注释 */
+            box-shadow: 0 0 0 2px var(--accent), 0 8px 20px var(--accent-glow); /* 选中时的发光呼吸阴影圈 */ /* 阴影注释 */
+            background: var(--panel); /* 底板回白亮色 */ /* 背景注释 */
+        }
+        /* 动作视频卡片缩略图区 */ /* 缩略图注释 */
+        .asset-video-thumb {
+            position: relative; /* 相对定位以放置徽章 */ /* 定位注释 */
+            width: 100%; /* 宽度撑满卡片 */ /* 宽度注释 */
+            aspect-ratio: 16 / 9; /* 默认横屏宽比 */ /* 比例注释 */
+            background: #111827; /* 统一采用黑夜底衬 */ /* 背景注释 */
+            border-radius: 8px; /* 8px内圈圆角 */ /* 圆角注释 */
+            overflow: hidden; /* 裁剪溢出内容 */ /* 溢出注释 */
+            display: flex; /* 弹性对齐 */ /* 布局注释 */
+            align-items: center; /* 居中内容 */ /* 对齐注释 */
+            justify-content: center; /* 居中内容 */ /* 对齐注释 */
+            transition: all 0.2s ease; /* 切换过渡 */ /* 动画注释 */
+        }
+        /* 竖屏视频缩略图类（由 JS 动态添加） */ /* 竖屏缩略图注释 */
+        .asset-video-thumb.portrait {
+            aspect-ratio: 9 / 16; /* 竖屏比例自适应 */ /* 比例注释 */
+        }
+        /* 缩略图内的视频与封面图 */ /* 缩略图媒介注释 */
+        .asset-video-thumb .video-poster-frame,
+        .asset-video-thumb video,
+        .asset-video-thumb img {
+            width: 100%; /* 宽度占满 */ /* 宽度注释 */
+            height: 100%; /* 高度占满 */ /* 高度注释 */
+            object-fit: contain; /* 包含模式防止拉伸裁剪 */ /* 裁剪注释 */
+            display: block; /* 消除行内块底隙 */ /* 显示注释 */
+        }
+        /* 视频状态徽章 */ /* 徽章注释 */
+        .asset-video-thumb .video-badge {
+            position: absolute; /* 绝对定位悬浮 */ /* 定位注释 */
+            top: 6px; /* 顶距 6px */ /* 定位注释 */
+            left: 6px; /* 左距 6px */ /* 定位注释 */
+            background: var(--accent-gradient); /* 使用科技渐变底色 */ /* 背景注释 */
+            color: #ffffff !important; /* 强制白色文字 */ /* 颜色注释 */
+            font-size: 10px; /* 极细标签字号 */ /* 字号注释 */
+            font-weight: 750; /* 极粗字重 */ /* 字重注释 */
+            padding: 2px 6px; /* 微内留白 */ /* 边距注释 */
+            border-radius: 6px; /* 胶囊圆角 */ /* 圆角注释 */
+            box-shadow: 0 2px 8px var(--accent-glow); /* 徽章投影 */ /* 阴影注释 */
+        }
+        /* 视频卡片描述信息区域 */ /* 描述区注释 */
+        .asset-video-info {
+            display: grid; /* 网格子栅格 */ /* 布局注释 */
+            gap: 4px; /* 间隙 */ /* 间距注释 */
+            min-width: 0; /* 规格防溢出 */ /* 规格注释 */
+        }
+        /* 卡片信息主要文字 */ /* 卡片字色注释 */
+        .asset-video-info .asset-name {
+            font-size: 13px; /* 标题字号 */ /* 字号注释 */
+            font-weight: 700; /* 加粗 */ /* 字重注释 */
+            color: var(--text); /* 主文字色 */ /* 颜色注释 */
+        }
+        /* 卡片信息备注文字 */ /* 备注注释 */
+        .asset-video-info .asset-note {
+            font-size: 11px; /* 辅助微字号 */ /* 字号注释 */
+            color: var(--muted); /* 次要灰 */ /* 颜色注释 */
+        }
+        /* 视频卡片底端按钮操作区域 */ /* 操作按钮注释 */
+        .asset-video-actions {
+            display: flex; /* 弹性横排布局 */ /* 布局注释 */
+            gap: 6px; /* 按钮紧密缝隙 */ /* 间距注释 */
+            margin-top: 4px; /* 适当调大顶边距 */ /* 边距注释 */
+            flex-wrap: wrap; /* 自适应换行 */ /* 换行注释 */
+        }
+        /* 动作视频卡片底端小按钮 */ /* 小按钮注释 */
+        .asset-video-actions .btn.small {
+            flex: 1; /* 弹性平分宽度 */ /* 弹性注释 */
+            min-height: 28px; /* 缩减高度适合动作微卡 */ /* 高度注释 */
+            font-size: 11px; /* 微字号 */ /* 字号注释 */
+            padding: 0 4px; /* 水平微留白 */ /* 边距注释 */
+            border-radius: 6px; /* 更细巧圆角 */ /* 圆角注释 */
         }
         .video-choice {
             border: 1px solid var(--line);
@@ -1182,45 +1323,41 @@
         .status.err { color: var(--danger); }
         .status.warn { color: var(--warn); }
         .toast {
-            position: fixed;
-            right: 24px;
-            top: 24px;
-            z-index: 50;
-            max-width: min(360px, calc(100vw - 32px));
-            padding: 11px 14px;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            background: var(--panel);
-            color: var(--text);
-            box-shadow: 0 14px 36px rgba(15, 23, 42, .14);
-            font-size: 13px;
-            line-height: 1.45;
-            opacity: 0;
-            transform: translateY(-8px);
-            pointer-events: none;
-            transition: opacity .16s ease, transform .16s ease;
+            position: fixed; /* 固定定位 */ /* 定位注释 */
+            right: 24px; /* 偏右 24px */ /* 定位注释 */
+            top: 24px; /* 置顶 24px */ /* 定位注释 */
+            z-index: 999; /* 超高图层 */ /* 图层注释 */
+            max-width: min(360px, calc(100vw - 32px)); /* 宽度自适应 */ /* 宽度注释 */
+            padding: 12px 18px; /* 扩大舒适边距 */ /* 边距注释 */
+            border: 1px solid var(--line); /* 极细框线 */ /* 边框注释 */
+            border-radius: 999px; /* 胶囊圆角通知气泡 */ /* 圆角注释 */
+            background: var(--panel); /* 磨砂底板 */ /* 背景注释 */
+            color: var(--text); /* 主文字色 */ /* 颜色注释 */
+            backdrop-filter: blur(12px) saturate(1.1); /* 加持 12px 高斯模糊 */ /* 滤镜注释 */
+            -webkit-backdrop-filter: blur(12px) saturate(1.1); /* 兼容 Safari */ /* 滤镜注释 */
+            box-shadow: 0 16px 40px rgba(9, 13, 22, 0.18); /* 深邃悬浮阴影 */ /* 阴影注释 */
+            font-size: 13px; /* 字号大小 */ /* 字号注释 */
+            line-height: 1.45; /* 适度行高 */ /* 行高注释 */
+            font-weight: 700; /* 加粗 */ /* 字重注释 */
+            opacity: 0; /* 默认隐藏 */ /* 透明度注释 */
+            transform: translateY(-8px); /* 默认微移 */ /* 动画注释 */
+            pointer-events: none; /* 屏蔽事件 */ /* 交互注释 */
+            transition: opacity 0.25s var(--easing), transform 0.25s var(--easing); /* 弹出缓动 */ /* 动画注释 */
         }
         .toast.show {
-            opacity: 1;
-            transform: translateY(0);
+            opacity: 1; /* 激活时展现 */ /* 透明度注释 */
+            transform: translateY(0); /* 回归原位 */ /* 动画注释 */
+            pointer-events: auto; /* 响应事件 */ /* 交互注释 */
         }
-        .toast.ok { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); color: var(--ok); }
-        .toast.err { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); color: var(--danger); }
-        .toast.warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); color: var(--warn); }
+        .toast.ok { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); color: var(--ok); } /* 成功气泡 */ /* 颜色注释 */
+        .toast.err { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); color: var(--danger); } /* 错误气泡 */ /* 颜色注释 */
+        .toast.warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); color: var(--warn); } /* 警告气泡 */ /* 颜色注释 */
         body.theme-dark .panel,
         body.studio-theme-dark .panel,
-        body.theme-dark .selection-card,
-        body.studio-theme-dark .selection-card,
-        body.theme-dark .library-card,
-        body.studio-theme-dark .library-card,
         body.theme-dark .person-list-card,
         body.studio-theme-dark .person-list-card,
         body.theme-dark .person-detail,
         body.studio-theme-dark .person-detail,
-        body.theme-dark .asset-video-card,
-        body.studio-theme-dark .asset-video-card,
-        body.theme-dark .voice-card,
-        body.studio-theme-dark .voice-card,
         body.theme-dark .selected-preview,
         body.studio-theme-dark .selected-preview,
         body.theme-dark .video-choice,
@@ -1229,10 +1366,10 @@
         body.studio-theme-dark .conditional-panel,
         body.theme-dark .advanced-panel,
         body.studio-theme-dark .advanced-panel {
-            background: var(--panel);
-            border-color: var(--line);
-            color: var(--text);
-            box-shadow: none;
+            background: var(--panel); /* 保持主画板的暗色面板底色 */ /* 属性注释 */
+            border-color: var(--line); /* 保持统一的分界描边 */ /* 属性注释 */
+            color: var(--text); /* 保持高对比主字色 */ /* 属性注释 */
+            box-shadow: none; /* 移除多余的重阴影 */ /* 属性注释 */
         }
         body.theme-dark .people-sidebar,
         body.studio-theme-dark .people-sidebar,
@@ -1335,204 +1472,231 @@
             background: #111827;
         }
         .result-frame {
-            min-height: 242px;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            background: var(--soft);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
+            min-height: 242px; /* 最小高度 */ /* 高度注释 */
+            border: 1px solid var(--line); /* 极细外圈 */ /* 边框注释 */
+            border-radius: 16px; /* 升级为大气的 16px 圆角 */ /* 圆角注释 */
+            background: var(--soft); /* 软灰衬底 */ /* 背景注释 */
+            display: flex; /* 弹性居中 */ /* 布局注释 */
+            align-items: center; /* 轴线对称 */ /* 对齐注释 */
+            justify-content: center; /* 集中放置 */ /* 对齐注释 */
+            overflow: hidden; /* 裁剪 */ /* 溢出注释 */
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.04); /* 内部阴影 */ /* 阴影注释 */
         }
         .result-frame video {
-            width: 100%;
-            height: 100%;
-            max-height: 520px;
-            object-fit: contain;
-            background: #111827;
-            border-radius: 0;
+            width: 100%; /* 横轴通铺 */ /* 宽度注释 */
+            height: 100%; /* 纵轴通铺 */ /* 高度注释 */
+            max-height: 520px; /* 限高 */ /* 高度注释 */
+            object-fit: contain; /* 比例包含 */ /* 裁剪注释 */
+            background: #090d16; /* 偏蓝暗黑底色 */ /* 背景注释 */
+            border-radius: 0; /* 无圆角 */ /* 圆角注释 */
         }
         .result-head-actions {
-            flex-wrap: wrap;
-            justify-content: flex-end;
-            gap: 8px;
+            flex-wrap: wrap; /* 自动折行 */ /* 换行注释 */
+            justify-content: flex-end; /* 右对齐 */ /* 对齐注释 */
+            gap: 8px; /* 间隙 */ /* 间距注释 */
         }
         .result-task-meta {
-            display: grid;
-            gap: 4px;
-            padding: 10px 12px;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            background: var(--soft);
-            color: var(--muted);
-            font-size: 11px;
-            line-height: 1.45;
+            display: grid; /* 网格 */ /* 布局注释 */
+            gap: 5px; /* 行距空隙 */ /* 间距注释 */
+            padding: 12px 14px; /* 扩大舒适边距 */ /* 边距注释 */
+            border: 1px solid var(--line); /* 极细圈线 */ /* 边框注释 */
+            border-radius: 12px; /* 升级为大气的 12px 圆角 */ /* 圆角注释 */
+            background: var(--soft); /* 软衬底 */ /* 背景注释 */
+            color: var(--muted); /* 辅助字色 */ /* 颜色注释 */
+            font-size: 11.5px; /* 字号大小 */ /* 字号注释 */
+            line-height: 1.5; /* 适度行高 */ /* 行高注释 */
         }
         .result-task-meta strong {
-            color: var(--text);
-            font-size: 12px;
+            color: var(--text); /* 主文字高亮 */ /* 颜色注释 */
+            font-size: 12.5px; /* 字号 */ /* 字号注释 */
         }
         .result-stage-strip {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
+            display: flex; /* 弹性在一行 */ /* 布局注释 */
+            flex-wrap: wrap; /* 折行 */ /* 换行注释 */
+            gap: 8px; /* 间距加宽 */ /* 间距注释 */
         }
         .result-stage-chip {
-            display: inline-flex;
-            align-items: center;
-            height: 24px;
-            padding: 0 9px;
-            border-radius: 999px;
-            border: 1px solid var(--line);
-            background: var(--panel);
-            color: var(--muted);
-            font-size: 10.5px;
-            font-weight: 800;
-            letter-spacing: .02em;
+            display: inline-flex; /* 内联弹性 */ /* 布局注释 */
+            align-items: center; /* 纵轴居中对齐 */ /* 对齐注释 */
+            height: 26px; /* 稍微加高方便交互 */ /* 高度注释 */
+            padding: 0 12px; /* 水平内留白 */ /* 边距注释 */
+            border-radius: 999px; /* 胶囊圆角 */ /* 圆角注释 */
+            border: 1px solid var(--line); /* 极细底描线 */ /* 边框注释 */
+            background: var(--panel); /* 衬底磨砂面板 */ /* 背景注释 */
+            color: var(--muted); /* 辅助灰 */ /* 颜色注释 */
+            font-size: 11px; /* 字体小号 */ /* 字号注释 */
+            font-weight: 750; /* 较重字重 */ /* 字重注释 */
+            letter-spacing: .02em; /* 字距微调 */ /* 字距注释 */
+            transition: all 0.25s var(--easing); /* 优雅过渡 */ /* 动画注释 */
         }
         .result-stage-chip.done {
-            background: rgba(4, 120, 87, .08);
-            border-color: rgba(4, 120, 87, .18);
-            color: var(--ok);
+            background: rgba(16, 185, 129, 0.08); /* 翡翠绿半透底色 */ /* 背景注释 */
+            border-color: rgba(16, 185, 129, 0.2); /* 绿边 */ /* 边框注释 */
+            color: var(--ok); /* 绿字 */ /* 颜色注释 */
         }
         .result-stage-chip.current {
-            background: var(--accent-soft);
-            border-color: color-mix(in srgb, var(--accent) 34%, var(--line));
-            color: var(--text);
+            background: var(--accent-soft); /* 靛蓝半透底 */ /* 背景注释 */
+            border-color: color-mix(in srgb, var(--accent) 34%, var(--line)); /* 靛蓝边线 */ /* 边框注释 */
+            color: var(--text); /* 亮白字 */ /* 颜色注释 */
+            box-shadow: 0 0 10px var(--accent-glow); /* 发光呼吸圈 */ /* 阴影注释 */
         }
         .result-stage-chip.error {
-            background: rgba(185, 28, 28, .08);
-            border-color: rgba(185, 28, 28, .18);
-            color: var(--danger);
+            background: rgba(239, 68, 68, 0.08); /* 警示红半透底 */ /* 背景注释 */
+            border-color: rgba(239, 68, 68, 0.2); /* 红边 */ /* 边框注释 */
+            color: var(--danger); /* 红字 */ /* 颜色注释 */
         }
         .task-queue-list {
-            display: grid;
-            gap: 8px;
-            max-height: 360px;
-            overflow: auto;
+            display: grid; /* 网格 */ /* 布局注释 */
+            gap: 10px; /* 大呼吸空隙 */ /* 间距注释 */
+            max-height: 360px; /* 限高 */ /* 高度注释 */
+            overflow-y: auto; /* 纵向允许完美滚动轨 */ /* 溢出注释 */
         }
         .queue-pause-banner {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 12px;
-            border: 1px solid rgba(245, 158, 11, .35);
-            border-radius: 10px;
-            background: rgba(245, 158, 11, .08);
-            color: var(--text);
+            display: flex; /* 弹性 */ /* 布局注释 */
+            align-items: center; /* 对齐 */ /* 对齐注释 */
+            justify-content: space-between; /* 两翼分展 */ /* 对齐注释 */
+            gap: 12px; /* 间缝 */ /* 间距注释 */
+            padding: 14px; /* 宽松内留白 */ /* 边距注释 */
+            border: 1px solid rgba(245, 158, 11, 0.3); /* 琥珀黄极细框 */ /* 边框注释 */
+            border-radius: 12px; /* 圆角 12px */ /* 圆角注释 */
+            background: rgba(245, 158, 11, 0.06); /* 半透琥珀黄底色 */ /* 背景注释 */
+            color: var(--text); /* 主字色 */ /* 颜色注释 */
         }
         .queue-pause-banner strong {
-            display: block;
-            font-size: 13px;
-            margin-bottom: 2px;
+            display: block; /* 独立区块 */ /* 布局注释 */
+            font-size: 13.5px; /* 字号大小 */ /* 字号注释 */
+            margin-bottom: 4px; /* 隔开底文 */ /* 边距注释 */
         }
         .queue-pause-banner span {
-            display: block;
-            color: var(--muted);
-            font-size: 12px;
-            line-height: 1.45;
+            display: block; /* 区块 */ /* 布局注释 */
+            color: var(--muted); /* 辅助灰 */ /* 颜色注释 */
+            font-size: 12px; /* 小号字 */ /* 字号注释 */
+            line-height: 1.5; /* 适度行高 */ /* 行高注释 */
         }
         .task-queue-item {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 10px;
-            align-items: center;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            background: var(--panel);
-            padding: 10px;
-            cursor: pointer;
-            transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+            display: grid; /* 栅格排版 */ /* 布局注释 */
+            grid-template-columns: minmax(0, 1fr) auto; /* 文本信息与状态指示栏比例 */ /* 布局注释 */
+            gap: 12px; /* 间隙大小 */ /* 间距注释 */
+            align-items: center; /* 纵轴居中对齐 */ /* 对齐注释 */
+            border: 1px solid var(--line); /* 极细底框 */ /* 边框注释 */
+            border-radius: 12px; /* 升级为 12px 大圆角 */ /* 圆角注释 */
+            background: var(--panel); /* 面板磨砂衬底 */ /* 背景注释 */
+            padding: 12px 14px; /* 加大舒适内边距 */ /* 边距注释 */
+            cursor: pointer; /* 变手势 */ /* 手势注释 */
+            transition: all 0.3s var(--easing); /* 全面的物理缓动过渡 */ /* 动画注释 */
         }
         .task-queue-item:hover,
         .task-queue-item.active {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px var(--accent-soft);
+            border-color: var(--accent); /* 靛蓝框线高亮 */ /* 边框注释 */
+            box-shadow: 0 8px 20px var(--accent-glow); /* 高端发光微影圈 */ /* 阴影注释 */
+            transform: translateY(-1.5px); /* 悬浮微升 */ /* 动画注释 */
         }
+        /* 正在生成中的任务卡片：奢华流光扫光 Shimmer 动画 */ /* 运行中任务样式 */
         .task-queue-item.running {
-            background: color-mix(in srgb, var(--accent) 5%, var(--panel));
+            background: linear-gradient(90deg, var(--panel) 25%, color-mix(in srgb, var(--accent) 8%, var(--panel)) 37%, var(--panel) 63%) !important; /* 带有靛蓝底流光渐变背景 */ /* 背景注释 */
+            background-size: 400% 100% !important; /* 渐变拉伸以允许扫光移动 */ /* 属性注释 */
+            animation: shimmer 2.5s infinite linear !important; /* 挂载 Shimmer 扫光动画 */ /* 动画注释 */
+            border-color: color-mix(in srgb, var(--accent) 40%, var(--line)) !important; /* 边框微偏靛蓝高亮 */ /* 边框注释 */
+            box-shadow: 0 8px 24px var(--accent-glow); /* 加持靛蓝发光外投影 */ /* 阴影注释 */
+        }
+        /* 流光扫光关键帧 */ /* 关键帧注释 */
+        @keyframes shimmer {
+            0% { background-position: -200% 0; } /* 动画起始 */ /* 关键帧注释 */
+            100% { background-position: 200% 0; } /* 动画终止 */ /* 关键帧注释 */
         }
         .task-queue-copy {
-            min-width: 0;
-            display: grid;
-            gap: 4px;
+            min-width: 0; /* 限制规格 */ /* 尺寸注释 */
+            display: grid; /* 网格 */ /* 布局注释 */
+            gap: 4px; /* 行间隙 */ /* 间距注释 */
         }
         .task-queue-title {
-            font-size: 13px;
-            font-weight: 700;
-            line-height: 1.4;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            font-size: 13px; /* 字号大小 */ /* 字号注释 */
+            font-weight: 700; /* 重点粗体 */ /* 字重注释 */
+            line-height: 1.45; /* 适度行高 */ /* 行高注释 */
+            overflow: hidden; /* 裁剪 */ /* 溢出注释 */
+            text-overflow: ellipsis; /* 省略号保护 */ /* 省略号注释 */
+            white-space: nowrap; /* 不换行 */ /* 换行注释 */
         }
         .task-queue-meta {
-            font-size: 11px;
-            color: var(--muted);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            font-size: 11.5px; /* 辅助字号 */ /* 字号注释 */
+            color: var(--muted); /* 次要灰 */ /* 颜色注释 */
+            overflow: hidden; /* 裁剪 */ /* 溢出注释 */
+            text-overflow: ellipsis; /* 省略号 */ /* 省略号注释 */
+            white-space: nowrap; /* 单行 */ /* 换行注释 */
         }
         .task-queue-stage {
-            font-size: 10px;
-            color: var(--faint);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            font-size: 10px; /* 步骤小号字号 */ /* 字号注释 */
+            color: var(--faint); /* 弱化灰 */ /* 颜色注释 */
+            overflow: hidden; /* 裁剪 */ /* 溢出注释 */
+            text-overflow: ellipsis; /* 省略号 */ /* 省略号注释 */
+            white-space: nowrap; /* 单行 */ /* 换行注释 */
         }
         .task-queue-side {
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            display: flex; /* 弹性 */ /* 布局注释 */
+            align-items: center; /* 对齐 */ /* 对齐注释 */
+            gap: 8px; /* 间隙 */ /* 间距注释 */
         }
         .task-queue-status {
-            min-width: 62px;
-            text-align: center;
-            border-radius: 999px;
-            padding: 4px 8px;
-            background: var(--soft);
-            color: var(--muted);
-            font-size: 11px;
-            font-weight: 700;
+            min-width: 66px; /* 宽度 */ /* 宽度注释 */
+            text-align: center; /* 居中 */ /* 对齐注释 */
+            border-radius: 999px; /* 胶囊圆角 */ /* 圆角注释 */
+            padding: 4px 8px; /* 垂直水平内留白 */ /* 边距注释 */
+            background: var(--soft); /* 软衬底 */ /* 背景注释 */
+            color: var(--muted); /* 辅助字色 */ /* 颜色注释 */
+            font-size: 11px; /* 字体小 */ /* 字号注释 */
+            font-weight: 700; /* 加粗 */ /* 字重注释 */
+            transition: all 0.25s var(--easing); /* 状态点动效过渡 */ /* 动画注释 */
         }
         .task-queue-status.ok {
-            background: rgba(4, 120, 87, .1);
-            color: var(--ok);
+            background: rgba(16, 185, 129, 0.1); /* 绿底 */ /* 背景注释 */
+            color: var(--ok); /* 绿字 */ /* 颜色注释 */
         }
         .task-queue-status.warn {
-            background: rgba(180, 83, 9, .1);
-            color: var(--warn);
+            background: rgba(245, 158, 11, 0.1); /* 黄底 */ /* 背景注释 */
+            color: var(--warn); /* 黄字 */ /* 颜色注释 */
         }
         .task-queue-status.err {
-            background: rgba(185, 28, 28, .1);
-            color: var(--danger);
+            background: rgba(239, 68, 68, 0.1); /* 红底 */ /* 背景注释 */
+            color: var(--danger); /* 红字 */ /* 颜色注释 */
         }
-        .hidden { display: none !important; }
+        /* 运行中状态指示点的绿色呼吸灯脉冲 */ /* 绿色脉冲注释 */
+        .task-queue-item.running .task-queue-status {
+            background: rgba(16, 185, 129, 0.15) !important; /* 呼吸高亮绿底 */ /* 背景注释 */
+            color: var(--ok) !important; /* 翡翠绿文字 */ /* 颜色注释 */
+            animation: pulseGlow 2s infinite !important; /* 挂载呼吸绿光圈动画 */ /* 动画注释 */
+        }
+        /* 绿色呼吸灯关键帧 */ /* 关键帧注释 */
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); } /* 动画起始 */ /* 关键帧注释 */
+            70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); } /* 扫光扩散 */ /* 关键帧注释 */
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } /* 动画复位 */ /* 关键帧注释 */
+        }
+        .hidden { display: none !important; } /* 全局强制隐藏 */ /* 显示注释 */
         @media (max-width: 1080px) {
-            .page { width: min(100vw - 28px, 920px); padding-top: 18px; }
-            .grid { grid-template-columns: 1fr; }
-            .creator-layout { grid-template-columns: 1fr; }
-            .copy-column { border-right: 0; border-bottom: 1px solid var(--line); }
-            .people-workspace { grid-template-columns: 1fr; }
-            .people-sidebar { min-height: auto; }
+            .page { width: min(100vw - 28px, 920px); padding-top: 20px; } /* 中等屏边距 */ /* 边距注释 */
+            .grid { grid-template-columns: 1fr; } /* 双栏变单栏单列 */ /* 布局注释 */
+            .creator-layout { grid-template-columns: 1fr; } /* 混合生成框单列 */ /* 布局注释 */
+            .copy-column { border-right: 0; border-bottom: 1px solid var(--line); } /* 分割线方向切换 */ /* 边框注释 */
+            .people-workspace { grid-template-columns: 1fr; } /* 角色侧栏布局单列 */ /* 布局注释 */
+            .people-sidebar { min-height: auto; } /* 侧栏重算高 */ /* 高度注释 */
         }
         @media (max-width: 720px) {
-            .topbar { align-items: flex-start; flex-direction: column; }
-            .voice-row { grid-template-columns: 1fr; }
-            .tts-row, .vector-grid, .advanced-grid, .selection-grid { grid-template-columns: 1fr; }
-            .video-head { align-items: flex-start; flex-direction: column; }
-            .video-choice { grid-template-columns: 76px minmax(0, 1fr); }
-            .video-choice .btn { grid-column: 2; justify-self: start; }
-            .library-toolbar { align-items: flex-start; flex-direction: column; }
-            .person-detail-hero { grid-template-columns: 1fr; }
+            .topbar { align-items: flex-start; flex-direction: column; } /* 头部改纵向排列 */ /* 布局注释 */
+            .voice-row { grid-template-columns: 1fr; } /* 音色绑定单列 */ /* 布局注释 */
+            .tts-row, .vector-grid, .advanced-grid, .selection-grid { grid-template-columns: 1fr; } /* 网格全单列 */ /* 布局注释 */
+            .video-head { align-items: flex-start; flex-direction: column; } /* 视频头改纵向 */ /* 布局注释 */
+            .video-choice { grid-template-columns: 76px minmax(0, 1fr); } /* 比例重算 */ /* 布局注释 */
+            .video-choice .btn { grid-column: 2; justify-self: start; } /* 按钮定位微调 */ /* 布局注释 */
+            .library-toolbar { align-items: flex-start; flex-direction: column; } /* 工具栏改纵向 */ /* 布局注释 */
+            .person-detail-hero { grid-template-columns: 1fr; } /* 详情改单列 */ /* 布局注释 */
             .person-detail-cover {
-                width: min(70%, 220px);
-                min-height: 260px;
-                justify-self: center;
+                width: min(70%, 220px); /* 移动端封面缩窄 */ /* 宽度注释 */
+                min-height: 260px; /* 重设高 */ /* 高度注释 */
+                justify-self: center; /* 集中置中 */ /* 对齐注释 */
             }
             .person-stats,
             .video-card-grid,
             #voices-library {
-                grid-template-columns: 1fr;
+                grid-template-columns: 1fr; /* 移动端卡片网格通通降为单列 */ /* 布局注释 */
             }
         }

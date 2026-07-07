@@ -35,6 +35,7 @@ from app.services.tts_service import (
     save_tts_voice,
     save_tts_voice_preview_audio,
     sanitize_tts_voice_name,
+    stop_tts_service_processes,
     stop_tts_for_gpu_handoff,
     tts_voice_embedding_for_name,
     tts_voice_file_for_name,
@@ -95,6 +96,13 @@ DIGITAL_HUMAN_RESOURCE_STATE = {
     "owner": "",
     "waiting_tts": 0,
     "waiting_heygem": 0,
+}
+DIGITAL_HUMAN_GPU_IDLE_TASK = None
+DIGITAL_HUMAN_GPU_LAST_ACTIVITY = time.time()
+DIGITAL_HUMAN_GPU_LAST_RELEASE = {
+    "at": 0,
+    "services": [],
+    "reason": "",
 }
 DIGITAL_HUMAN_RETRYABLE_FAILURE_TYPES = {
     "heygem_task_not_found",
@@ -223,6 +231,11 @@ def digital_human_resource_snapshot():
     return snapshot
 
 
+def touch_digital_human_gpu_activity(reason=""):
+    global DIGITAL_HUMAN_GPU_LAST_ACTIVITY
+    DIGITAL_HUMAN_GPU_LAST_ACTIVITY = time.time()
+
+
 def update_digital_human_task_stage(task_id, stage):
     if not task_id:
         return
@@ -234,6 +247,7 @@ def update_digital_human_task_stage(task_id, stage):
 
 
 async def acquire_digital_human_resource(kind, task_id="", waiting_stage="", running_stage=""):
+    touch_digital_human_gpu_activity(f"acquire:{kind}")
     kind = "heygem" if kind == "heygem" else "tts"
     waiting_key = "waiting_heygem" if kind == "heygem" else "waiting_tts"
     started_wait = time.time()
@@ -284,6 +298,7 @@ def release_digital_human_resource(kind, task_id="", owner=""):
     })
     if DIGITAL_HUMAN_RESOURCE_LOCK.locked():
         DIGITAL_HUMAN_RESOURCE_LOCK.release()
+    touch_digital_human_gpu_activity(f"release:{kind}")
 
 
 async def run_with_digital_human_resource(kind, task_id, waiting_stage, running_stage, operation):
@@ -292,6 +307,81 @@ async def run_with_digital_human_resource(kind, task_id, waiting_stage, running_
         return await operation()
     finally:
         release_digital_human_resource(kind, task_id, owner)
+
+
+def digital_human_has_active_work_locked():
+    if DIGITAL_HUMAN_QUEUE:
+        return True
+    return any((task or {}).get("status") in {"queued", "pending", "running"} for task in DIGITAL_HUMAN_TASKS.values())
+
+
+def digital_human_gpu_idle_ready():
+    with DIGITAL_HUMAN_TASK_LOCK:
+        has_work = digital_human_has_active_work_locked()
+        resource = dict(DIGITAL_HUMAN_RESOURCE_STATE)
+    waiting = int(resource.get("waiting_tts") or 0) + int(resource.get("waiting_heygem") or 0)
+    return (
+        not has_work
+        and not DIGITAL_HUMAN_RESOURCE_LOCK.locked()
+        and (resource.get("active") or "idle") == "idle"
+        and waiting <= 0
+    )
+
+
+async def release_digital_human_idle_gpu(config, services):
+    stopped = {}
+    if "tts" in services:
+        pids = await asyncio.to_thread(stop_tts_service_processes, config, "digital-human idle gpu release")
+        stopped["tts"] = pids
+    if "heygem" in services:
+        code = await asyncio.to_thread(stop_heygem_service_for_idle_release)
+        stopped["heygem"] = {"exit_code": code}
+    DIGITAL_HUMAN_GPU_LAST_RELEASE.update({
+        "at": time.time(),
+        "services": list(services),
+        "reason": "idle",
+        "stopped": stopped,
+    })
+    digital_human_log(f"GPU idle release services={','.join(services) or '-'} detail={stopped}")
+
+
+async def digital_human_gpu_idle_reaper():
+    global DIGITAL_HUMAN_GPU_LAST_ACTIVITY
+    while True:
+        try:
+            await asyncio.sleep(15)
+            config = normalize_digital_human_config()
+            runtime = config.get("runtime") or {}
+            if not normalize_bool(runtime.get("auto_release_gpu"), True):
+                DIGITAL_HUMAN_GPU_LAST_ACTIVITY = time.time()
+                continue
+            services = [service for service in (runtime.get("release_services") or []) if service in {"tts", "heygem"}]
+            if not services:
+                DIGITAL_HUMAN_GPU_LAST_ACTIVITY = time.time()
+                continue
+            if not digital_human_gpu_idle_ready():
+                DIGITAL_HUMAN_GPU_LAST_ACTIVITY = time.time()
+                continue
+            if float(DIGITAL_HUMAN_GPU_LAST_RELEASE.get("at") or 0) >= DIGITAL_HUMAN_GPU_LAST_ACTIVITY:
+                continue
+            idle_seconds = max(30, int(runtime.get("idle_release_seconds") or 180))
+            if time.time() - DIGITAL_HUMAN_GPU_LAST_ACTIVITY < idle_seconds:
+                continue
+            await release_digital_human_idle_gpu(config, services)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            digital_human_log(f"GPU idle release skipped: {exc}")
+            await asyncio.sleep(15)
+
+
+def start_digital_human_gpu_idle_reaper():
+    global DIGITAL_HUMAN_GPU_IDLE_TASK, DIGITAL_HUMAN_GPU_LAST_ACTIVITY
+    DIGITAL_HUMAN_GPU_LAST_ACTIVITY = time.time()
+    if DIGITAL_HUMAN_GPU_IDLE_TASK and not DIGITAL_HUMAN_GPU_IDLE_TASK.done():
+        return DIGITAL_HUMAN_GPU_IDLE_TASK
+    DIGITAL_HUMAN_GPU_IDLE_TASK = asyncio.create_task(digital_human_gpu_idle_reaper())
+    return DIGITAL_HUMAN_GPU_IDLE_TASK
 
 
 def _heygem_service():
@@ -308,6 +398,45 @@ async def check_heygem_health(config):
     return await _heygem_service().check_heygem_health(config)
 
 
+def start_heygem_service_once():
+    from tools.service_supervisor_parts import cli as supervisor
+
+    return supervisor.start_services_once(["heygem"])
+
+
+def stop_heygem_service_for_idle_release():
+    from tools.service_supervisor_parts import cli as supervisor
+
+    return supervisor.stop_services_by_keys(["heygem"], reason="digital-human idle gpu release")
+
+
+async def ensure_heygem_service(config, wait_seconds=90, auto_start=True):
+    status = await check_heygem_health(config)
+    if status.get("connected"):
+        return status
+    if not auto_start:
+        return status
+
+    started = await asyncio.to_thread(start_heygem_service_once)
+    deadline = time.monotonic() + max(1, int(wait_seconds or 90))
+    last_status = status
+    while time.monotonic() < deadline:
+        await asyncio.sleep(2)
+        last_status = await check_heygem_health(config)
+        if last_status.get("connected"):
+            last_status["started"] = bool((started or {}).get("started"))
+            last_status["start_result"] = started
+            touch_digital_human_gpu_activity("heygem:auto-start")
+            return last_status
+    return {
+        **(last_status or status or {}),
+        "connected": False,
+        "started": bool((started or {}).get("started")),
+        "start_result": started,
+        "last_error": (last_status or status or {}).get("last_error") or "HeyGem service did not become ready in time",
+    }
+
+
 async def generate_heygem_video_monitored(audio_path, video_path, config, task_id="", request_base_url="", job_code=""):
     return await _heygem_service().generate_heygem_video_monitored(audio_path, video_path, config, task_id, request_base_url, job_code)
 
@@ -315,6 +444,11 @@ async def generate_heygem_video_monitored(audio_path, video_path, config, task_i
 def digital_human_default_config():
     tts_root = os.path.join(BASE_DIR, "index-tts-2")
     heygem_root = os.path.join(BASE_DIR, "heygem-win-fix", "heygem-win")
+    release_services = [
+        item.strip().lower()
+        for item in str(os.getenv("DIGITAL_HUMAN_GPU_RELEASE_SERVICES", "tts,heygem")).split(",")
+        if item.strip().lower() in {"tts", "heygem"}
+    ]
     return {
         "public_base_url": os.getenv("DIGITAL_HUMAN_PUBLIC_BASE_URL", ""),
         "tts": {
@@ -338,6 +472,11 @@ def digital_human_default_config():
             "max_wait_seconds": int(os.getenv("DIGITAL_HUMAN_HEYGEM_MAX_WAIT_SECONDS", "1800") or 1800),
             "stall_timeout_seconds": int(os.getenv("DIGITAL_HUMAN_HEYGEM_STALL_TIMEOUT_SECONDS", "240") or 240),
             "root_dir": heygem_root,
+        },
+        "runtime": {
+            "auto_release_gpu": normalize_bool(os.getenv("DIGITAL_HUMAN_AUTO_RELEASE_GPU", "true"), True),
+            "idle_release_seconds": int(os.getenv("DIGITAL_HUMAN_IDLE_RELEASE_SECONDS", "180") or 180),
+            "release_services": release_services or ["tts", "heygem"],
         },
     }
 
@@ -374,6 +513,7 @@ def normalize_digital_human_config(payload=None):
         config = merge_dict(config, data)
     config["tts"] = merge_dict(digital_human_default_config()["tts"], config.get("tts") or {})
     config["heygem"] = merge_dict(digital_human_default_config()["heygem"], config.get("heygem") or {})
+    config["runtime"] = merge_dict(digital_human_default_config()["runtime"], config.get("runtime") or {})
     config["tts"]["mode"] = "api"
     if not str(config["tts"].get("base_url") or "").strip():
         config["tts"]["base_url"] = "http://localhost:7861/"
@@ -394,6 +534,18 @@ def normalize_digital_human_config(payload=None):
         config["heygem"]["stall_timeout_seconds"] = max(30, int(config["heygem"].get("stall_timeout_seconds") or 240))
     except Exception:
         config["heygem"]["stall_timeout_seconds"] = 240
+    runtime = config["runtime"]
+    runtime["auto_release_gpu"] = normalize_bool(runtime.get("auto_release_gpu"), True)
+    try:
+        runtime["idle_release_seconds"] = max(30, min(3600, int(runtime.get("idle_release_seconds") or 180)))
+    except Exception:
+        runtime["idle_release_seconds"] = 180
+    release_services = []
+    for service in runtime.get("release_services") or ["tts", "heygem"]:
+        service = str(service or "").strip().lower()
+        if service in {"tts", "heygem"} and service not in release_services:
+            release_services.append(service)
+    runtime["release_services"] = release_services
     return config
 
 def safe_join_url(base, path_value):
@@ -1041,9 +1193,10 @@ async def digital_human_tts_status(auto_start: bool = False):
     status = await ensure_tts_service(config, wait_seconds=45 if auto_start else 3, auto_start=auto_start)
     return status
 
-async def digital_human_heygem_status():
+async def digital_human_heygem_status(auto_start: bool = False):
     config = normalize_digital_human_config()
-    return await check_heygem_health(config)
+    status = await ensure_heygem_service(config, wait_seconds=90 if auto_start else 3, auto_start=auto_start)
+    return status
 
 async def digital_human_media(path: str):
     local = digital_human_local_path(path)
@@ -1488,6 +1641,9 @@ async def run_digital_human_task(task_id, payload_data, request_base_url):
         video_path = digital_human_local_path(video_url) or video_path or ""
         with DIGITAL_HUMAN_TASK_LOCK:
             DIGITAL_HUMAN_TASKS[task_id].update({"stage": "heygem-generate", "updated_at": time.time()})
+        heygem_status = await ensure_heygem_service(config, wait_seconds=90, auto_start=True)
+        if not heygem_status.get("connected"):
+            raise HTTPException(status_code=503, detail=f"HeyGem service is not ready: {heygem_status.get('last_error') or 'connection failed'}")
         digital_human_log(f"task {task_id} HeyGem start audio={os.path.basename(audio_path)} video={os.path.basename(video_path)}")
         try:
             result = await run_with_digital_human_resource(
@@ -1586,6 +1742,9 @@ async def run_digital_human_task_v2(task_id, payload_data, request_base_url):
         audio_path = digital_human_local_path(audio.get("url")) or audio.get("path") or ""
         video_path = digital_human_local_path(video_url) or video_path or ""
         handoff = await ensure_heygem_gpu_lane(config, task_id)
+        heygem_status = await ensure_heygem_service(config, wait_seconds=90, auto_start=True)
+        if not heygem_status.get("connected"):
+            raise HTTPException(status_code=503, detail=f"HeyGem service is not ready: {heygem_status.get('last_error') or 'connection failed'}")
         with DIGITAL_HUMAN_TASK_LOCK:
             DIGITAL_HUMAN_TASKS[task_id].update({
                 "stage": "heygem-submit",
@@ -1594,6 +1753,7 @@ async def run_digital_human_task_v2(task_id, payload_data, request_base_url):
                     "audio_path": audio_path,
                     "video_path": video_path,
                     "gpu_handoff": handoff,
+                    "heygem_status": heygem_status,
                 },
                 "updated_at": time.time(),
             })
@@ -1736,7 +1896,11 @@ def digital_human_queue_snapshot_locked(limit=DIGITAL_HUMAN_RECENT_LIMIT):
         "queued": [task for task in active if task.get("status") in {"queued", "pending"}],
         "running": next((task for task in active if task.get("status") == "running"), None),
         "recent": recent[:max(0, int(limit or DIGITAL_HUMAN_RECENT_LIMIT))],
-        "queue": {**dict(DIGITAL_HUMAN_QUEUE_STATE), "resource": digital_human_resource_snapshot()},
+        "queue": {
+            **dict(DIGITAL_HUMAN_QUEUE_STATE),
+            "resource": digital_human_resource_snapshot(),
+            "gpu_release": dict(DIGITAL_HUMAN_GPU_LAST_RELEASE),
+        },
     }
 
 def late_heygem_recovery_candidates(limit=5):
@@ -1874,6 +2038,7 @@ async def digital_human_queue_worker():
 async def digital_human_generate(payload: DigitalHumanGenerateRequest, request: Request):
     task_id = payload.code or f"dh_{uuid.uuid4().hex[:12]}"
     payload_data = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+    touch_digital_human_gpu_activity("queue:generate")
     with DIGITAL_HUMAN_TASK_LOCK:
         DIGITAL_HUMAN_TASKS[task_id] = make_digital_human_task_payload(task_id, payload_data, str(request.base_url).rstrip("/"))
         DIGITAL_HUMAN_QUEUE.append(task_id)

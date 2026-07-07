@@ -70,19 +70,19 @@ function isManageableVoice(voice) {
                         </div> <!-- 头信息区结束 --> <!-- HTML注释 -->
                         ${mediaUrl(voice) ? `<audio src="${escapeHtml(mediaUrl(voice))}" controls></audio>` : '<div class="status">暂无试听音频</div>'} <!-- 播放条或无音频提示 --> <!-- HTML注释 -->
                         <div class="voice-actions"> <!-- 声音卡片操作栏 --> <!-- HTML注释 -->
-                            <button class="btn small" type="button" data-action="use-voice"> <!-- 设为当前音频操作按钮 --> <!-- HTML注释 -->
+                            <button class="btn small" type="button" data-action="use-voice" title="设为当前使用的音色"> <!-- 设为当前音频操作按钮 --> <!-- HTML注释 -->
                                 <svg class="icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg> <!-- 耳机播放SVG --> <!-- HTML注释 -->
                                 设为当前 <!-- 按钮文字 --> <!-- HTML注释 -->
                             </button> <!-- 按钮结束 --> <!-- HTML注释 -->
-                            <button class="btn small" type="button" data-action="bind-current"> <!-- 绑定到当前人物按钮 --> <!-- HTML注释 -->
+                            <button class="btn small" type="button" data-action="bind-current" title="将此声音绑定为当前角色的默认声音"> <!-- 绑定到当前人物按钮 --> <!-- HTML注释 -->
                                 <svg class="icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg> <!-- 链条链接图标 --> <!-- HTML注释 -->
                                 绑定当前 <!-- 按钮文字 --> <!-- HTML注释 -->
                             </button> <!-- 按钮结束 --> <!-- HTML注释 -->
-                            <button class="btn small" type="button" data-action="edit-voice"> <!-- 编辑音色信息按钮 --> <!-- HTML注释 -->
+                            <button class="btn small" type="button" data-action="edit-voice" title="修改声音显示名和备注"> <!-- 编辑音色信息按钮 --> <!-- HTML注释 -->
                                 <svg class="icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"></path></svg> <!-- 编辑铅笔图标 --> <!-- HTML注释 -->
                                 编辑 <!-- 按钮文字 --> <!-- HTML注释 -->
                             </button> <!-- 按钮结束 --> <!-- HTML注释 -->
-                            <button class="btn small" type="button" data-action="delete-voice"> <!-- 删除音色按钮 --> <!-- HTML注释 -->
+                            <button class="btn small" type="button" data-action="delete-voice" title="从声音库永久删除此声音"> <!-- 删除音色按钮 --> <!-- HTML注释 -->
                                 <svg class="icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg> <!-- 垃圾箱图标 --> <!-- HTML注释 -->
                                 删除 <!-- 按钮文字 --> <!-- HTML注释 -->
                             </button> <!-- 按钮结束 --> <!-- HTML注释 -->

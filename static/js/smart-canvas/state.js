@@ -145,6 +145,14 @@
         let imageEditPanDrag = null;
         let previewNavState = {nodeId:'', index:0, count:0};
         let viewport = {x:0, y:0, scale:1};
+
+        // Performance: throttle/mousemove optimization
+        let shellRectCache = null;
+        let lastMouseMoveTime = 0;
+        const MOUSEMOVE_THROTTLE_MS = 16; // ~60fps
+        let pendingMouseMove = null;
+        let mouseMoveRafId = null;
+
         let settings = {
             engine:'api',
             apiKind:'image',
@@ -491,13 +499,26 @@
             shell.style.backgroundPosition = '0 0';
             renderMinimap();
         }
+        function updateShellRectCache(){
+            shellRectCache = shell.getBoundingClientRect();
+        }
+        function getShellRect(){
+            if(!shellRectCache){
+                updateShellRectCache();
+            }
+            return shellRectCache;
+        }
         function screenToWorld(event){
-            const rect = shell.getBoundingClientRect();
+            const rect = getShellRect();
             return {
                 x:(event.clientX - rect.left - viewport.x) / viewport.scale,
                 y:(event.clientY - rect.top - viewport.y) / viewport.scale
             };
         }
+        // Window resize handler to update cached rect
+        window.addEventListener('resize', () => {
+            updateShellRectCache();
+        }, {passive: true});
         function viewportCenter(){
             return {
                 x:(shell.clientWidth / 2 - viewport.x) / viewport.scale,
@@ -528,13 +549,30 @@
                 width:Math.max(4, r.width * scale),
                 height:Math.max(4, r.height * scale)
             });
-            const nodeHtml = rects.slice(0, -1).map(r => {
+            // Use DocumentFragment instead of innerHTML to avoid DOM tree reconstruction
+            const fragment = document.createDocumentFragment();
+            rects.slice(0, -1).forEach(r => {
                 const p = project(r);
-                return `<div class="minimap-node" style="left:${p.left}px;top:${p.top}px;width:${p.width}px;height:${p.height}px"></div>`;
-            }).join('');
+                const div = document.createElement('div');
+                div.className = 'minimap-node';
+                div.style.left = `${p.left}px`;
+                div.style.top = `${p.top}px`;
+                div.style.width = `${p.width}px`;
+                div.style.height = `${p.height}px`;
+                fragment.appendChild(div);
+            });
             const view = project({x:viewX, y:viewY, width:viewW, height:viewH});
-            minimapContent.innerHTML = `${nodeHtml}<div id="minimapViewport" class="smart-minimap-viewport" style="left:${view.left}px;top:${view.top}px;width:${view.width}px;height:${view.height}px"></div>`;
-            minimapViewport = document.getElementById('minimapViewport');
+            const viewDiv = document.createElement('div');
+            viewDiv.id = 'minimapViewport';
+            viewDiv.className = 'smart-minimap-viewport';
+            viewDiv.style.left = `${view.left}px`;
+            viewDiv.style.top = `${view.top}px`;
+            viewDiv.style.width = `${view.width}px`;
+            viewDiv.style.height = `${view.height}px`;
+            fragment.appendChild(viewDiv);
+            minimapContent.innerHTML = '';
+            minimapContent.appendChild(fragment);
+            minimapViewport = minimapContent.querySelector('#minimapViewport');
         }
         function minimapEventToWorld(event){
             if(!smartMinimapState) renderMinimap();
@@ -610,6 +648,28 @@
         }
         function imageProviders(){
             return (apiProviders || []).filter(p => p.enabled !== false && p.id !== 'modelscope' && (p.image_models || []).length);
+        }
+        function normalizeApiProviderList(providers){
+            if(!Array.isArray(providers)) return [];
+            const unique = list => [...new Set((list || []).map(item => String(item || '').trim()).filter(Boolean))];
+            return providers
+                .filter(provider => provider && typeof provider === 'object' && provider.id)
+                .map(provider => ({
+                    ...provider,
+                    id:String(provider.id || '').trim(),
+                    name:String(provider.name || provider.id || '').trim(),
+                    image_models:unique(provider.image_models),
+                    chat_models:unique(provider.chat_models),
+                    video_models:unique(provider.video_models),
+                    ms_loras:Array.isArray(provider.ms_loras) ? provider.ms_loras : []
+                }))
+                .filter(provider => provider.id);
+        }
+        async function loadApiProvidersFallback(){
+            const res = await fetch('/api/providers', {cache:'no-store'});
+            if(!res.ok) throw new Error(`/api/providers ${res.status}`);
+            const data = await res.json();
+            return normalizeApiProviderList(data.providers || []);
         }
         function chatApiProviders(){
             return (apiProviders || []).filter(p => p.enabled !== false && (p.chat_models || []).length);
@@ -1116,10 +1176,18 @@
         }
         async function loadConfig(){
             try {
-                const res = await fetch('/api/config', {cache:'no-store'});
-                if(!res.ok) throw new Error(`/api/config ${res.status}`);
-                const cfg = await res.json();
-                apiProviders = Array.isArray(cfg.api_providers) ? cfg.api_providers : [];
+                let cfg = {};
+                try {
+                    const res = await fetch('/api/config', {cache:'no-store'});
+                    if(!res.ok) throw new Error(`/api/config ${res.status}`);
+                    cfg = await res.json();
+                } catch(configError) {
+                    cfg = {api_providers: await loadApiProvidersFallback()};
+                    console.warn('API config unavailable, loaded providers directly', configError);
+                }
+                const providers = normalizeApiProviderList(cfg.api_providers || []);
+                if(!providers.length) providers.push(...await loadApiProvidersFallback());
+                apiProviders = providers;
                 lastConfigRefreshAt = Date.now();
                 updateProviderModels();
             } catch(e) {
@@ -4346,7 +4414,25 @@
             smartMinimapDrag = true;
             centerViewportOnWorldPoint(minimapEventToWorld(e));
         });
-        window.onmousemove = e => {
+        // Unified mouse move handler with RAF-based throttling
+        function scheduleMouseMove(e){
+            pendingMouseMove = e;
+            if(!mouseMoveRafId){
+                mouseMoveRafId = requestAnimationFrame(handleMouseMoveFrame);
+            }
+        }
+        function handleMouseMoveFrame(){
+            mouseMoveRafId = null;
+            if(!pendingMouseMove) return;
+            const e = pendingMouseMove;
+            pendingMouseMove = null;
+            handleMouseMove(e);
+        }
+        function handleMouseMove(e){
+            // Update cached rect for safety (in case resize event was missed)
+            if(!shellRectCache){
+                updateShellRectCache();
+            }
             lastMouseWorld = screenToWorld(e);
             if(smartMinimapDrag){
                 e.preventDefault();
@@ -4619,6 +4705,10 @@
                 scheduleSave();
             }
         };
+        // Use addEventListener instead of window.onmouseup to avoid memory leaks
+        window.addEventListener('mouseup', window.onmouseup);
+        // Use addEventListener for mousemove with RAF-based throttling
+        window.addEventListener('mousemove', scheduleMouseMove, {passive: true});
         shell.addEventListener('wheel', e => {
             if(e.target.closest('.composer,.smart-back,.image-edit-modal,.asset-panel,.asset-toggle,.smart-log-toggle,.log-modal')) return;
             e.preventDefault();

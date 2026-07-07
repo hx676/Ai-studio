@@ -23,7 +23,13 @@
             pollToken: 0
         };
         const $ = (id) => document.getElementById(id);
-        const SERVICE_START_HINT = '请先在启动器中一键启动。';
+        function tr(key){ return window.StudioI18n ? StudioI18n.t(key) : key; }
+        const SERVICE_START_HINT_KEY = 'dh.serviceStartHint';
+        const SERVICE_START_HINT = tr(SERVICE_START_HINT_KEY);
+        // Listen for language changes
+        window.addEventListener('studio-lang-change', () => {
+            // Re-apply any dynamic text that needs updating
+        });
 const STAGE_TEXT = {
             queued: '排队中',
             tts: '准备口播',

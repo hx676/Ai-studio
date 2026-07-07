@@ -22,10 +22,16 @@ class DigitalHumanHeyGemConfig(BaseModel):
     max_wait_seconds: int = 1800
     stall_timeout_seconds: int = 240
 
+class DigitalHumanRuntimeConfig(BaseModel):
+    auto_release_gpu: bool = True
+    idle_release_seconds: int = 180
+    release_services: List[str] = Field(default_factory=lambda: ["tts", "heygem"])
+
 class DigitalHumanConfigPayload(BaseModel):
     public_base_url: str = ""
     tts: DigitalHumanTTSConfig = DigitalHumanTTSConfig()
     heygem: DigitalHumanHeyGemConfig = DigitalHumanHeyGemConfig()
+    runtime: DigitalHumanRuntimeConfig = DigitalHumanRuntimeConfig()
 
 class DigitalHumanPersonPayload(BaseModel):
     id: str = ""

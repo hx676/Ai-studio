@@ -81,25 +81,91 @@
         .link-delete { position:absolute; width:22px; height:22px; border-radius:999px; display:flex; align-items:center; justify-content:center; transform:translate(-50%,-50%); color:#64748b; background:rgba(255,255,255,.94); border:1px solid #e2e8f0; box-shadow:0 8px 20px rgba(15,23,42,.12); opacity:0; pointer-events:none; transition:opacity .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease), background .14s var(--ease); }
         .link-delete.visible,.link-delete.hover { opacity:1; pointer-events:auto; }
         .link-delete.hover { color:#dc2626; border-color:#fecaca; background:#fff5f5; }
-        .node { position:absolute; min-width:220px; min-height:96px; border:1px solid var(--line); border-radius:22px; background:var(--card); box-shadow:0 16px 42px var(--shadow); overflow:visible; user-select:none; z-index:2; }
-        .node::before { content:""; position:absolute; inset:0; border-radius:inherit; background:var(--card); pointer-events:none; z-index:-1; overflow:hidden; }
-        .node.sized { display:flex; flex-direction:column; }
-        .node.selected { outline:2px solid var(--strong); outline-offset:2px; }
-        .node-head { height:42px; flex:0 0 42px; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 12px; border-bottom:1px solid var(--line); border-radius:21px 21px 0 0; overflow:hidden; cursor:move; }
-        .node-title { font-size:11px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+        .node {
+            position: absolute; /* 绝对定位以在画布内任意移动 */
+            min-width: 220px; /* 最小宽度 */
+            min-height: 96px; /* 最小高度 */
+            border: 1px solid var(--line) !important; /* 精致的高光边框线 */
+            border-radius: 20px; /* 大圆角 */
+            background: var(--panel) !important; /* 使用玻璃态半透明底色变量 */
+            backdrop-filter: blur(16px); /* 磨砂玻璃质感 */
+            -webkit-backdrop-filter: blur(16px); /* 兼容 Safari */
+            box-shadow: 0 16px 42px var(--shadow); /* 柔和的长投影 */
+            overflow: visible; /* 允许子元素溢出 */
+            user-select: none; /* 禁止文本选中 */
+            z-index: 2; /* 浮于连线之上 */
+            transition: box-shadow 0.25s var(--ease), border-color 0.25s var(--ease); /* 动效过渡 */
+        }
+        .node::before {
+            content: ""; /* 空白内容 */
+            position: absolute; /* 定位填充 */
+            inset: 0; /* 填充 */
+            border-radius: inherit; /* 继承圆角 */
+            background: transparent; /* 去除多余底色，防遮挡毛玻璃 */
+            pointer-events: none; /* 穿透鼠标 */
+            z-index: -1; /* 置于底层 */
+            overflow: hidden; /* 裁剪 */
+        }
+        .node.sized {
+            display: flex; /* 垂直伸缩 */
+            flex-direction: column; /* 纵向排版 */
+        }
+        .node.selected {
+            border-color: var(--strong) !important; /* 选中时使用强调线 */
+            box-shadow: 0 0 0 1px var(--strong) inset, 0 20px 48px var(--shadow), 0 0 16px rgba(148, 163, 184, 0.22) !important; /* 选中时优雅的外发光与内高光结合 */
+        }
+        .node-head {
+            height: 42px; /* 标题栏高度 */
+            flex: 0 0 42px; /* 不可收缩 */
+            display: flex; /* 横向排列 */
+            align-items: center; /* 垂直居中 */
+            justify-content: space-between; /* 两侧分布 */
+            gap: 10px; /* 元素间距 */
+            padding: 0 14px; /* 内边距 */
+            border-bottom: 1px solid var(--line); /* 底部细横线 */
+            border-radius: 19px 19px 0 0; /* 仅上边缘圆角 */
+            overflow: hidden; /* 裁剪 */
+            cursor: move; /* 指示允许拖拽移动 */
+        }
+        .node-title {
+            font-size: 11px; /* 小巧精致的标题 */
+            font-weight: 800; /* 极粗体 */
+            letter-spacing: .12em; /* 宽间距 */
+            text-transform: uppercase; /* 自动大写 */
+            color: var(--muted); /* 辅助文字色 */
+        }
         /* 一键运行级联状态徽章 */
-        .node-run-status { display:inline-flex; align-items:center; gap:4px; padding:2px 7px; border-radius:6px; font-size:10px; font-weight:800; letter-spacing:.04em; }
-        .node-run-status.queued { background:#e5e7eb; color:#6b7280; }
-        .node-run-status.running { background:#dbeafe; color:#1d4ed8; }
-        .node-run-status.done { display:none; }
-        .node-run-status.failed { background:#fee2e2; color:#dc2626; }
-        body.theme-dark .node-run-status.queued { background:rgba(156,163,175,.22); color:#cbd5e1; }
-        body.theme-dark .node-run-status.running { background:rgba(59,130,246,.22); color:#93c5fd; }
-        body.theme-dark .node-run-status.done { background:rgba(16,185,129,.22); color:#6ee7b7; }
-        body.theme-dark .node-run-status.failed { background:rgba(239,68,68,.22); color:#fca5a5; }
-        .node-run-status .dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
-        .node-run-status.running .dot { animation:nodeStatusPulse 1s ease-in-out infinite; }
-        @keyframes nodeStatusPulse { 50% { opacity:.3; } }
+        .node-run-status {
+            display: inline-flex; /* 内部水平流 */
+            align-items: center; /* 垂直居中 */
+            gap: 4px; /* 间距 */
+            padding: 2px 7px; /* 胶囊填充 */
+            border-radius: 6px; /* 圆角 */
+            font-size: 10px; /* 状态小字 */
+            font-weight: 800; /* 粗体 */
+            letter-spacing: .04em; /* 宽距 */
+        }
+        .node-run-status.queued { background: #e2e8f0; color: #64748b; } /* 排队中亮色 */
+        .node-run-status.running { background: #dbeafe; color: #1d4ed8; } /* 执行中亮色 */
+        .node-run-status.done { display: none; } /* 成功状态隐藏 */
+        .node-run-status.failed { background: #fee2e2; color: #ef4444; } /* 失败状态亮色 */
+        body.theme-dark .node-run-status.queued { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; } /* 排队中暗色 */
+        body.theme-dark .node-run-status.running { background: rgba(59, 130, 246, 0.15); color: #93c5fd; } /* 执行中暗色 */
+        body.theme-dark .node-run-status.done { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; } /* 成功暗色 */
+        body.theme-dark .node-run-status.failed { background: rgba(239, 68, 68, 0.15); color: #fca5a5; } /* 失败暗色 */
+        .node-run-status .dot {
+            width: 6px; /* 呼吸灯小点宽 */
+            height: 6px; /* 高 */
+            border-radius: 50%; /* 圆形 */
+            background: currentColor; /* 颜色继承文字色 */
+        }
+        .node-run-status.running .dot {
+            animation: nodeStatusPulse 1.2s ease-in-out infinite; /* 执行状态开启平滑呼吸灯动画 */
+        }
+        @keyframes nodeStatusPulse {
+            0%, 100% { opacity: 0.35; transform: scale(0.85); } /* 最暗态且微缩 */
+            50% { opacity: 1; transform: scale(1.15); filter: drop-shadow(0 0 3px currentColor); } /* 最亮态并向外柔和发光 */
+        }
         /* 一键运行按钮（与 Run 按钮同款大小，仅在链尾节点显示） */
         .gen-run-row { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
         .gen-run-row .gen-btn,

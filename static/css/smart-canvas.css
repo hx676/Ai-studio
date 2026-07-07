@@ -24,28 +24,111 @@
         .smart-log-toggle { position:absolute; right:138px; top:22px; z-index:56; height:40px; padding:0 15px; border-radius:999px; background:var(--panel); color:var(--text); border:1px solid var(--line); box-shadow:0 14px 34px var(--shadow); backdrop-filter:blur(16px); display:flex; align-items:center; gap:8px; font-size:12px; font-weight:750; transition:transform .14s ease, border-color .14s ease; }
         .smart-log-toggle:hover { transform:translateY(-1px); border-color:var(--text); }
         .smart-log-toggle i,.smart-log-toggle svg { width:16px; height:16px; }
-        .image-node { position:absolute; width:260px; min-height:178px; border-radius:16px; background:transparent; border:0; box-shadow:none; overflow:visible; user-select:none; cursor:move; }
-        body.smart-node-drag * { user-select:none !important; }
+        .image-node {
+            position: absolute; /* 绝对定位以允许画布拖拽定位 */
+            width: 260px; /* 默认节点宽度 */
+            min-height: 178px; /* 最小高度 */
+            border-radius: 16px; /* 节点外圆角 */
+            background: transparent; /* 背景默认透明，仅由内部组件提供背景 */
+            border: 0; /* 移除外边框 */
+            box-shadow: none; /* 移除默认阴影 */
+            overflow: visible; /* 允许超出显示 */
+            user-select: none; /* 禁止文本被鼠标拖选 */
+            cursor: move; /* 指示可移动 */
+        }
+        body.smart-node-drag * {
+            user-select: none !important; /* 拖拽过程中全局禁止选择文本 */
+        }
         body.smart-node-drag .image-node textarea,
         body.smart-node-drag .image-node input,
         body.smart-node-drag .image-node select,
-        body.smart-node-drag .image-node .node-body { pointer-events:none !important; }
-        .image-node:not(.empty-node) { min-height:0; }
-        .image-node.empty-node { background:var(--card); border:1px solid var(--line); box-shadow:0 12px 34px var(--shadow); overflow:visible; }
-        .image-node.group-node { padding:16px; box-sizing:border-box; background:rgba(255,255,255,.46); border:1px solid rgba(148,163,184,.35); box-shadow:0 10px 30px rgba(15,23,42,.06); backdrop-filter:blur(12px); }
-        .theme-dark .image-node.group-node { background:rgba(15,23,42,.28); border-color:rgba(148,163,184,.28); }
-        .image-node.selected { outline:0; }
-        .image-node.selected:not(.empty-node):not(.group-node):not(.prompt-smart-node):not(.loop-smart-node) { box-shadow:none; border-radius:12px; }
-        .image-node.selected:not(.empty-node):not(.group-node) .image-wrap img, .image-node.selected:not(.empty-node):not(.group-node) .node-img { border-color:var(--strong); box-shadow:0 0 0 1px var(--strong); }
-        .image-node.group-node:hover, .image-node.group-node.selected { border-color:var(--strong); box-shadow:0 10px 30px rgba(15,23,42,.08); }
-        .image-node.group-node.selected { box-shadow:0 0 0 1px var(--strong), 0 14px 36px var(--shadow); }
-        .image-node.empty-node:hover { border-color:var(--strong); box-shadow:0 10px 30px rgba(15,23,42,.08); }
-        .image-node.empty-node.selected { border-color:var(--strong); box-shadow:0 0 0 1px var(--strong), 0 12px 34px var(--shadow); }
-        .image-node.prompt-smart-node, .image-node.loop-smart-node { padding:12px; box-sizing:border-box; background:rgba(255,255,255,.46); border:1px solid rgba(148,163,184,.35); box-shadow:0 10px 30px rgba(15,23,42,.06); backdrop-filter:blur(12px); overflow:visible; }
-        .image-node.loop-smart-node { padding-top:16px; padding-bottom:18px; }
-        .theme-dark .image-node.prompt-smart-node, .theme-dark .image-node.loop-smart-node { background:rgba(15,23,42,.28); border-color:rgba(148,163,184,.28); }
-        .image-node.prompt-smart-node:hover, .image-node.loop-smart-node:hover, .image-node.prompt-smart-node.selected, .image-node.loop-smart-node.selected { border-color:var(--strong); box-shadow:0 10px 30px rgba(15,23,42,.08); }
-        .image-node.prompt-smart-node.selected, .image-node.loop-smart-node.selected { box-shadow:0 0 0 1px var(--strong), 0 14px 36px var(--shadow); }
+        body.smart-node-drag .image-node .node-body {
+            pointer-events: none !important; /* 拖动期间穿透鼠标事件，防止交互卡顿 */
+        }
+        .image-node:not(.empty-node) {
+            min-height: 0; /* 非空节点取消高度限制 */
+        }
+        .image-node.empty-node {
+            background: var(--panel) !important; /* 统一采用主题面板的毛玻璃变量 */
+            backdrop-filter: blur(16px); /* 毛玻璃模糊 */
+            -webkit-backdrop-filter: blur(16px); /* 兼容 Safari */
+            border: 1px solid var(--line) !important; /* 极细高光边框 */
+            border-radius: 20px; /* 升级为大圆角 */
+            box-shadow: 0 16px 42px var(--shadow) !important; /* 柔和悬浮长投影 */
+            overflow: visible; /* 溢出可见 */
+        }
+        .image-node.group-node {
+            padding: 16px; /* 容器填充 */
+            box-sizing: border-box; /* 宽度计算包含 padding */
+            background: var(--panel) !important; /* 玻璃拟态 */
+            backdrop-filter: blur(16px); /* 模糊 */
+            -webkit-backdrop-filter: blur(16px); /* 兼容 Safari */
+            border: 1px solid var(--line) !important; /* 微妙的边框 */
+            border-radius: 20px; /* 圆角 */
+            box-shadow: 0 16px 42px var(--shadow) !important; /* 投影 */
+        }
+        .theme-dark .image-node.group-node {
+            background: var(--panel) !important; /* 暗色模式保持玻璃拟态 */
+            border-color: var(--line) !important; /* 使用暗色高光描边 */
+        }
+        .image-node.selected {
+            outline: 0; /* 移除选中时的生硬虚线框 */
+        }
+        .image-node.selected:not(.empty-node):not(.group-node):not(.prompt-smart-node):not(.loop-smart-node) {
+            box-shadow: none; /* 精简阴影 */
+            border-radius: 12px; /* 圆角 */
+        }
+        .image-node.selected:not(.empty-node):not(.group-node) .image-wrap img,
+        .image-node.selected:not(.empty-node):not(.group-node) .node-img {
+            border-color: var(--strong) !important; /* 选中图卡时描边使用强调色 */
+            box-shadow: 0 0 0 1px var(--strong), 0 0 16px rgba(148, 163, 184, 0.26) !important; /* 雅致的蓝色/灰色外光晕 */
+        }
+        .image-node.group-node:hover,
+        .image-node.group-node.selected {
+            border-color: var(--strong) !important; /* 组卡 hover 时高亮描边 */
+            box-shadow: 0 16px 42px var(--shadow) !important; /* 阴影 */
+        }
+        .image-node.group-node.selected {
+            box-shadow: 0 0 0 1px var(--strong) inset, 0 20px 48px var(--shadow), 0 0 16px rgba(148, 163, 184, 0.22) !important; /* 选中时内外双重高光 */
+        }
+        .image-node.empty-node:hover {
+            border-color: var(--strong) !important; /* 空节点 hover 高亮 */
+        }
+        .image-node.empty-node.selected {
+            border-color: var(--strong) !important; /* 选中空节点 */
+            box-shadow: 0 0 0 1px var(--strong) inset, 0 20px 48px var(--shadow), 0 0 16px rgba(148, 163, 184, 0.22) !important; /* 发光投影 */
+        }
+        .image-node.prompt-smart-node,
+        .image-node.loop-smart-node {
+            padding: 12px; /* 填充 */
+            box-sizing: border-box; /* 宽度自适应 */
+            background: var(--panel) !important; /* 采用毛玻璃背景 */
+            backdrop-filter: blur(16px); /* 高斯模糊 */
+            -webkit-backdrop-filter: blur(16px); /* 兼容 */
+            border: 1px solid var(--line) !important; /* 极细边框 */
+            border-radius: 20px; /* 大圆角 */
+            box-shadow: 0 16px 42px var(--shadow) !important; /* 柔和阴影 */
+            overflow: visible; /* 溢出可见 */
+        }
+        .image-node.loop-smart-node {
+            padding-top: 16px; /* 循环节点上边距扩展 */
+            padding-bottom: 18px; /* 底部扩展 */
+        }
+        .theme-dark .image-node.prompt-smart-node,
+        .theme-dark .image-node.loop-smart-node {
+            background: var(--panel) !important; /* 暗色下保持玻璃面板 */
+            border-color: var(--line) !important; /* 极细高光 */
+        }
+        .image-node.prompt-smart-node:hover,
+        .image-node.loop-smart-node:hover,
+        .image-node.prompt-smart-node.selected,
+        .image-node.loop-smart-node.selected {
+            border-color: var(--strong) !important; /* 状态高亮边线 */
+        }
+        .image-node.prompt-smart-node.selected,
+        .image-node.loop-smart-node.selected {
+            box-shadow: 0 0 0 1px var(--strong) inset, 0 20px 48px var(--shadow), 0 0 16px rgba(148, 163, 184, 0.22) !important; /* 选中的外发光 */
+        }
         .prompt-smart-node .node-body, .loop-smart-node .node-body { align-items:stretch; justify-content:stretch; padding:0; height:100%; min-height:0; }
         .prompt-node-card { width:100%; height:100%; min-height:0; display:flex; flex-direction:column; gap:8px; }
         .prompt-node-text { flex:1; min-height:72px; width:100%; resize:none; overflow:auto; border:1px solid rgba(148,163,184,.32); border-radius:13px; background:rgba(255,255,255,.74); color:var(--text); outline:none; padding:10px; font-size:11.2px; line-height:1.45; scrollbar-width:thin; scrollbar-color:rgba(148,163,184,.45) transparent; box-shadow:inset 0 1px 0 rgba(255,255,255,.55); }

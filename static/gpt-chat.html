@@ -233,7 +233,13 @@
         }
         function chatProviders(){
             const list = (apiProviders || []).filter(p => p.enabled !== false && (p.chat_models || []).length);
-            if(config.ms_chat_models?.length && !list.some(p => p.id === 'modelscope')) list.push({id:'modelscope', name:'ModelScope', chat_models:config.ms_chat_models, image_models:[]});
+            // 仅当 apiProviders 中没有 ModelScope 或它未被显式禁用时，才补充 ms_chat_models 入口
+            if(config.ms_chat_models?.length && !list.some(p => p.id === 'modelscope')){
+                const msEntry = (apiProviders || []).find(p => p.id === 'modelscope');
+                if(!msEntry || msEntry.enabled !== false){
+                    list.push({id:'modelscope', name:'ModelScope', chat_models:config.ms_chat_models, image_models:[]});
+                }
+            }
             return list.length ? list : [{id:'comfly', name:'API', chat_models:[config.chat_model || 'gpt-4o-mini'], image_models:[config.image_model || 'gpt-image-2']}];
         }
         function imageProviders(){
@@ -465,13 +471,15 @@
             if(msg.attachments?.length){
                 const thumbs = document.createElement('div');
                 thumbs.className = 'thumbs';
-                msg.attachments.forEach(ref => thumbs.insertAdjacentHTML('beforeend', `<img class="thumb" src="${ref.url}">`));
+                let idx = 0;
+                msg.attachments.forEach(ref => thumbs.insertAdjacentHTML('beforeend', `<img class="thumb" src="${ref.url}" alt="${tr('chat.attachmentImage') || '附件图片'} ${++idx}">`));
                 bubble.appendChild(thumbs);
             }
             if(msg.image_url){
                 const img = document.createElement('img');
                 img.className = 'generated';
                 img.src = msg.image_url;
+                img.alt = tr('chat.generatedImage') || 'AI 生成的图片';
                 img.onclick = () => window.open(msg.image_url, '_blank');
                 bubble.appendChild(img);
             }

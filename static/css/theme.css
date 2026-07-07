@@ -1,309 +1,381 @@
-html.studio-theme-dark,
+:root {
+    /* 核心无衬线字体体系，改善中文字体渲染粗细 */
+    --font-sans: 'Space Grotesk', 'Inter', -apple-system, 'SF Pro Display', 'PingFang SC', 'Segoe UI', sans-serif; /* 字体设置 */
+    --fluid-ease: cubic-bezier(0.3, 0, 0, 1); /* 缓动函数 */
+
+    /* 亮色模式：高级创意工具设计系统 */
+    --bg: #f5f6f8; /* 亮色背景 */
+    --bg-base: #f5f6f8; /* 亮色基底 */
+    --page: #f5f6f8; /* 页面底色 */
+    --panel: rgba(255, 255, 255, 0.72); /* 磨砂面板背景 */
+    --card: rgba(255, 255, 255, 0.85); /* 亮色卡片背景 */
+    --card-solid: #ffffff; /* 亮色纯白背景 */
+    --soft: #edf0f3; /* 浅灰输入框背景 */
+    --soft-2: #e2e7ec; /* 中浅灰背景 */
+    --line: rgba(0, 0, 0, 0.05); /* 极其细微的描边 */
+    --line-2: rgba(0, 0, 0, 0.12); /* 中等描边 */
+    --text: #11141a; /* 亮色文字主色 */
+    --text-main: #11141a; /* 文本主色 */
+    --muted: #626a75; /* 辅助次要文字 */
+    --faint: #9ea5b0; /* 弱化提示文字 */
+    --accent: #000000; /* 主强调色（纯黑） */
+    --shadow: rgba(15, 23, 42, 0.03); /* 微妙阴影 */
+    --scrollbar-width: 6px; /* 极细滚动条宽度 */
+}
+
+/* 全局暗色模式覆盖 */
 html.studio-theme-dark body,
-body.studio-theme-dark {
-    color-scheme: dark;
-    background: #08090c !important;
-    color: #e8e8ea !important;
+html.theme-dark body,
+body.studio-theme-dark,
+body.theme-dark {
+    color-scheme: dark; /* 声明暗色方案 */
+    background: #0b0f17 !important; /* 统暗色主背景，非常利于AI视觉创作 */
+    color: #e5e9f0 !important; /* 统暗色主文字 */
+
+    --bg: #0b0f17; /* 暗色背景 */
+    --bg-base: #0b0f17; /* 暗色基底 */
+    --page: #0b0f17; /* 页面底色 */
+    --panel: rgba(23, 29, 41, 0.72); /* 暗色玻璃化面板 */
+    --card: rgba(23, 29, 41, 0.65); /* 暗色玻璃化卡片 */
+    --card-solid: #171d29; /* 暗色纯色背景 */
+    --soft: #111722; /* 深色输入框背景 */
+    --soft-2: #1d2533; /* 中深色背景 */
+    --line: rgba(255, 255, 255, 0.07); /* 暗色下高光描边 */
+    --line-2: rgba(255, 255, 255, 0.14); /* 暗色中等描边 */
+    --text: #e5e9f0; /* 暗色文本主色 */
+    --text-main: #e5e9f0; /* 文本主色 */
+    --muted: #8f9aab; /* 暗色辅助文字 */
+    --faint: #64748b; /* 暗色弱化文字 */
+    --accent: #d8dee9; /* 暗色强调色 */
+    --shadow: rgba(0, 0, 0, 0.22); /* 暗色阴影 */
 }
 
 html,
 body {
-    overscroll-behavior: auto;
+    overscroll-behavior: auto; /* 阻止滚动链溢出 */
+    font-family: var(--font-sans) !important; /* 全局注入抗锯齿字体体系 */
 }
 
+/* 统一最细低调滚动条，仅在hover时浮现 */
 * {
-    scrollbar-width: thin !important;
-    scrollbar-color: rgba(148, 163, 184, .72) transparent !important;
+    scrollbar-width: thin !important; /* Firefox 窄滚动条 */
+    scrollbar-color: rgba(148, 163, 184, 0.35) transparent !important; /* 滚动条颜色 */
 }
 
 *::-webkit-scrollbar {
-    width: 10px !important;
-    height: 10px !important;
-    background: transparent !important;
+    width: var(--scrollbar-width) !important; /* Webkit 滚动条宽度 */
+    height: var(--scrollbar-width) !important; /* Webkit 滚动条高度 */
+    background: transparent !important; /* 轨道背景设为透明 */
 }
 
 *::-webkit-scrollbar-track {
-    background: transparent !important;
+    background: transparent !important; /* 轨道完全透明 */
 }
 
 *::-webkit-scrollbar-thumb {
-    min-height: 36px;
-    background-color: rgba(148, 163, 184, .72) !important;
-    border: 3px solid transparent !important;
-    border-right-width: 3px !important;
-    background-clip: padding-box !important;
-    border-radius: 999px !important;
+    min-height: 28px; /* 最小滑块高度 */
+    background-color: rgba(148, 163, 184, 0.25) !important; /* 默认超细半透明色 */
+    border: none !important; /* 移除外边距以防变粗 */
+    background-clip: padding-box !important; /* 切割背景 */
+    border-radius: 999px !important; /* 胶囊圆角 */
+    transition: background-color 0.2s; /* 颜色过渡 */
 }
 
 *::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(100, 116, 139, .86) !important;
+    background-color: rgba(148, 163, 184, 0.55) !important; /* hover时变深，提供交互回馈 */
 }
 
 *::-webkit-scrollbar-corner {
-    background: transparent !important;
+    background: transparent !important; /* 边角透明 */
 }
 
 .studio-dialog-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 99999;
-    display: grid;
-    place-items: center;
-    padding: 24px;
-    font-family: inherit;
+    position: fixed; /* 固定定位覆盖视口 */
+    inset: 0; /* 填充整个屏幕 */
+    z-index: 99999; /* 保证最上层显示 */
+    display: grid; /* 网格布局居中 */
+    place-items: center; /* 居中内容 */
+    padding: 24px; /* 边缘间距 */
+    font-family: inherit; /* 继承字体 */
 }
 
 .studio-dialog-backdrop {
-    position: absolute;
-    inset: 0;
-    background: rgba(15, 23, 42, .42);
-    backdrop-filter: blur(10px) saturate(1.05);
+    position: absolute; /* 绝对定位填充弹窗背景 */
+    inset: 0; /* 填充 */
+    background: rgba(15, 23, 42, 0.28); /* 柔和暗色遮罩 */
+    backdrop-filter: blur(14px) saturate(1.1); /* 高精度毛玻璃模糊 */
+    -webkit-backdrop-filter: blur(14px) saturate(1.1); /* 兼容 Safari 浏览器 */
+    transition: opacity 0.25s var(--fluid-ease); /* 淡入淡出过渡 */
 }
 
 .studio-dialog {
-    position: relative;
-    width: min(440px, calc(100vw - 32px));
-    max-height: calc(100vh - 48px);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    background: var(--panel, #fff);
-    color: var(--text, var(--text-main, #0f172a));
-    border: 1px solid var(--line, rgba(148, 163, 184, .28));
-    border-radius: 16px;
-    box-shadow: 0 24px 80px rgba(15, 23, 42, .28);
+    position: relative; /* 相对定位以承载绝对定位子元素 */
+    width: min(440px, calc(100vw - 32px)); /* 限制最大宽度并支持自适应 */
+    max-height: calc(100vh - 48px); /* 限制最高高度 */
+    overflow: hidden; /* 裁剪溢出 */
+    display: flex; /* 垂直伸缩 */
+    flex-direction: column; /* 纵向排列 */
+    background: var(--panel) !important; /* 使用玻璃态背景变量 */
+    color: var(--text); /* 使用文本主色变量 */
+    border: 1px solid var(--line) !important; /* 极细微妙边框 */
+    border-radius: 20px; /* 现代圆润大圆角 */
+    backdrop-filter: blur(20px) saturate(1.15); /* 弹窗本体的毛玻璃融合 */
+    -webkit-backdrop-filter: blur(20px) saturate(1.15); /* 兼容 Safari */
+    box-shadow: 0 24px 60px var(--shadow), 0 0 0 1px rgba(255, 255, 255, 0.05) inset; /* 悬浮大阴影与内部微高光 */
+    transition: transform 0.2s var(--fluid-ease), opacity 0.2s var(--fluid-ease); /* 弹出缓动 */
 }
 
 .studio-dialog-error {
-    width: min(560px, calc(100vw - 32px));
+    width: min(560px, calc(100vw - 32px)); /* 错误弹窗加宽显示细节 */
 }
 
 .studio-dialog-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 20px 20px 8px;
+    display: flex; /* 横向排列 */
+    align-items: flex-start; /* 顶部对齐 */
+    justify-content: space-between; /* 两端对齐 */
+    gap: 12px; /* 间距 */
+    padding: 24px 24px 12px; /* 内边距 */
 }
 
 .studio-dialog-title {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 900;
-    line-height: 1.35;
-    letter-spacing: -.01em;
+    margin: 0; /* 移除外边距 */
+    font-size: 16px; /* 标题字号 */
+    font-weight: 800; /* 粗体 */
+    line-height: 1.35; /* 行高 */
+    letter-spacing: -.02em; /* 字距微调 */
 }
 
 .studio-dialog-close {
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font-size: 22px;
-    line-height: 1;
-    cursor: pointer;
-    opacity: .62;
-    padding: 0 2px;
+    border: 0; /* 移除原生边框 */
+    background: transparent; /* 透明背景 */
+    color: inherit; /* 继承文字颜色 */
+    font-size: 22px; /* 关闭叉号大小 */
+    line-height: 1; /* 紧凑行高 */
+    cursor: pointer; /* 手势悬停 */
+    opacity: .5; /* 默认半透明 */
+    padding: 0 2px; /* 内部填充 */
+    transition: opacity 0.15s; /* 淡入淡出过渡 */
 }
 
 .studio-dialog-close:hover,
 .studio-dialog-close:focus-visible {
-    opacity: 1;
+    opacity: 0.95; /* 悬浮或聚焦时全白 */
 }
 
 .studio-dialog-body {
-    padding: 6px 20px 18px;
-    overflow: auto;
-    color: var(--muted, #475569);
-    font-size: 14px;
-    line-height: 1.7;
+    padding: 6px 24px 20px; /* 内边距 */
+    overflow: auto; /* 超出自动滚动 */
+    color: var(--muted); /* 辅助文本色 */
+    font-size: 13.5px; /* 主字号 */
+    line-height: 1.65; /* 舒适的文字行高 */
 }
 
 .studio-dialog-description {
-    margin: 0;
-    white-space: pre-wrap;
+    margin: 0; /* 移除段落外边距 */
+    white-space: pre-wrap; /* 保留换行 */
 }
 
 .studio-dialog-field {
-    display: grid;
-    gap: 8px;
-    margin-top: 12px;
+    display: grid; /* 栅格排列 */
+    gap: 8px; /* 元素间距 */
+    margin-top: 14px; /* 顶边距 */
 }
 
 .studio-dialog-label {
-    color: var(--text, var(--text-main, #0f172a));
-    font-size: 11px;
-    font-weight: 900;
-    letter-spacing: .08em;
-    text-transform: uppercase;
+    color: var(--text); /* 标签文本色 */
+    font-size: 11px; /* 极细标签 */
+    font-weight: 800; /* 极粗 */
+    letter-spacing: .08em; /* 较宽字间距提升品质感 */
+    text-transform: uppercase; /* 自动大写 */
 }
 
 .studio-dialog-input {
-    width: 100%;
-    min-height: 42px;
-    border: 1px solid var(--line, rgba(148, 163, 184, .35));
-    border-radius: 10px;
-    background: var(--soft, rgba(241, 245, 249, .72));
-    color: var(--text, var(--text-main, #0f172a));
-    padding: 10px 12px;
-    font: inherit;
-    outline: none;
+    width: 100%; /* 宽度占满 */
+    min-height: 40px; /* 输入框高度 */
+    border: 1px solid var(--line-2); /* 次级边框线 */
+    border-radius: 12px; /* 圆角 */
+    background: var(--soft); /* 软灰背景 */
+    color: var(--text); /* 主文字色 */
+    padding: 8px 12px; /* 填充 */
+    font: inherit; /* 继承字体 */
+    outline: none; /* 移除聚焦外边框 */
+    transition: border-color 0.15s, box-shadow 0.15s; /* 过渡效果 */
 }
 
 textarea.studio-dialog-input {
-    min-height: 96px;
-    resize: vertical;
+    min-height: 96px; /* 多行文本框最小高度 */
+    resize: vertical; /* 允许纵向拉伸 */
 }
 
 .studio-dialog-input:focus {
-    border-color: var(--accent, #0f172a);
-    box-shadow: 0 0 0 3px rgba(15, 23, 42, .10);
+    border-color: var(--accent); /* 激活边框色 */
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05); /* 微妙聚焦阴影 */
 }
 
 .studio-dialog-input[aria-invalid="true"] {
-    border-color: #e11d48;
-    box-shadow: 0 0 0 3px rgba(225, 29, 72, .12);
+    border-color: #ef4444; /* 校验失败红线 */
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1); /* 红色聚焦阴影 */
 }
 
 .studio-dialog-error .studio-dialog-title,
 .studio-dialog-input[aria-invalid="true"] + .studio-dialog-field-error,
 .studio-dialog-field-error:not(:empty) {
-    color: #be123c;
+    color: #ef4444; /* 错误信息使用大红 */
 }
 
 .studio-dialog-field .studio-dialog-field-error {
-    min-height: 18px;
-    font-size: 12px;
-    font-weight: 800;
+    min-height: 18px; /* 错误区域高度占位 */
+    font-size: 11.5px; /* 字号 */
+    font-weight: 700; /* 粗体 */
 }
 
 .studio-dialog-details-wrap {
-    display: grid;
-    gap: 10px;
-    margin-top: 14px;
+    display: grid; /* 栅格排列 */
+    gap: 10px; /* 间距 */
+    margin-top: 14px; /* 顶距 */
 }
 
 .studio-dialog-details {
-    max-height: 180px;
-    margin: 0;
-    overflow: auto;
-    border: 1px solid var(--line, rgba(148, 163, 184, .28));
-    border-radius: 12px;
-    background: var(--soft, rgba(241, 245, 249, .72));
-    color: var(--text, var(--text-main, #0f172a));
-    padding: 12px;
-    font-size: 12px;
-    line-height: 1.55;
-    white-space: pre-wrap;
+    max-height: 180px; /* 最大高度限制 */
+    margin: 0; /* 移除外边距 */
+    overflow: auto; /* 自动滚动 */
+    border: 1px solid var(--line-2); /* 边框 */
+    border-radius: 12px; /* 圆角 */
+    background: var(--soft); /* 输入框软背景 */
+    color: var(--text); /* 主字色 */
+    padding: 12px; /* 填充 */
+    font-size: 12px; /* 细节字号 */
+    line-height: 1.55; /* 行高 */
+    white-space: pre-wrap; /* 换行保留 */
 }
 
 .studio-dialog-foot {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 14px 20px 18px;
-    border-top: 1px solid var(--line, rgba(148, 163, 184, .18));
+    display: flex; /* 横向排列 */
+    justify-content: flex-end; /* 右对齐 */
+    gap: 10px; /* 按钮间距 */
+    padding: 14px 24px 20px; /* 底部内边距 */
+    border-top: 1px solid var(--line); /* 细横线分割 */
 }
 
 .studio-dialog-btn {
-    border: 1px solid var(--line, rgba(148, 163, 184, .35));
-    background: transparent;
-    color: inherit;
-    border-radius: 10px;
-    padding: 9px 16px;
-    font-size: 13px;
-    font-weight: 900;
-    cursor: pointer;
-    transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+    border: 1px solid var(--line-2); /* 按钮浅边框 */
+    background: transparent; /* 背景透明 */
+    color: inherit; /* 继承文字 */
+    border-radius: 12px; /* 圆角 */
+    padding: 8px 18px; /* 舒适按钮填充 */
+    font-size: 13px; /* 字号 */
+    font-weight: 800; /* 粗体 */
+    cursor: pointer; /* 手势 */
+    transition: transform 0.1s var(--fluid-ease), background 0.15s, border-color 0.15s; /* 点击微弹 */
 }
 
 .studio-dialog-btn:hover {
-    transform: translateY(-1px);
+    background: var(--soft); /* 悬停变为浅灰色 */
+}
+
+.studio-dialog-btn:active {
+    transform: scale(0.97); /* 点击时微弱内缩，极具物理动感 */
 }
 
 .studio-dialog-btn:focus-visible,
 .studio-toast-action:focus-visible,
 .studio-dialog-close:focus-visible {
-    outline: 2px solid var(--accent, #0f172a);
-    outline-offset: 2px;
+    outline: 2px solid var(--accent); /* 聚焦外线 */
+    outline-offset: 2px; /* 外偏移 */
 }
 
 .studio-dialog-btn.primary {
-    border-color: var(--accent, #0f172a);
-    background: var(--accent, #0f172a);
-    color: var(--panel, #fff);
+    border-color: var(--accent); /* 主按钮边框使用强调色 */
+    background: var(--accent); /* 背景使用强调色 */
+    color: var(--card-solid); /* 文字使用纯色反色 */
+}
+
+.studio-dialog-btn.primary:hover {
+    opacity: 0.9; /* 主按钮悬浮微调透明度 */
 }
 
 .studio-dialog-btn.danger {
-    border-color: #e11d48;
-    background: #e11d48;
-    color: #fff;
+    border-color: #ef4444; /* 危险动作红框 */
+    background: #ef4444; /* 红色底 */
+    color: #fff; /* 白字 */
+}
+
+.studio-dialog-btn.danger:hover {
+    background: #dc2626; /* 悬浮时变深红色 */
 }
 
 .studio-toast {
-    position: fixed;
-    left: 50%;
-    bottom: 26px;
-    transform: translateX(-50%) translateY(12px);
-    z-index: 100000;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    max-width: min(560px, calc(100vw - 32px));
-    padding: 11px 14px;
-    border: 1px solid rgba(255, 255, 255, .14);
-    border-radius: 999px;
-    background: #111827;
-    color: #fff;
-    font-size: 13px;
-    font-weight: 900;
-    box-shadow: 0 16px 40px rgba(15, 23, 42, .28);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity .18s ease, transform .18s ease;
+    position: fixed; /* 固定在视口 */
+    left: 50%; /* 居中定位 */
+    bottom: 26px; /* 悬浮底部高度 */
+    transform: translateX(-50%) translateY(12px); /* 默认下偏，用于进场动效 */
+    z-index: 100000; /* 置于顶层 */
+    display: flex; /* 横向排列 */
+    align-items: center; /* 垂直居中 */
+    gap: 12px; /* 间距 */
+    max-width: min(560px, calc(100vw - 32px)); /* 宽度自适应 */
+    padding: 10px 16px; /* 填充 */
+    border: 1px solid rgba(255, 255, 255, 0.08); /* 极细高光描边 */
+    border-radius: 999px; /* 全圆角胶囊 */
+    background: rgba(17, 24, 39, 0.85); /* 半透明黑底 */
+    backdrop-filter: blur(16px); /* 玻璃化模糊 */
+    -webkit-backdrop-filter: blur(16px); /* 兼容 Safari */
+    color: #fff; /* 白字 */
+    font-size: 13px; /* 字号 */
+    font-weight: 700; /* 中粗 */
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.05) inset; /* 悬浮阴影与微高光 */
+    opacity: 0; /* 默认隐藏 */
+    pointer-events: none; /* 隐藏时允许鼠标穿透 */
+    transition: opacity 0.22s var(--fluid-ease), transform 0.22s var(--fluid-ease); /* 平滑升起动效 */
 }
 
 .studio-toast.show {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateX(-50%) translateY(0);
+    opacity: 1; /* 显示 */
+    pointer-events: auto; /* 响应事件 */
+    transform: translateX(-50%) translateY(0); /* 回归原位 */
 }
 
 .studio-toast-message {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    min-width: 0; /* 支持收缩 */
+    overflow: hidden; /* 裁剪 */
+    text-overflow: ellipsis; /* 省略号 */
+    white-space: nowrap; /* 单行 */
 }
 
 .studio-toast-action {
-    flex: 0 0 auto;
-    border: 1px solid rgba(255, 255, 255, .45);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, .14);
-    color: inherit;
-    padding: 5px 10px;
-    font: inherit;
-    font-size: 12px;
-    cursor: pointer;
+    flex: 0 0 auto; /* 不可收缩 */
+    border: 1px solid rgba(255, 255, 255, 0.35); /* 动作按钮细边框 */
+    border-radius: 999px; /* 圆角 */
+    background: rgba(255, 255, 255, 0.1); /* 浅透白背景 */
+    color: inherit; /* 继承白字 */
+    padding: 4px 10px; /* 填充 */
+    font: inherit; /* 字体 */
+    font-size: 11.5px; /* 稍微减小字号 */
+    cursor: pointer; /* 手势 */
+    transition: background 0.15s; /* 悬浮动画 */
+}
+
+.studio-toast-action:hover {
+    background: rgba(255, 255, 255, 0.2); /* hover时增加透光度 */
 }
 
 .studio-toast-info {
-    background: #1f2937;
+    background: rgba(31, 41, 55, 0.85); /* 信息Toast背景 */
 }
 
 .studio-toast-success,
 .studio-toast.ok {
-    background: #047857;
+    background: rgba(4, 120, 87, 0.85); /* 成功提示使用雅致森林绿 */
 }
 
 .studio-toast-warning,
 .studio-toast.warn {
-    background: #b45309;
+    background: rgba(180, 83, 9, 0.85); /* 警告提示使用琥珀橙 */
 }
 
 .studio-toast-error,
 .studio-toast.err {
-    background: #be123c;
+    background: rgba(190, 18, 60, 0.85); /* 错误提示使用猩红 */
 }
 
 body.studio-theme-dark {

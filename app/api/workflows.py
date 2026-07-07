@@ -5,6 +5,7 @@ router = APIRouter()
 
 router.get('/api/comfyui/instances')(service.get_comfyui_instances)
 router.put('/api/comfyui/instances')(service.save_comfyui_instances)
+router.get('/api/comfyui/status')(service.comfyui_status)
 router.get('/api/workflows')(service.list_workflows)
 router.get('/api/workflows/{name:path}')(service.get_workflow)
 router.post('/api/workflows')(service.upload_workflow)

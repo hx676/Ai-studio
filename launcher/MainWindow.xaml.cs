@@ -11,6 +11,136 @@ namespace SynCanvasLauncher; // 更新为新品牌命名空间
 
 public partial class MainWindow : Window
 {
+    // ══════════════════════════════════════════════════════════════════════════════
+    // 静态只读画刷（避免运行时重复创建 SolidColorBrush 对象）
+    // ══════════════════════════════════════════════════════════════════════════════
+    private static readonly SolidColorBrush OkBrush = new(Color.FromRgb(16, 185, 129));
+    private static readonly SolidColorBrush WarningBrush = new(Color.FromRgb(245, 158, 11));
+    private static readonly SolidColorBrush ErrorBrush = new(Color.FromRgb(239, 68, 68));
+    private static readonly SolidColorBrush RunningBrush = new(Color.FromRgb(59, 130, 246));
+    private static readonly SolidColorBrush IdleBrush = new(Color.FromRgb(107, 114, 128));
+    private static readonly SolidColorBrush TextMutedBrush = new(Color.FromRgb(142, 156, 174));
+    private static readonly SolidColorBrush TextDimBrush = new(Color.FromRgb(107, 114, 128));
+    private static readonly SolidColorBrush PanelBgBrush = new(Color.FromRgb(21, 22, 30));
+    private static readonly SolidColorBrush PanelBorderBrush = new(Color.FromRgb(39, 41, 56));
+    private static readonly SolidColorBrush LauncherStdoutBrush = new(Color.FromRgb(118, 190, 255));
+    private static readonly SolidColorBrush MainServiceBrush = new(Color.FromRgb(184, 247, 194));
+    private static readonly SolidColorBrush TtsServiceBrush = new(Color.FromRgb(179, 218, 255));
+    private static readonly SolidColorBrush HeyGemServiceBrush = new(Color.FromRgb(230, 210, 160));
+    private static readonly SolidColorBrush DefaultServiceBrush = new(Color.FromRgb(211, 211, 211));
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // 预编译正则表达式（避免运行时重复编译）
+    // ══════════════════════════════════════════════════════════════════════════════
+    private static readonly Regex HealthCheckInfoRegex1 = new(
+        @"INFO:\s+\d+\.\d+\.\d+\.\d+:\d+\s+-\s+""GET\s+/api/digital-human/config\s+HTTP/",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex HealthCheckInfoRegex2 = new(
+        @"INFO:\s+\d+\.\d+\.\d+\.\d+:\d+\s+-\s+""GET\s+/api/digital-human/tts/status",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex HealthCheckInfoRegex3 = new(
+        @"INFO:\s+\d+\.\d+\.\d+\.\d+:\d+\s+-\s+""GET\s+/api/digital-human/media",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex ModelProgressRegex1 = new(@"^\s*\d{1,3}%\||", RegexOptions.Compiled);
+    private static readonly Regex ModelProgressRegex2 = new(@"^\s*\d+/\d+\s*\[", RegexOptions.Compiled);
+    private static readonly Regex ModelProgressRegex3 = new(@"^\s*torch\.Size\(", RegexOptions.Compiled);
+    private static readonly Regex ModelProgressRegex4 = new(@"^\s*\d+%\|.*\|\s*\d+/\d+", RegexOptions.Compiled);
+    private static readonly Regex LogTimeBracketRegex = new(@"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", RegexOptions.Compiled);
+    private static readonly Regex LogTimePlainRegex = new(@"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", RegexOptions.Compiled);
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // 静态只读集合（避免每次调用时创建新集合）
+    // ══════════════════════════════════════════════════════════════════════════════
+    private static readonly HashSet<string> HealthCheckNoiseSet = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "/api/app-info",
+        "/api/digital-human/task/",
+        "/assets/output/digital-human/audio/",
+        "/easy/query?code=0",
+        "/easy/query?code=123",
+        "GET /config HTTP",
+        "GET /favicon.ico",
+        "GET / HTTP/1.1",
+        "WebSocket /ws/stats",
+        "INFO:     connection open",
+        "INFO:     connection closed",
+        "WS Connected.",
+        "WS Disconnected."
+    };
+    private static readonly HashSet<string> KnownWarningNoiseSet = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "DeprecationWarning",
+        "on_event is deprecated",
+        "fastapi.tiangolo.com/advanced/events",
+        "Read more about it in the",
+        "@app.on_event",
+        "PydanticDeprecatedSince20",
+        "The `dict` method is deprecated",
+        "Pydantic V2 Migration Guide",
+        "errors.pydantic.dev",
+        "GPT2InferenceModel has generative capabilities",
+        "GenerationMixin",
+        "trust_remote_code=True",
+        "contact the model code owner",
+        "Failed to load custom CUDA kernel for BigVGAN",
+        "WETEXT INFO",
+        "found existing fst",
+        "skip building fst",
+        "This is a development server",
+        "Do not use it in a production deployment",
+        "Press CTRL+C to quit",
+        "Running on all addresses",
+        "Running on http://127.0.0.1:8383",
+        "Running on http://192.",
+        "Use default multi mode",
+        "TransDhTask init",
+        "init_wh_process",
+        "数字人图片处理进程启动",
+        "TransDhServer服务启动",
+        "Serving Flask app",
+        "Debug mode: off",
+        "Loading weights from",
+        "Removing weight norm",
+        "weights restored from",
+        "TextNormalizer loaded",
+        "bpe model loaded",
+        "cfm loaded",
+        "length_regulator loaded",
+        "gpt_layer loaded",
+        "Worker 1 started",
+        "Use the specified emotion vector",
+        "Passing a tuple of `past_key_values`",
+        "past_key_values is deprecated",
+        "audio_transfer",
+        "drivered_video",
+        "frame_re_index",
+        "发送完成数据大小",
+        "发送数据大小",
+        "Local digital human package"
+    };
+    private static readonly HashSet<string> DisconnectNoiseSet = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Exception in callback _ProactorBasePipeTransport._call_connection_lost",
+        "_call_connection_lost(None)",
+        "proactor_events.py",
+        "asyncio\\events.py",
+        "self._sock.shutdown(socket.SHUT_RDWR)",
+        "ConnectionResetError: [WinError 10054]",
+        "handle: <Handle _ProactorBasePipeTransport",
+        "File \"asyncio\\events.py\"",
+        "File \"asyncio\\proactor_events.py\"",
+        "self._context.run(self._callback",
+        "f._context.run(self._callback"
+    };
+    private static readonly HashSet<string> TailFragmentSet = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "HTTP/1.1\" 200 -]"
+    };
+    private static readonly HashSet<string> ModelProgressSet = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "it/s]", "<?, ?it/s]"
+    };
+
     private readonly SupervisorClient _client = new();
     private readonly DispatcherTimer _timer = new();
     private readonly DispatcherTimer _consoleTimer = new();
@@ -385,16 +515,15 @@ public partial class MainWindow : Window
 
     private Border CreateDiagnosticRow(DiagnosticItem item)
     {
-        // 诊断级别高亮颜色画刷 / Diagnostic level colors
+        // 使用预定义的静态画刷替代每次 new SolidColorBrush
         var brush = item.Status switch
         {
-            "ok" => new SolidColorBrush(Color.FromRgb(16, 185, 129)), // 正常绿 / OK Green
-            "warning" => new SolidColorBrush(Color.FromRgb(245, 158, 11)), // 警告橙 / Warning Orange
-            "error" => new SolidColorBrush(Color.FromRgb(239, 68, 68)), // 错误红 / Error Red
-            "running" => new SolidColorBrush(Color.FromRgb(59, 130, 246)), // 运行蓝 / Running Blue
-            _ => new SolidColorBrush(Color.FromRgb(107, 114, 128)) // 灰 / Default Gray
+            "ok" => OkBrush,
+            "warning" => WarningBrush,
+            "error" => ErrorBrush,
+            "running" => RunningBrush,
+            _ => IdleBrush
         };
-        // 诊断级别文本描述 / Diagnostic level text description
         var statusText = item.Status switch
         {
             "ok" => "正常",
@@ -405,20 +534,16 @@ public partial class MainWindow : Window
             _ => item.Status
         };
         var panel = new StackPanel();
-        // 诊断分类和项目状态 / Diagnostic group, label and status textblock
         panel.Children.Add(new TextBlock { Text = $"{item.Group} · {item.Label} · {statusText}", Foreground = brush, FontWeight = FontWeights.Bold, FontSize = 14 });
-        // 诊断详情文本 / Diagnostic details textblock
-        panel.Children.Add(new TextBlock { Text = item.Detail, Foreground = new SolidColorBrush(Color.FromRgb(142, 156, 174)), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 5, 0, 0), FontSize = 12.5 });
+        panel.Children.Add(new TextBlock { Text = item.Detail, Foreground = TextMutedBrush, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 5, 0, 0), FontSize = 12.5 });
         if (!string.IsNullOrWhiteSpace(item.Suggestion))
         {
-            // 改进建议文本 / Suggestion textblock
-            panel.Children.Add(new TextBlock { Text = item.Suggestion, Foreground = new SolidColorBrush(Color.FromRgb(107, 114, 128)), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0), FontSize = 11.5 });
+            panel.Children.Add(new TextBlock { Text = item.Suggestion, Foreground = TextDimBrush, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0), FontSize = 11.5 });
         }
-        // 返回诊断条卡片容器 / Return styled diagnostic card container
         return new Border
         {
-            Background = new SolidColorBrush(Color.FromRgb(21, 22, 30)), // #15161E
-            BorderBrush = new SolidColorBrush(Color.FromRgb(39, 41, 56)), // #272938
+            Background = PanelBgBrush,
+            BorderBrush = PanelBorderBrush,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(14),
@@ -568,34 +693,27 @@ public partial class MainWindow : Window
     private void ShowConfigMessage(string message, bool isError = false)
     {
         ConfigStatusText.Text = message;
-        ConfigStatusText.Foreground = new SolidColorBrush(isError
-            ? Color.FromRgb(239, 68, 68)
-            : Color.FromRgb(142, 156, 174));
+        ConfigStatusText.Foreground = isError ? ErrorBrush : TextMutedBrush;
     }
 
     private Border CreateTroubleCard(string title, string detail, string action, string level)
     {
-        // 故障级别高亮颜色画刷 / Trouble level color brushes
         var brush = level switch
         {
-            "ok" => new SolidColorBrush(Color.FromRgb(16, 185, 129)), // 正常绿 / OK Green
-            "warning" => new SolidColorBrush(Color.FromRgb(245, 158, 11)), // 警告橙 / Warning Orange
-            "running" => new SolidColorBrush(Color.FromRgb(59, 130, 246)), // 运行蓝 / Running Blue
-            "idle" => new SolidColorBrush(Color.FromRgb(148, 163, 184)), // 待启动灰 / Idle Gray
-            _ => new SolidColorBrush(Color.FromRgb(239, 68, 68)) // 错误红 / Error Red
+            "ok" => OkBrush,
+            "warning" => WarningBrush,
+            "running" => RunningBrush,
+            "idle" => new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+            _ => ErrorBrush
         };
         var panel = new StackPanel();
-        // 故障卡片标题 / Trouble title textblock
         panel.Children.Add(new TextBlock { Text = title, Foreground = brush, FontWeight = FontWeights.Bold, FontSize = 15.5 });
-        // 故障内容描述 / Trouble description details textblock
-        panel.Children.Add(new TextBlock { Text = detail, Foreground = new SolidColorBrush(Color.FromRgb(243, 244, 246)), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0), FontSize = 13 });
-        // 故障处置建议 / Action suggestion textblock
-        panel.Children.Add(new TextBlock { Text = action, Foreground = new SolidColorBrush(Color.FromRgb(142, 156, 174)), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0), FontSize = 12 });
-        // 返回排版精美的故障诊断卡片 / Return styled trouble diagnostic card container
+        panel.Children.Add(new TextBlock { Text = detail, Foreground = Brushes.White, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0), FontSize = 13 });
+        panel.Children.Add(new TextBlock { Text = action, Foreground = TextMutedBrush, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0), FontSize = 12 });
         return new Border
         {
-            Background = new SolidColorBrush(Color.FromRgb(21, 22, 30)), // #15161E
-            BorderBrush = new SolidColorBrush(Color.FromRgb(39, 41, 56)), // #272938
+            Background = PanelBgBrush,
+            BorderBrush = PanelBorderBrush,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(16),
@@ -606,7 +724,6 @@ public partial class MainWindow : Window
 
     private Border CreateConsoleServiceCard(ServiceStatus service)
     {
-        // 映射服务状态文字描述 / Map service state text description
         var stateText = service.State switch
         {
             "ready" => "就绪",
@@ -614,15 +731,13 @@ public partial class MainWindow : Window
             "partial" => "部分就绪",
             _ => "未运行"
         };
-        // 状态高亮画刷 / High-contrast state indicator brushes
         var stateBrush = service.State switch
         {
-            "ready" => new SolidColorBrush(Color.FromRgb(16, 185, 129)), // 翡翠绿 / Emerald Green
-            "starting" => new SolidColorBrush(Color.FromRgb(59, 130, 246)), // 科技蓝 / Technology Blue
-            "partial" => new SolidColorBrush(Color.FromRgb(245, 158, 11)), // 活力橙 / Vital Orange
-            _ => new SolidColorBrush(Color.FromRgb(107, 114, 128)) // 灰 / Stopped Gray
+            "ready" => OkBrush,
+            "starting" => RunningBrush,
+            "partial" => WarningBrush,
+            _ => IdleBrush
         };
-        // 服务管理来源说明 / Service source descriptions
         var source = service.Source switch
         {
             "managed" => $"PID {service.Pid}",
@@ -631,34 +746,26 @@ public partial class MainWindow : Window
             "warming" => "端口已打开，等待接口就绪",
             _ => "等待启动"
         };
-        // 端口检测详情说明 / Service checks details
         var checks = string.Join(" / ", service.Checks.Select(c => $"{c.Label}:{(c.Ready ? "ready" : c.PortOpen ? "端口已开" : "等待")}"));
-        // 最近日志修改时间 / Latest log modify time info
         var logInfo = LatestLogInfo(service.Key);
 
         var panel = new StackPanel();
         var titleGrid = new Grid();
         titleGrid.ColumnDefinitions.Add(new ColumnDefinition());
         titleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        // 标题名称文本 / Service Title Text
         titleGrid.Children.Add(new TextBlock { Text = ServiceDisplayName(service.Key, service.Label), FontWeight = FontWeights.Bold, FontSize = 14.5, Foreground = Brushes.White });
-        // 状态字徽章 / State Text Badge
         var badge = new TextBlock { Text = stateText, Foreground = stateBrush, FontWeight = FontWeights.Bold, FontSize = 13 };
         Grid.SetColumn(badge, 1);
         titleGrid.Children.Add(badge);
         panel.Children.Add(titleGrid);
-        // 服务 PID 或管理模式文本 / Service PID or management source text block
-        panel.Children.Add(new TextBlock { Text = source, Foreground = new SolidColorBrush(Color.FromRgb(142, 156, 174)), Margin = new Thickness(0, 8, 0, 0), FontSize = 12.5 });
-        // 子接口检测详情状态说明 / Sub-checks details text block
-        panel.Children.Add(new TextBlock { Text = checks, Foreground = new SolidColorBrush(Color.FromRgb(107, 114, 128)), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0), FontSize = 11.5 });
-        // 最近日志时间文本 / Latest log write time text block
-        panel.Children.Add(new TextBlock { Text = logInfo, Foreground = new SolidColorBrush(Color.FromRgb(107, 114, 128)), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0), FontSize = 11.5 });
+        panel.Children.Add(new TextBlock { Text = source, Foreground = TextMutedBrush, Margin = new Thickness(0, 8, 0, 0), FontSize = 12.5 });
+        panel.Children.Add(new TextBlock { Text = checks, Foreground = TextDimBrush, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0), FontSize = 11.5 });
+        panel.Children.Add(new TextBlock { Text = logInfo, Foreground = TextDimBrush, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0), FontSize = 11.5 });
 
-        // 返回定制控制台服务监测卡片 / Return the styled console service card container
         return new Border
         {
-            Background = new SolidColorBrush(Color.FromRgb(21, 22, 30)), // #15161E
-            BorderBrush = new SolidColorBrush(Color.FromRgb(39, 41, 56)), // #272938
+            Background = PanelBgBrush,
+            BorderBrush = PanelBorderBrush,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(12),
@@ -860,7 +967,12 @@ public partial class MainWindow : Window
             await OpenConsoleAsync(true);
             HomeActionText.Text = "正在发送启动命令...";
             AddLauncherEvent("正在启动全部后台服务。", "stdout");
-            AddLauncherEvent("主应用端口 3000，TTS 端口 7861，HeyGem 页面端口 7860，HeyGem 接口端口 8383。", "stdout");
+            var mainPreferredUrl = !string.IsNullOrWhiteSpace(_status?.MainUrl)
+                ? _status.MainUrl
+                : !string.IsNullOrWhiteSpace(_config?.Main.BaseUrl)
+                    ? _config.Main.BaseUrl
+                    : MainBaseUrlBox.Text.Trim();
+            AddLauncherEvent($"主应用首选地址 {mainPreferredUrl}，冲突时自动选择 3001-3099；TTS 端口 7861，HeyGem 页面端口 7860，HeyGem 接口端口 8383。", "stdout");
             AddExpectedServiceEvents();
             RenderConsoleSnapshot();
             BeginStartupPolling();
@@ -1458,9 +1570,7 @@ public partial class MainWindow : Window
     {
         if (line.Service == "launcher")
         {
-            return line.Stream == "stderr"
-                ? Brushes.IndianRed
-                : new SolidColorBrush(Color.FromRgb(118, 190, 255));
+            return line.Stream == "stderr" ? Brushes.IndianRed : LauncherStdoutBrush;
         }
         if (line.Stream == "stderr")
         {
@@ -1474,139 +1584,63 @@ public partial class MainWindow : Window
         }
         return line.Service switch
         {
-            "main" => new SolidColorBrush(Color.FromRgb(184, 247, 194)),
-            "tts" => new SolidColorBrush(Color.FromRgb(179, 218, 255)),
-            "heygem" => new SolidColorBrush(Color.FromRgb(230, 210, 160)),
-            _ => Brushes.LightGray
+            "main" => MainServiceBrush,
+            "tts" => TtsServiceBrush,
+            "heygem" => HeyGemServiceBrush,
+            _ => DefaultServiceBrush
         };
     }
 
     private static bool ShouldHideConsoleLine(string service, string stream, string line)
     {
         var text = line.Trim();
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return true;
-        }
-        if (LooksLikeTailFragment(text))
-        {
-            return true;
-        }
-        if (IsHealthCheckNoise(text))
-        {
-            return true;
-        }
-        if (IsKnownWarningNoise(text))
-        {
-            return true;
-        }
-        if (IsModelProgressNoise(text))
-        {
-            return true;
-        }
-        if (stream == "stderr" && IsDisconnectTraceNoise(text))
-        {
-            return true;
-        }
+        if (string.IsNullOrWhiteSpace(text)) return true;
+        if (LooksLikeTailFragment(text)) return true;
+        if (IsHealthCheckNoise(service, text)) return true;
+        if (IsKnownWarningNoise(text)) return true;
+        if (IsModelProgressNoise(text)) return true;
+        if (stream == "stderr" && IsDisconnectTraceNoise(text)) return true;
         return false;
     }
 
-    private static bool IsHealthCheckNoise(string text)
+    private static bool IsHealthCheckNoise(string service, string text)
     {
-        return text.Contains("/api/app-info", StringComparison.OrdinalIgnoreCase)
-            || (Regex.IsMatch(text, "INFO:\\s+\\d+\\.\\d+\\.\\d+\\.\\d+:\\d+\\s+-\\s+\"GET\\s+/api/digital-human/config\\s+HTTP/", RegexOptions.IgnoreCase))
-            || (Regex.IsMatch(text, "INFO:\\s+\\d+\\.\\d+\\.\\d+\\.\\d+:\\d+\\s+-\\s+\"GET\\s+/api/digital-human/tts/status", RegexOptions.IgnoreCase))
-            || (Regex.IsMatch(text, "INFO:\\s+\\d+\\.\\d+\\.\\d+\\.\\d+:\\d+\\s+-\\s+\"GET\\s+/api/digital-human/media", RegexOptions.IgnoreCase))
-            || text.Contains("/api/digital-human/task/", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("/assets/output/digital-human/audio/", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("/easy/query?code=0", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("/easy/query?code=123", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("GET /config HTTP", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("GET /favicon.ico", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("GET / HTTP/1.1", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("WebSocket /ws/stats", StringComparison.OrdinalIgnoreCase)
-            || text.Equals("INFO:     connection open", StringComparison.OrdinalIgnoreCase)
-            || text.Equals("INFO:     connection closed", StringComparison.OrdinalIgnoreCase)
-            || text.StartsWith("WS Connected.", StringComparison.OrdinalIgnoreCase)
-            || text.StartsWith("WS Disconnected.", StringComparison.OrdinalIgnoreCase);
+        foreach (var prefix in HealthCheckNoiseSet)
+        {
+            if (text.Contains(prefix, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return HealthCheckInfoRegex1.IsMatch(text)
+            || HealthCheckInfoRegex2.IsMatch(text)
+            || HealthCheckInfoRegex3.IsMatch(text);
     }
 
     private static bool IsKnownWarningNoise(string text)
     {
-        return text.Contains("DeprecationWarning", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("on_event is deprecated", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("fastapi.tiangolo.com/advanced/events", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Read more about it in the", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("@app.on_event", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("PydanticDeprecatedSince20", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("The `dict` method is deprecated", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Pydantic V2 Migration Guide", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("errors.pydantic.dev", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("GPT2InferenceModel has generative capabilities", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("GenerationMixin", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("trust_remote_code=True", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("contact the model code owner", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Failed to load custom CUDA kernel for BigVGAN", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("WETEXT INFO", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("found existing fst", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("skip building fst", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("This is a development server", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Do not use it in a production deployment", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Press CTRL+C to quit", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Running on all addresses", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Running on http://127.0.0.1:8383", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Running on http://192.", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Use default multi mode", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("TransDhTask init", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("init_wh_process", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("数字人图片处理进程启动", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("TransDhServer服务启动", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Serving Flask app", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Debug mode: off", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Loading weights from", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Removing weight norm", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("weights restored from", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("TextNormalizer loaded", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("bpe model loaded", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("cfm loaded", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("length_regulator loaded", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("gpt_layer loaded", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Worker 1 started", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Use the specified emotion vector", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Passing a tuple of `past_key_values`", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("past_key_values is deprecated", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("audio_transfer", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("drivered_video", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("frame_re_index", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("发送完成数据大小", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("发送数据大小", StringComparison.OrdinalIgnoreCase)
-            || text.Equals("Local digital human package", StringComparison.OrdinalIgnoreCase);
+        foreach (var keyword in KnownWarningNoiseSet)
+        {
+            if (text.Contains(keyword, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
     }
 
     private static bool IsModelProgressNoise(string text)
     {
-        return Regex.IsMatch(text, @"^\s*\d{1,3}%\|")
-            || Regex.IsMatch(text, @"^\s*\d+/\d+\s*\[")
-            || Regex.IsMatch(text, @"^\s*torch\.Size\(")
-            || Regex.IsMatch(text, @"^\s*\d+%\|.*\|\s*\d+/\d+")
-            || text.Contains("it/s]", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("<?, ?it/s]", StringComparison.OrdinalIgnoreCase);
+        if (ModelProgressRegex1.IsMatch(text) || ModelProgressRegex2.IsMatch(text)
+            || ModelProgressRegex3.IsMatch(text) || ModelProgressRegex4.IsMatch(text)) return true;
+        foreach (var suffix in ModelProgressSet)
+        {
+            if (text.Contains(suffix, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
     }
 
     private static bool IsDisconnectTraceNoise(string text)
     {
-        return text.Contains("Exception in callback _ProactorBasePipeTransport._call_connection_lost", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("_call_connection_lost(None)", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("proactor_events.py", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("asyncio\\events.py", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("self._sock.shutdown(socket.SHUT_RDWR)", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("ConnectionResetError: [WinError 10054]", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("handle: <Handle _ProactorBasePipeTransport", StringComparison.OrdinalIgnoreCase)
-            || text == "Traceback (most recent call last):"
-            || text.Contains("File \"asyncio\\events.py\"", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("File \"asyncio\\proactor_events.py\"", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("self._context.run(self._callback", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("f._context.run(self._callback", StringComparison.OrdinalIgnoreCase);
+        foreach (var noise in DisconnectNoiseSet)
+        {
+            if (text.Contains(noise, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
     }
 
     private static bool LooksLikeTailFragment(string text)

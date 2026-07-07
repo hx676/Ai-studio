@@ -222,7 +222,7 @@
                 if(hit) selected.add(cardTs(card));
             });
             sync();
-        });
+        }, {passive:false});
         function finishDrag(){
             if(drag){
                 drag = null;
@@ -250,7 +250,19 @@
             syncTimer = setTimeout(sync, 30);
         });
         observer.observe(masonry, {childList:true});
-        const manager = {sync, setSelecting, isSelecting:() => selecting};
+        const manager = {
+            sync,
+            setSelecting,
+            isSelecting:() => selecting,
+            destroy: () => {
+                setSelecting(false);
+                observer.disconnect();
+                clearTimeout(syncTimer);
+                toolbar.remove();
+                removeSelectBoxes();
+                masonry._historyBulkManager = null;
+            }
+        };
         masonry._historyBulkManager = manager;
         sync();
         return manager;

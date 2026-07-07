@@ -76,7 +76,7 @@
                         <button id="gateCreateSmartBtn" class="smart-create-btn" type="button"><i data-lucide="sparkles" class="w-4 h-4"></i><span data-i18n="canvas.newSmartCanvas">新建智能画布</span></button>
                     </div>
                 </div>
-                <div id="gateStatus" class="gate-status" data-i18n="canvas.loadingCanvases">正在加载画布列表...</div>
+                <div id="gateStatus" class="gate-status" role="status" aria-live="polite" aria-label="画布加载状态" data-i18n="canvas.loadingCanvases">正在加载画布列表...</div>
                 <div class="gate-create-row">
                     <input id="gateTitleInput" class="gate-name-input" type="text" maxlength="80" placeholder="新画布名称（可留空使用默认）" data-i18n-placeholder="canvas.newCanvasPlaceholder">
                     <button id="gateConfirmBtn" class="create-confirm" type="button" title="确定" aria-label="确定" data-i18n-title="common.confirm"><i data-lucide="check" class="w-4 h-4"></i></button>
@@ -110,7 +110,7 @@
                 <div id="linkControls" class="link-controls"></div>
                 <div id="nodes"></div>
             </div>
-            <div id="minimap" class="minimap" title="导航地图">
+            <div id="minimap" class="minimap" title="导航地图" role="img" aria-label="画布导航缩略图">
                 <div id="minimapContent" class="minimap-content">
                     <div id="minimapViewport" class="minimap-viewport"></div>
                 </div>
@@ -240,7 +240,7 @@
                     <div id="errorTitle" class="error-title" data-i18n="canvas.generationFailed">生成失败</div>
                     <button class="preview-icon-btn" type="button" title="关闭" aria-label="关闭" onclick="closeErrorModal()"><i data-lucide="x" class="w-4 h-4"></i></button>
                 </div>
-                <div id="errorMessage" class="error-message"></div>
+                <div id="errorMessage" class="error-message" role="alert" aria-live="assertive"></div>
                 <div class="error-actions">
                     <button class="error-btn" type="button" onclick="copyErrorMessage()"><i data-lucide="copy" class="w-4 h-4"></i><span>复制</span></button>
                     <button class="error-btn primary" type="button" onclick="closeErrorModal()">关闭</button>

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -80,58 +80,66 @@
         }
 
         .console-card {
-            background: #ffffff;
-            border: 1px solid rgba(0, 0, 0, 0.08);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+            background: var(--panel) !important; /* 面板底色使用毛玻璃变量 */
+            backdrop-filter: blur(20px) saturate(1.25); /* 磨砂玻璃过滤 */
+            -webkit-backdrop-filter: blur(20px) saturate(1.25); /* 兼容 Safari */
+            border: 1px solid var(--line) !important; /* 精致线条 */
+            box-shadow: 0 20px 48px var(--shadow); /* 柔和阴影 */
+            transition: all 0.25s var(--easing); /* 属性平滑过渡 */
         }
 
         /* 复合切换组件样式 */
         .api-select {
-            min-width: 132px;
-            height: 32px;
-            border: 1px solid #e5e7eb;
-            border-radius: 11px;
-            background: #fff;
-            color: #111827;
-            padding: 0 28px 0 10px;
-            font-size: 11px;
-            font-weight: 800;
-            outline: none;
+            min-width: 132px; /* 最小宽度限制 */
+            height: 32px; /* 容器高度 */
+            border: 1px solid var(--line-2); /* 采用主题分割线变量 */
+            border-radius: 999px; /* 完美胶囊型圆角 */
+            background: var(--soft); /* 软背景 */
+            color: var(--text); /* 文本主色 */
+            padding: 0 28px 0 12px; /* 留出下拉叉号空间 */
+            font-size: 11px; /* 紧凑字号 */
+            font-weight: 800; /* 加粗 */
+            outline: none; /* 移除选中蓝框 */
+            cursor: pointer; /* 悬浮指示 */
+            transition: border-color 0.2s, box-shadow 0.2s; /* 聚焦缓动 */
         }
 
         .size-controls {
-            min-width: min(520px, 100%);
+            min-width: min(520px, 100%); /* 自适应容器宽 */
         }
 
         .size-chip-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
+            display: flex; /* 横向流式排版 */
+            flex-wrap: wrap; /* 自动折行 */
+            gap: 6px; /* 按钮间距 */
         }
 
         .size-chip {
-            height: 26px;
-            min-width: 48px;
-            padding: 0 9px;
-            border: 1px solid #e5e7eb;
-            border-radius: 9px;
-            background: #fff;
-            color: #6b7280;
-            font-size: 10px;
-            font-weight: 900;
-            line-height: 1;
-            transition: all .16s var(--easing);
+            height: 26px; /* 宽高比胶囊按钮高度 */
+            min-width: 48px; /* 最小宽 */
+            padding: 0 10px; /* 两侧内边距 */
+            border: 1px solid var(--line); /* 细边线 */
+            border-radius: 999px; /* 完美圆角胶囊 */
+            background: var(--soft); /* 浅灰色背景 */
+            color: var(--muted); /* 次要文本色 */
+            font-size: 10px; /* 字号 */
+            font-weight: 800; /* 粗体 */
+            line-height: 1; /* 紧凑行高 */
+            cursor: pointer; /* 手势 */
+            transition: all 0.2s var(--easing); /* 属性平滑过渡 */
         }
 
         .size-chip:hover {
-            border-color: #cbd5e1;
-            color: #111827;
+            background: var(--soft-2); /* 悬浮变深 */
+            border-color: var(--line-2); /* 描边加深 */
+            color: var(--text); /* 文字高亮 */
         }
 
         .size-chip.active {
-            background: #111827;
-            border-color: #111827;
-            color: #fff;
+            background: var(--accent) !important; /* 激活时使用强调色背景 */
+            border-color: var(--accent) !important; /* 边框与背景保持一致 */
+            color: var(--card-solid) !important; /* 字体反色高亮 */
+            box-shadow: 0 6px 14px var(--shadow); /* 激活阴影 */
         }
 
         .resolution-row .size-chip {
@@ -492,19 +500,27 @@
         }
 
         .btn-render {
-            background: #000;
-            color: #fff;
-            transition: all 0.3s ease;
+            background: var(--accent) !important; /* 背景使用强调色变量 */
+            color: var(--card-solid) !important; /* 字体反色高亮 */
+            border: 1px solid var(--accent) !important; /* 描边与背景一致 */
+            box-shadow: 0 8px 24px var(--shadow); /* 柔和悬浮阴影 */
+            transition: transform 0.1s var(--easing), background 0.2s, opacity 0.2s; /* 点击物理回弹 */
         }
 
         .btn-render:hover {
-            transform: translateY(-1px);
-            background: #222;
+            opacity: 0.92; /* hover 时微调透明度 */
+        }
+
+        .btn-render:active {
+            transform: scale(0.97); /* 点击时微小内缩，产生极好的物理回馈感 */
         }
 
         .btn-render:disabled {
-            background: #ccc;
-            cursor: not-allowed;
+            background: var(--soft) !important; /* 禁用时灰度背景 */
+            border-color: var(--soft) !important; /* 禁用时灰度边框 */
+            color: var(--faint) !important; /* 禁用时文字置灰 */
+            box-shadow: none !important; /* 移除阴影 */
+            cursor: not-allowed; /* 指示禁用 */
         }
 
         input::-webkit-inner-spin-button {
@@ -518,64 +534,75 @@
 
     <header class="pt-20 pb-12">
         <div class="layout-container">
-            <div class="console-card rounded-3xl p-1.5">
-                <div class="bg-gray-50/50 rounded-[22px] p-8">
-                    <div class="flex justify-between items-center mb-6">
-                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest" data-i18n="studio.unifiedConsole">Unified Art
-                            Console</span>
-                        <div id="statusDot" class="flex items-center gap-2">
-                            <span id="statusText" class="text-[9px] font-bold text-gray-500 uppercase" data-i18n="studio.ready">System
-                                Ready</span>
-                            <div id="dotColor" class="w-1.5 h-1.5 bg-black rounded-full"></div>
-                        </div>
-                    </div>
-                    <textarea id="prompt" rows="2"
-                        class="w-full bg-transparent text-2xl font-medium outline-none placeholder:text-gray-200 text-black resize-none leading-relaxed"
-                        placeholder="Describe your vision..." data-i18n-placeholder="studio.describeVision"></textarea>
-                    <div class="reference-strip" id="referenceStrip">
-                        <div id="refSlot1" class="reference-slot reference-add-main cursor-pointer" onclick="openReferencePicker(1)" title="添加参考图">
-                            <input type="file" id="refFile1" accept="image/*" class="hidden" onchange="handleReferenceFile(this.files[0], 1)">
-                            <i data-lucide="image-plus" class="w-4 h-4"></i>
-                            <span class="slot-label">添加参考图</span>
-                            <img id="refPreview1" class="hidden" alt="reference 1">
-                            <button type="button" id="refRemove1" class="reference-remove" onclick="clearReferenceSlot(1, event)">
-                                <i data-lucide="x" class="w-3 h-3"></i>
-                            </button>
-                        </div>
-                        <div id="refSlot2" class="reference-slot empty-extra cursor-pointer" onclick="openReferencePicker(2)" title="添加参考图">
-                            <input type="file" id="refFile2" accept="image/*" class="hidden" onchange="handleReferenceFile(this.files[0], 2)">
-                            <i data-lucide="plus" class="w-4 h-4"></i>
-                            <span class="slot-label">Reference 2</span>
-                            <img id="refPreview2" class="hidden" alt="reference 2">
-                            <button type="button" id="refRemove2" class="reference-remove" onclick="clearReferenceSlot(2, event)">
-                                <i data-lucide="x" class="w-3 h-3"></i>
-                            </button>
-                        </div>
-                        <div id="refSlot3" class="reference-slot empty-extra cursor-pointer" onclick="openReferencePicker(3)" title="添加参考图">
-                            <input type="file" id="refFile3" accept="image/*" class="hidden" onchange="handleReferenceFile(this.files[0], 3)">
-                            <i data-lucide="plus" class="w-4 h-4"></i>
-                            <span class="slot-label">Reference 3</span>
-                            <img id="refPreview3" class="hidden" alt="reference 3">
-                            <button type="button" id="refRemove3" class="reference-remove" onclick="clearReferenceSlot(3, event)">
-                                <i data-lucide="x" class="w-3 h-3"></i>
-                            </button>
-                        </div>
+            <!-- 单层控制台面板，利用 theme.css 的 glassmorphism 和 border-radius 打造现代感 -->
+            <div class="console-card rounded-2xl p-8">
+                <!-- 头部控制栏：包含标题与系统就绪指示灯 -->
+                <div class="flex justify-between items-center mb-6">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest" data-i18n="studio.unifiedConsole">Unified Art
+                        Console</span>
+                    <div id="statusDot" class="flex items-center gap-2">
+                        <span id="statusText" class="text-[9px] font-bold text-gray-500 uppercase" data-i18n="studio.ready">System
+                            Ready</span>
+                        <div id="dotColor" class="w-1.5 h-1.5 rounded-full" style="background-color: var(--accent);"></div> <!-- 指示灯 -->
                     </div>
                 </div>
 
-                <div class="flex flex-col md:flex-row items-center justify-between p-4 px-6 gap-6">
-                    <div class="flex flex-wrap items-center gap-8">
+                <!-- 核心 vision Prompt 输入区域，无边框扁平带设计 -->
+                <textarea id="prompt" rows="2"
+                    class="w-full bg-transparent text-2xl font-medium outline-none placeholder:text-gray-200 text-black resize-none leading-relaxed"
+                    placeholder="Describe your vision..." data-i18n-placeholder="studio.describeVision" title="输入画面描述词" aria-label="输入画面描述词"></textarea>
+
+                <!-- 图生图参考图插槽区域，最多支持三张参考图 -->
+                <div class="reference-strip" id="referenceStrip">
+                    <div id="refSlot1" class="reference-slot reference-add-main cursor-pointer" onclick="openReferencePicker(1)" title="添加参考图1" aria-label="添加参考图1">
+                        <input type="file" id="refFile1" accept="image/*" class="hidden" onchange="handleReferenceFile(this.files[0], 1)">
+                        <i data-lucide="image-plus" class="w-4 h-4"></i>
+                        <span class="slot-label">添加参考图</span>
+                        <img id="refPreview1" class="hidden" alt="reference 1">
+                        <button type="button" id="refRemove1" class="reference-remove" onclick="clearReferenceSlot(1, event)" title="移除参考图1" aria-label="移除参考图1">
+                            <i data-lucide="x" class="w-3 h-3"></i>
+                        </button>
+                    </div>
+                    <div id="refSlot2" class="reference-slot empty-extra cursor-pointer" onclick="openReferencePicker(2)" title="添加参考图2" aria-label="添加参考图2">
+                        <input type="file" id="refFile2" accept="image/*" class="hidden" onchange="handleReferenceFile(this.files[0], 2)">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span class="slot-label">Reference 2</span>
+                        <img id="refPreview2" class="hidden" alt="reference 2">
+                        <button type="button" id="refRemove2" class="reference-remove" onclick="clearReferenceSlot(2, event)" title="移除参考图2" aria-label="移除参考图2">
+                            <i data-lucide="x" class="w-3 h-3"></i>
+                        </button>
+                    </div>
+                    <div id="refSlot3" class="reference-slot empty-extra cursor-pointer" onclick="openReferencePicker(3)" title="添加参考图3" aria-label="添加参考图3">
+                        <input type="file" id="refFile3" accept="image/*" class="hidden" onchange="handleReferenceFile(this.files[0], 3)">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span class="slot-label">Reference 3</span>
+                        <img id="refPreview3" class="hidden" alt="reference 3">
+                        <button type="button" id="refRemove3" class="reference-remove" onclick="clearReferenceSlot(3, event)" title="移除参考图3" aria-label="移除参考图3">
+                            <i data-lucide="x" class="w-3 h-3"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 微妙的水平分割线，完美适配亮暗色主题的描边变量 -->
+                <div class="w-full h-px my-6 opacity-60" style="background-color: var(--line);"></div>
+
+                <!-- 控制台底部选项：包含模型选择、宽高比、分辨率以及核心渲染按钮 -->
+                <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div class="flex flex-wrap items-center gap-8 w-full md:w-auto">
+                        <!-- 模型与服务商选择器 -->
                         <div class="flex flex-col">
                             <span class="text-[9px] font-bold text-gray-400 uppercase mb-1" data-i18n="online.model">??</span>
                             <div class="flex items-center gap-2">
-                                <select id="providerSelect" class="api-select" onchange="setApiProvider(this.value)"></select>
-                                <select id="modelSelect" class="api-select" onchange="setApiModel(this.value)"></select>
+                                <select id="providerSelect" class="api-select" onchange="setApiProvider(this.value)" title="选择API服务商" aria-label="选择API服务商"></select>
+                                <select id="modelSelect" class="api-select" onchange="setApiModel(this.value)" title="选择模型" aria-label="选择模型"></select>
                             </div>
                         </div>
 
-                        <div class="h-8 w-px bg-gray-100"></div>
+                        <!-- 垂直分割线 -->
+                        <div class="h-8 w-px hidden md:block" style="background-color: var(--line);"></div>
 
-<div class="size-controls flex flex-col gap-2">
+                        <!-- 选项胶囊 Tab：宽高比与分辨率 -->
+                        <div class="size-controls flex flex-col gap-2">
                             <div class="flex flex-col gap-1">
                                 <span class="text-[9px] font-bold text-gray-400 uppercase" data-i18n="studio.aspectRatio">Aspect Ratio</span>
                                 <div id="ratioOptions" class="size-chip-row"></div>
@@ -585,11 +612,10 @@
                                 <div id="resolutionOptions" class="size-chip-row resolution-row"></div>
                             </div>
                         </div>
-
-
                     </div>
 
-                    <button id="mainGenBtn" onclick="handleRender()"
+                    <!-- 核心生图执行按钮 -->
+                    <button id="mainGenBtn" onclick="handleRender()" title="生成图像" aria-label="生成图像"
                         class="w-full md:w-56 h-12 btn-render rounded-xl font-bold text-[11px] uppercase flex items-center justify-center gap-3">
                         <i data-lucide="zap" id="btnIcon" class="w-4 h-4 text-yellow-400"></i>
                         <span id="btnText" data-i18n="studio.renderArt">Render Art</span>
@@ -609,10 +635,13 @@
         </div>
     </main>
 
+    <!-- 图片灯箱弹出层：用于单张图片放大预览及查看生成参数 -->
     <div id="lightbox" onclick="handleOutsideClick(event)"
         class="hidden fixed inset-0 z-50 gallery-lightbox flex flex-col items-center justify-center p-8">
-        <button onclick="closeLightbox()" class="absolute top-10 right-10 text-gray-400 hover:text-black"><i
-                data-lucide="x" class="w-8 h-8"></i></button>
+        <!-- 关闭预览按钮：增加 title 和 aria-label 供屏读软件或鼠标悬停提示使用 -->
+        <button onclick="closeLightbox()" class="absolute top-10 right-10 text-gray-400 hover:text-black" title="关闭大图预览" aria-label="关闭大图预览">
+            <i data-lucide="x" class="w-8 h-8"></i>
+        </button>
         <div class="w-full flex flex-col items-center pointer-events-none" style="max-width:min(1280px, 92vw)">
             <div id="lightboxFrame" class="studio-preview-frame pointer-events-auto">
                 <img id="lightboxImg" src="" class="studio-preview-img" alt="preview">
@@ -620,11 +649,13 @@
                     class="absolute top-6 left-6 bg-black/50 backdrop-blur-md text-white px-3 py-1.5 rounded-xl text-[10px] font-black tracking-widest shadow-2xl pointer-events-auto z-10">
                     <span id="lightboxRes">0x0</span>
                 </div>
-                <button onclick="downloadImage()" data-no-pan
+                <!-- 下载生图按钮：增加 title 和 aria-label 提升无障碍访问 -->
+                <button onclick="downloadImage()" data-no-pan title="下载生图成片" aria-label="下载生图成片"
                     class="absolute top-6 right-6 bg-black text-white w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl hover:scale-105 transition-transform pointer-events-auto z-10">
                     <i data-lucide="download" class="w-5 h-5"></i>
                 </button>
             </div>
+            <!-- 大图详情参数面板 -->
             <div id="lightboxCard"
                 class="w-full mt-16 pointer-events-auto bg-white border border-gray-100 rounded-[2rem] p-8 shadow-sm flex justify-between items-center gap-8">
                 <div class="flex-1">
@@ -634,7 +665,8 @@
                     </p>
                     <div id="lightboxRefs" class="history-refs"></div>
                 </div>
-                <button onclick="applySameStyle()"
+                <!-- 复用参数一键生成按钮：增加 hover 提示 title -->
+                <button onclick="applySameStyle()" title="使用当前生图配置与提示词重新生成" aria-label="使用当前生图配置与提示词重新生成"
                     class="bg-black text-white px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
                     <i data-lucide="copy" class="w-3 h-3"></i>
                     <span data-i18n="studio.replicate">Replicate</span>
@@ -1135,6 +1167,7 @@
         function setLoading(isLoading) {
             const btn = document.getElementById('mainGenBtn');
             btn.disabled = isLoading;
+            btn.setAttribute('aria-busy', isLoading ? 'true' : 'false');
 
             if (isLoading) {
                 // Active state: Dark gray bg, filled yellow pulsing icon
