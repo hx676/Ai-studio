@@ -591,7 +591,7 @@ def tts_default_reference_audio(config):
     if default_voice and os.path.isfile(default_voice):
         return default_voice
     root_dir = tts.get("root_dir") or os.path.join(BASE_DIR, "index-tts-2")
-    for folder in [os.path.join(root_dir, "voices"), os.path.join(root_dir, "examples")]:
+    for folder in [os.path.join(root_dir, "voices")]:
         if not os.path.isdir(folder):
             continue
         for name in sorted(os.listdir(folder)):

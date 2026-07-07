@@ -1,4 +1,4 @@
-        @import url('/static/vendor/css/fonts.css?v=2026.05.25.7');
+        @import url('/static/vendor/css/fonts.css?v=2026.07.08.1');
         :root { --ease:cubic-bezier(.4,0,.2,1); --page:#f8fafc; --grid:#d9e1ea; --panel:rgba(255,255,255,.92); --card:rgba(255,255,255,.96); --card-solid:#fff; --soft:#f8fafc; --soft-2:#f1f5f9; --line:#e8edf3; --line-2:#cbd5e1; --text:#111827; --muted:#64748b; --faint:#94a3b8; --shadow:rgba(15,23,42,.08); --strong:#111827; --strong-text:#fff; }
         .theme-dark { --page:#0b1020; --grid:rgba(148,163,184,.16); --panel:rgba(17,24,39,.9); --card:rgba(15,23,42,.96); --card-solid:#111827; --soft:#1e293b; --soft-2:#263449; --line:#334155; --line-2:#64748b; --text:#f8fafc; --muted:#cbd5e1; --faint:#94a3b8; --shadow:rgba(0,0,0,.28); --strong:#f8fafc; --strong-text:#0f172a; }
         * { box-sizing:border-box; }

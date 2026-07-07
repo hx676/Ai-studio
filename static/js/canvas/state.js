@@ -7092,7 +7092,7 @@
                 clearMouseHandlers();
                 render();
                 scheduleSave();
-            };
+            });
         }
         function connectSelectionToGenerator(kind, genId){
             const ids = [...selected];
@@ -7317,7 +7317,7 @@
                 tempLink = null;
                 clearMouseHandlers();
                 renderLinks();
-            };
+            });
         }
         function nearestPort(clientX, clientY, kind){
             const selector = `.port.${kind}`;
