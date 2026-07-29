@@ -28,6 +28,7 @@
         const assetDropZone = document.getElementById('assetDropZone');
         const workflowEmpty = document.getElementById('workflowEmpty');
         const assetImageControls = document.getElementById('assetImageControls');
+        const assetSearchInput = document.getElementById('assetSearchInput');
         const assetDialogBackdrop = document.getElementById('assetDialogBackdrop');
         const assetDialogTitle = document.getElementById('assetDialogTitle');
         const assetDialogInput = document.getElementById('assetDialogInput');
@@ -284,9 +285,17 @@
                 (node?.images || []).forEach(img => normalizeSmartSettingsEngines(img?.runSettings));
             });
         }
-        function backToCanvasList(){ savePromptDraftForCurrent(); window.location.href = '/static/canvas.html?v=2026.05.28.1'; }
+        function backToCanvasList(){ savePromptDraftForCurrent(); window.location.href = '/static/canvas.html?v=2026.07.27.4'; }
         function promptPlainText(){
-            return promptInput.innerText.replace(/\u00a0/g, ' ').trim();
+            const tokens = [...promptInput.querySelectorAll('.prompt-template-token')];
+            const inlineStyles = tokens.map(token => token.getAttribute('style'));
+            tokens.forEach(token => { token.style.display = 'none'; });
+            const text = promptInput.innerText.replace(/\u00a0/g, ' ').trim();
+            tokens.forEach((token, index) => {
+                if(inlineStyles[index] == null) token.removeAttribute('style');
+                else token.setAttribute('style', inlineStyles[index]);
+            });
+            return text;
         }
         function setPromptInputLocked(locked){
             promptInput.dataset.promptLocked = locked ? '1' : '0';
@@ -443,6 +452,10 @@
         function imageLayout(images, scale=1, node=null){
             if(node?.type === 'smart-prompt') return {cols:1, rows:1, ...promptNodeLayoutSize(node), thumb:96, single:true};
             if(node?.type === 'smart-loop') return {cols:1, rows:1, width:Math.round(Number(node.w) || smartLoopWidth(node)), height:Math.round(Number(node.h) || smartLoopHeight(node)), thumb:96, single:true};
+            if(node?.type === 'smart-agent') return {cols:1, rows:1, width:Math.round(Number(node.w) || 400), height:Math.round(Number(node.h) || 520), thumb:96, single:true};
+            if(node?.type === 'smart-skill') return {cols:1, rows:1, width:Math.round(Number(node.w) || 430), height:Math.round(Number(node.h) || 650), thumb:96, single:true};
+            if(node?.type === 'smart-template-store') return {cols:1, rows:1, width:Math.round(Number(node.w) || 380), height:Math.round(Number(node.h) || 540), thumb:96, single:true};
+            if(node?.type === 'smart-template-call') return {cols:1, rows:1, width:Math.round(Number(node.w) || 360), height:Math.round(Number(node.h) || 440), thumb:96, single:true};
             const count = (images || []).length;
             const s = Number.isFinite(scale) && scale > 0 ? scale : 1;
             if(count === 0) return {cols:1, rows:1, width:Math.round(Number(node?.w) || 260*s), height:Math.round(Number(node?.h) || 180*s), thumb:Math.round(96*s), single:true};
@@ -1204,8 +1217,8 @@
         function assetCategories(type='image'){
             return (assetLibrary.categories || []).filter(cat => (cat.type || 'image') === type);
         }
-        function activeAssetCategory(){
-            const cats = assetCategories('image');
+        function activeAssetCategory(type=['image','workflow','template'].includes(assetTab) ? assetTab : 'image'){
+            const cats = assetCategories(type);
             if(!cats.length) return null;
             return cats.find(cat => cat.id === activeAssetCategoryId) || cats[0];
         }
@@ -1241,26 +1254,37 @@
         function renderAssetLibrary(){
             document.querySelectorAll('[data-asset-tab]').forEach(btn => btn.classList.toggle('active', btn.dataset.assetTab === assetTab));
             const imageMode = assetTab === 'image';
-            assetImageControls.style.display = imageMode ? 'block' : 'none';
+            const workflowMode = assetTab === 'workflow';
+            const templateMode = assetTab === 'template';
+            assetImageControls.style.display = 'block';
             assetDropZone.style.display = imageMode ? 'flex' : 'none';
-            assetGrid.style.display = imageMode ? 'grid' : 'none';
-            workflowEmpty.style.display = imageMode ? 'none' : 'flex';
-            if(!imageMode){ refreshIcons(); return; }
-            const cats = assetCategories('image');
+            assetGrid.style.display = 'grid';
+            workflowEmpty.style.display = 'none';
+            const addCategoryButton = document.getElementById('assetAddCategoryBtn');
+            const renameCategoryButton = document.getElementById('assetRenameCategoryBtn');
+            const deleteCategoryButton = document.getElementById('assetDeleteCategoryBtn');
+            if(addCategoryButton) addCategoryButton.style.display = workflowMode ? 'none' : '';
+            if(renameCategoryButton) renameCategoryButton.style.display = workflowMode ? 'none' : '';
+            if(deleteCategoryButton) deleteCategoryButton.style.display = templateMode ? '' : 'none';
+            if(assetSearchInput) assetSearchInput.style.display = templateMode ? '' : 'none';
+            const cats = assetCategories(assetTab);
             if(!cats.some(cat => cat.id === activeAssetCategoryId)) activeAssetCategoryId = cats[0]?.id || '';
             assetCategorySelect.innerHTML = cats.map(cat => `<option value="${escapeHtml(cat.id)}" ${cat.id === activeAssetCategoryId ? 'selected' : ''}>${escapeHtml(cat.name || tr('smart.assetFolder'))}</option>`).join('');
-            const cat = activeAssetCategory();
-            const items = cat?.items || [];
+            const cat = activeAssetCategory(assetTab);
+            const search = templateMode ? String(assetSearchInput?.value || '').trim().toLowerCase() : '';
+            const items = (cat?.items || []).filter(item => !search || String(item.name || '').toLowerCase().includes(search));
+            const templateFolderOptions = item => cats.map(folder => `<option value="${escapeHtml(folder.id)}" ${folder.id === cat?.id ? 'selected' : ''}>${escapeHtml(folder.name || '模板')}</option>`).join('');
             assetGrid.innerHTML = items.length ? items.map(item => `
-                <div class="asset-item" draggable="true" data-asset-id="${escapeHtml(item.id)}" data-url="${escapeHtml(item.url)}" data-name="${escapeHtml(item.name || 'asset')}">
-                    <img class="asset-thumb" src="${escapeHtml(item.url)}" alt="">
+                <div class="asset-item ${imageMode ? '' : workflowMode ? 'asset-workflow-item' : 'asset-template-item'}" draggable="${workflowMode ? 'false' : 'true'}" data-asset-id="${escapeHtml(item.id)}" data-url="${escapeHtml(item.url)}" data-thumbnail-url="${escapeHtml(item.thumbnail_url || '')}" data-name="${escapeHtml(item.name || 'asset')}" data-category-id="${escapeHtml(cat?.id || '')}" data-asset-kind="${assetTab}">
+                    ${imageMode ? `<img class="asset-thumb" src="${escapeHtml(item.url)}" alt="">` : workflowMode ? `<div class="asset-workflow-thumb"><i data-lucide="package-open"></i><span>双击导入</span></div>` : (item.thumbnail_url ? `<img class="asset-thumb asset-template-thumb" src="${escapeHtml(item.thumbnail_url)}" alt="">` : `<div class="asset-workflow-thumb asset-template-placeholder"><i data-lucide="book-open-check"></i><span>模板 JSON</span></div>`)}
                     <div class="asset-meta">
                         <span class="asset-name" title="${escapeHtml(item.name || '')}">${escapeHtml(item.name || 'asset')}</span>
                         <button class="asset-mini-btn" type="button" data-rename-asset="${escapeHtml(item.id)}" title="${escapeHtml(tr('smart.assetRename'))}"><i data-lucide="pencil"></i></button>
                         <button class="asset-mini-btn" type="button" data-delete-asset="${escapeHtml(item.id)}" title="${escapeHtml(tr('common.delete'))}"><i data-lucide="trash-2"></i></button>
                     </div>
+                    ${templateMode && cats.length > 1 ? `<select class="asset-template-move" data-move-template="${escapeHtml(item.id)}" title="移动到文件夹">${templateFolderOptions(item)}</select>` : ''}
                 </div>
-            `).join('') : `<div class="asset-empty">${escapeHtml(tr('smart.assetEmpty'))}</div>`;
+            `).join('') : `<div class="asset-empty">${escapeHtml(imageMode ? tr('smart.assetEmpty') : workflowMode ? '还没有保存的工作流' : (search ? '没有匹配的模板' : '还没有保存的模板'))}</div>`;
             bindAssetItemEvents();
             refreshIcons();
         }
@@ -1320,15 +1344,30 @@
         function bindAssetItemEvents(){
             assetGrid.querySelectorAll('.asset-item').forEach(el => {
                 const thumb = el.querySelector('.asset-thumb');
-                thumb?.addEventListener('mouseenter', e => showAssetHoverPreview(e, {url:el.dataset.url, name:el.dataset.name}));
+                thumb?.addEventListener('mouseenter', e => showAssetHoverPreview(e, {url:el.dataset.thumbnailUrl || el.dataset.url, name:el.dataset.name}));
                 thumb?.addEventListener('mousemove', e => positionAssetHoverPreview(e));
                 thumb?.addEventListener('mouseleave', hideAssetHoverPreview);
                 el.addEventListener('dragstart', e => {
+                    if(el.dataset.assetKind === 'workflow'){ e.preventDefault(); return; }
                     hideAssetHoverPreview();
                     e.dataTransfer.effectAllowed = 'copy';
-                    e.dataTransfer.setData('application/x-smart-asset', JSON.stringify({url:el.dataset.url, name:el.dataset.name}));
+                    e.dataTransfer.setData('application/x-smart-asset', JSON.stringify({kind:el.dataset.assetKind, url:el.dataset.url, thumbnailUrl:el.dataset.thumbnailUrl, templateId:el.dataset.assetId, categoryId:el.dataset.categoryId, name:el.dataset.name}));
                     e.dataTransfer.setData('text/plain', el.dataset.url || '');
                 });
+                if(el.dataset.assetKind === 'workflow'){
+                    el.addEventListener('dblclick', e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if(typeof window.importSmartWorkflowAsset === 'function') window.importSmartWorkflowAsset(el.dataset.url, el.dataset.name || 'workflow.zip');
+                    });
+                } else if(el.dataset.assetKind === 'template'){
+                    el.addEventListener('dblclick', e => {
+                        if(e.target.closest('button,select')) return;
+                        e.preventDefault(); e.stopPropagation();
+                        const p = viewportCenter();
+                        createTemplateCallNode(p.x - 180, p.y - 220, {templateId:el.dataset.assetId, templateName:el.dataset.name, templateThumbnailUrl:el.dataset.thumbnailUrl, templateCategoryId:el.dataset.categoryId});
+                    });
+                }
             });
             assetGrid.querySelectorAll('[data-rename-asset]').forEach(btn => {
                 btn.onclick = async e => {
@@ -1336,7 +1375,13 @@
                     const item = (activeAssetCategory()?.items || []).find(x => x.id === btn.dataset.renameAsset);
                     const name = await openAssetNameDialog({title:tr('smart.assetRename'), value:item?.name || '', placeholder:tr('smart.assetRename')});
                     if(!name) return;
-                    const data = await fetch(`/api/asset-library/items/${encodeURIComponent(btn.dataset.renameAsset)}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})}).then(r => r.json());
+                    const templateMode = assetTab === 'template';
+                    const endpoint = templateMode ? `/api/asset-library/templates/${encodeURIComponent(btn.dataset.renameAsset)}` : `/api/asset-library/items/${encodeURIComponent(btn.dataset.renameAsset)}`;
+                    const data = await fetch(endpoint, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})}).then(async r => {
+                        const body = await r.json().catch(() => ({}));
+                        if(!r.ok) throw new Error(body.detail || '重命名失败');
+                        return body;
+                    });
                     setAssetLibraryFromResponse(data);
                 };
             });
@@ -1344,7 +1389,37 @@
                 btn.onclick = async e => {
                     e.preventDefault(); e.stopPropagation();
                     if(!await StudioDialog.confirm(tr('smart.assetDeleteConfirm'), {title:tr('smart.delete') || '删除素材', danger:true, confirmText:tr('smart.delete') || '删除'})) return;
-                    const data = await fetch(`/api/asset-library/items/${encodeURIComponent(btn.dataset.deleteAsset)}`, {method:'DELETE'}).then(r => r.json());
+                    const endpoint = assetTab === 'template' ? `/api/asset-library/templates/${encodeURIComponent(btn.dataset.deleteAsset)}` : `/api/asset-library/items/${encodeURIComponent(btn.dataset.deleteAsset)}`;
+                    const data = await fetch(endpoint, {method:'DELETE'}).then(async r => {
+                        const body = await r.json().catch(() => ({}));
+                        if(!r.ok) throw new Error(body.detail || '删除失败');
+                        return body;
+                    });
+                    if(assetTab === 'template'){
+                        nodes.filter(node => node.templateId === btn.dataset.deleteAsset).forEach(node => {
+                            node.templateMissing = true;
+                            if(node.type === 'smart-template-call'){
+                                node.templateError = '模板已被删除或文件缺失';
+                                delete node.structuredOutput;
+                                delete node.outputText;
+                                delete node._templateImages;
+                            } else if(node.type === 'smart-template-store') {
+                                node.saveError = '原模板已被删除，请另存为';
+                            }
+                        });
+                    }
+                    setAssetLibraryFromResponse(data);
+                    scheduleSave();
+                };
+            });
+            assetGrid.querySelectorAll('[data-move-template]').forEach(select => {
+                select.onchange = async e => {
+                    e.stopPropagation();
+                    const data = await fetch(`/api/asset-library/templates/${encodeURIComponent(select.dataset.moveTemplate)}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({category_id:select.value})}).then(async r => {
+                        const body = await r.json().catch(() => ({}));
+                        if(!r.ok) throw new Error(body.detail || '移动失败');
+                        return body;
+                    });
                     setAssetLibraryFromResponse(data);
                 };
             });
@@ -1389,6 +1464,19 @@
             clearTimeout(saveTimer);
             saveTimer = setTimeout(saveCanvas, 450);
         }
+        function serializableSmartNode(node){
+            const copy = JSON.parse(JSON.stringify(node));
+            if(copy.type === 'smart-template-call'){
+                delete copy.structuredOutput;
+                delete copy.outputText;
+                delete copy.images;
+                delete copy._templateImages;
+                delete copy.templateError;
+                delete copy.templateLoadedAt;
+                copy.running = false;
+            }
+            return copy;
+        }
         async function saveCanvas(){
             if(!canvasId || !canvas) return;
             savePromptDraftForCurrent();
@@ -1396,7 +1484,8 @@
                 node.images = (node.images || []).map(img => stripImageGenerationMeta(img));
             });
             normalizeLegacySmartEngines();
-            canvas.nodes = nodes;
+            const serializedNodes = nodes.map(serializableSmartNode);
+            canvas.nodes = serializedNodes;
             canvas.settings = normalizeSmartSettingsEngines(settings);
             canvas.viewport = {...viewport};
             try {
@@ -1406,7 +1495,7 @@
                     body:JSON.stringify({
                         title:canvas.title || tr('smart.title'),
                         icon:canvas.icon || 'sparkles',
-                        nodes,
+                        nodes:serializedNodes,
                         connections:canvas.connections || [],
                         viewport:canvas.viewport || {x:0,y:0,scale:1},
                         logs:canvas.logs || [],
@@ -1480,9 +1569,64 @@
             scheduleSave();
             return node;
         }
+        function createAgentNode(x, y, options={}){
+            if(!options.skipUndo) pushUndo();
+            const node = {
+                id:uid('agent'), type:'smart-agent', x, y, w:400, h:520, title:'Agent',
+                agentId:'', aiProvider:'', textModel:'', visionModel:'', userInput:'',
+                expectJson:false, inputBindings:{}, outputText:'', structuredOutput:null,
+                runId:'', runStatus:'', running:false, created_at:Date.now()
+            };
+            nodes.push(node);
+            if(options.select !== false) selectedId = node.id;
+            render(); scheduleSave(); return node;
+        }
+        function createSkillNode(x, y, options={}){
+            if(!options.skipUndo) pushUndo();
+            const node = {
+                id:uid('skill'), type:'smart-skill', x, y, w:430, h:650, title:'Skill',
+                skillId:'', aiProvider:'', textModel:'', visionModel:'', skillInput:{},
+                inputBindings:{}, outputText:'', structuredOutput:null,
+                runId:'', runStatus:'', running:false, created_at:Date.now()
+            };
+            nodes.push(node);
+            if(options.select !== false) selectedId = node.id;
+            render(); scheduleSave(); return node;
+        }
+        function createTemplateStoreNode(x, y, options={}){
+            if(!options.skipUndo) pushUndo();
+            const node = {
+                id:uid('template-store'), type:'smart-template-store', x, y, w:380, h:540, title:'存模板',
+                templateId:'', templateName:'', templateCategoryId:'', templateSourceNodeId:'', thumbnailUrl:'',
+                outputText:'', structuredOutput:null, referenceImages:[], saveStatus:'', saveError:'', running:false,
+                created_at:Date.now(), ...options
+            };
+            delete node.skipUndo;
+            delete node.select;
+            nodes.push(node);
+            if(options.select !== false) selectedId = node.id;
+            render(); scheduleSave(); return node;
+        }
+        function createTemplateCallNode(x, y, options={}){
+            if(!options.skipUndo) pushUndo();
+            const node = {
+                id:uid('template-call'), type:'smart-template-call', x, y, w:360, h:440, title:'调用模板',
+                templateId:'', templateName:'', templateThumbnailUrl:'', templateCategoryId:'',
+                templateSearch:'', templateCategoryFilter:'', templateMissing:false, running:false,
+                created_at:Date.now(), ...options
+            };
+            delete node.skipUndo;
+            delete node.select;
+            nodes.push(node);
+            if(options.select !== false) selectedId = node.id;
+            render(); scheduleSave();
+            if(node.templateId) refreshTemplateCallNode(node, {quiet:true}).catch(() => {});
+            return node;
+        }
         function cloneSmartNode(node, dx=0, dy=0){
             const copy = JSON.parse(JSON.stringify(node));
-            copy.id = uid(node.type === 'smart-prompt' ? 'prompt' : node.type === 'smart-loop' ? 'loop' : 'smart');
+            const prefix = node.type === 'smart-prompt' ? 'prompt' : node.type === 'smart-loop' ? 'loop' : node.type === 'smart-agent' ? 'agent' : node.type === 'smart-skill' ? 'skill' : node.type === 'smart-template-store' ? 'template-store' : node.type === 'smart-template-call' ? 'template-call' : 'smart';
+            copy.id = uid(prefix);
             copy.x = (Number(node.x) || 0) + dx;
             copy.y = (Number(node.y) || 0) + dy;
             copy.running = false;
@@ -1491,6 +1635,19 @@
             delete copy.runFinishedAt;
             delete copy.runElapsedMs;
             delete copy.runTimerHidden;
+            if(copy.type === 'smart-template-store'){
+                copy.templateId = '';
+                copy.saveStatus = '';
+                copy.saveError = '';
+            }
+            if(copy.type === 'smart-template-call'){
+                delete copy.structuredOutput;
+                delete copy.outputText;
+                delete copy.images;
+                delete copy._templateImages;
+                delete copy.templateError;
+                delete copy.templateLoadedAt;
+            }
             return copy;
         }
         function copySelectedNodes(){
@@ -1529,6 +1686,7 @@
                     copy.inputNodeIds = copy.inputNodeIds.map(id => idMap.get(id)).filter(Boolean);
                 }
                 if(copy.sourceNodeId) copy.sourceNodeId = idMap.get(copy.sourceNodeId) || '';
+                if(copy.templateSourceNodeId) copy.templateSourceNodeId = idMap.get(copy.templateSourceNodeId) || '';
             });
             const newConnections = (nodeClipboard.connections || []).map(conn => ({
                 ...conn,
@@ -1557,6 +1715,7 @@
             copies.forEach(copy => {
                 if(Array.isArray(copy.inputNodeIds)) copy.inputNodeIds = copy.inputNodeIds.map(id => idMap.get(id)).filter(Boolean);
                 if(copy.sourceNodeId) copy.sourceNodeId = idMap.get(copy.sourceNodeId) || '';
+                if(copy.templateSourceNodeId) copy.templateSourceNodeId = idMap.get(copy.templateSourceNodeId) || '';
             });
             const idSet = new Set(sourceNodes.map(n => n.id));
             const copiedConnections = (canvas.connections || []).filter(c => idSet.has(c.from) && idSet.has(c.to));
@@ -1903,9 +2062,96 @@
                 <button class="loop-smart-control loop-smart-run" type="button" data-loop-run="${escapeHtml(node.id)}" ${smartCascadeRunning ? 'disabled' : ''}><i data-lucide="workflow"></i><span>${smartCascadeRunning ? '运行中' : '一键运行'}</span></button>
             </div>`;
         }
+        function parsedTemplateObject(value){
+            if(value && typeof value === 'object' && !Array.isArray(value)) return value;
+            if(typeof value !== 'string' || !value.trim()) return null;
+            try {
+                const parsed = JSON.parse(value);
+                return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+            } catch { return null; }
+        }
+        function templateField(template, ...names){
+            for(const name of names){
+                const value = template?.[name];
+                if(value !== undefined && value !== null && value !== '') return value;
+            }
+            return '';
+        }
+        function templateStylePrompt(template){
+            return String(templateField(template, 'stylePromptZh', 'style_prompt_zh', 'style_prompt_cn', 'stylePromptEn', 'style_prompt_en', 'style_prompt') || '').trim();
+        }
+        function isDistilledTemplate(template){
+            if(!template || typeof template !== 'object' || Array.isArray(template)) return false;
+            const features = templateField(template, 'features');
+            const pageStyles = templateField(template, 'pageStyles', 'page_styles');
+            return Boolean((features && (Array.isArray(features) ? features.length : Object.keys(features).length)) || templateStylePrompt(template) || (pageStyles && (Array.isArray(pageStyles) ? pageStyles.length : Object.keys(pageStyles).length)));
+        }
+        function templateJsonSources(node){
+            return inputNodesFor(node).map(source => {
+                let value = null;
+                if(['smart-agent','smart-skill','smart-template-call'].includes(source.type)) value = parsedTemplateObject(source.structuredOutput);
+                if(!value && ['smart-agent','smart-skill'].includes(source.type)) value = parsedTemplateObject(source.outputText);
+                return value && isDistilledTemplate(value) ? {node:source, value, label:source.templateName || source.title || source.skillId || source.agentId || source.id} : null;
+            }).filter(Boolean);
+        }
+        function selectedTemplateSource(node){
+            const sources = templateJsonSources(node);
+            return sources.find(source => source.node.id === node.templateSourceNodeId) || sources[0] || null;
+        }
+        function templateSummaryHtml(template){
+            if(!template) return '<span class="template-empty-value">等待上游 JSON</span>';
+            const features = templateField(template, 'features');
+            const pages = templateField(template, 'pageStyles', 'page_styles');
+            const featureCount = Array.isArray(features) ? features.length : (features && typeof features === 'object' ? Object.keys(features).length : 0);
+            const pageCount = Array.isArray(pages) ? pages.length : (pages && typeof pages === 'object' ? Object.keys(pages).length : 0);
+            const prompt = templateStylePrompt(template);
+            return `<span>${featureCount} 个特征</span><span>${pageCount} 个页面风格</span>${prompt ? `<span title="${escapeHtml(prompt)}">${escapeHtml(prompt.slice(0, 72))}</span>` : ''}`;
+        }
+        function templateStoreBodyHtml(node){
+            const sources = templateJsonSources(node);
+            const selected = selectedTemplateSource(node);
+            const template = selected?.value || null;
+            const images = inputImagesFor(node).filter((image, index, all) => image?.url && all.findIndex(item => item?.url === image.url) === index).slice(0, 9);
+            const thumbnailUrl = images.some(image => image.url === node.thumbnailUrl) ? node.thumbnailUrl : (images[0]?.url || '');
+            const categories = assetCategories('template');
+            const activeCategory = categories.find(category => category.id === node.templateCategoryId) || categories.find(category => category.default) || categories[0];
+            const statusClass = node.saveError ? 'error' : node.saveStatus === 'saved' ? 'success' : '';
+            return `<div class="template-node-body">
+                <label class="template-field"><span>模板名称</span><input data-template-name type="text" value="${escapeHtml(node.templateName || templateField(template, 'name') || '')}" placeholder="未命名模板"></label>
+                <label class="template-field"><span>资产文件夹</span><select data-template-category>${categories.map(category => `<option value="${escapeHtml(category.id)}" ${category.id === activeCategory?.id ? 'selected' : ''}>${escapeHtml(category.name || '模板')}</option>`).join('')}</select></label>
+                <label class="template-field"><span>JSON 来源</span><select data-template-source ${sources.length ? '' : 'disabled'}>${sources.length ? sources.map(source => `<option value="${escapeHtml(source.node.id)}" ${source.node.id === selected?.node.id ? 'selected' : ''}>${escapeHtml(source.label)}</option>`).join('') : '<option>无可用来源</option>'}</select></label>
+                <div class="template-summary"><span class="template-section-label">JSON 摘要</span>${templateSummaryHtml(template)}</div>
+                <div class="template-thumbnail-section"><span class="template-section-label">缩略图</span><div class="template-thumbnail-list">${images.length ? images.map(image => `<button type="button" class="template-thumbnail-choice ${image.url === thumbnailUrl ? 'selected' : ''}" data-template-thumbnail="${escapeHtml(image.url)}" title="${escapeHtml(image.name || '缩略图')}"><img src="${escapeHtml(image.url)}" alt=""></button>`).join('') : '<span class="template-empty-value">无图片</span>'}</div></div>
+                <div class="template-save-status ${statusClass}">${escapeHtml(node.saveError || (node.saveStatus === 'saved' ? `已保存 · ${node.templateName || '模板'}` : node.templateId ? '再次运行将更新同一模板' : '未保存'))}</div>
+                <div class="template-node-actions"><button type="button" class="template-primary-action" data-template-save ${node.running || !template ? 'disabled' : ''}><i data-lucide="archive"></i><span>${node.running ? '保存中' : node.templateId ? '更新模板' : '保存模板'}</span></button><button type="button" class="template-icon-action" data-template-run-chain title="运行上游并保存" ${node.running ? 'disabled' : ''}><i data-lucide="workflow"></i></button>${node.templateMissing ? '<button type="button" class="template-icon-action" data-template-save-as title="另存为"><i data-lucide="copy-plus"></i></button>' : ''}</div>
+            </div>`;
+        }
+        function allTemplateAssets(){
+            return assetCategories('template').flatMap(category => (category.items || []).map(item => ({...item, categoryId:category.id, categoryName:category.name || '模板'})));
+        }
+        function templateCallBodyHtml(node){
+            const categories = assetCategories('template');
+            const categoryFilter = node.templateCategoryFilter || '';
+            const query = String(node.templateSearch || '').trim().toLowerCase();
+            let items = allTemplateAssets().filter(item => (!categoryFilter || item.categoryId === categoryFilter) && (!query || String(item.name || '').toLowerCase().includes(query)));
+            const selectedAsset = allTemplateAssets().find(item => item.id === node.templateId);
+            if(selectedAsset && !items.some(item => item.id === selectedAsset.id)) items = [selectedAsset, ...items];
+            const thumbnailUrl = node.templateThumbnailUrl || selectedAsset?.thumbnail_url || '';
+            const statusClass = node.templateMissing || node.templateError ? 'error' : node.structuredOutput ? 'success' : '';
+            return `<div class="template-node-body template-call-body">
+                <div class="template-picker-row"><select data-template-call-category><option value="">全部文件夹</option>${categories.map(category => `<option value="${escapeHtml(category.id)}" ${category.id === categoryFilter ? 'selected' : ''}>${escapeHtml(category.name || '模板')}</option>`).join('')}</select><button type="button" class="template-icon-action" data-template-refresh title="刷新模板"><i data-lucide="refresh-cw"></i></button></div>
+                <input class="template-search" data-template-search type="search" value="${escapeHtml(node.templateSearch || '')}" placeholder="搜索模板">
+                <select data-template-call-id size="5">${items.length ? items.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === node.templateId ? 'selected' : ''}>${escapeHtml(item.name || '模板')} · ${escapeHtml(item.categoryName)}</option>`).join('') : '<option value="">没有匹配模板</option>'}</select>
+                <div class="template-call-preview">${thumbnailUrl ? `<img src="${escapeHtml(thumbnailUrl)}" alt="">` : '<i data-lucide="book-open-check"></i>'}<div><strong>${escapeHtml(node.templateName || selectedAsset?.name || '未选择模板')}</strong><span>${escapeHtml(node.templateId || '本地模板数据源')}</span></div></div>
+                <div class="template-save-status ${statusClass}">${escapeHtml(node.templateError || (node.templateMissing ? '模板已被删除或文件缺失' : node.running ? '读取中' : node.structuredOutput ? '已读取最新版本' : node.templateId ? '运行时读取最新版本' : '未选择模板'))}</div>
+            </div>`;
+        }
         function nodeBodyHtml(node, layout){
             if(node.type === 'smart-prompt') return promptNodeBodyHtml(node);
             if(node.type === 'smart-loop') return smartLoopBodyHtml(node);
+            if(node.type === 'smart-agent' || node.type === 'smart-skill') return `<div class="ai-node-mount" data-ai-node-id="${escapeHtml(node.id)}"></div>`;
+            if(node.type === 'smart-template-store') return templateStoreBodyHtml(node);
+            if(node.type === 'smart-template-call') return templateCallBodyHtml(node);
             const imgs = node.images || [];
             if(node.pending && imgs.length === 0){
                 const count = Math.max(1, Number(node.pending) || 1);
@@ -1962,29 +2208,36 @@
             world.insertAdjacentHTML('beforeend', renderConnections());
             const nodesHtml = nodes.map(node => {
                 const imgs = node.images || [];
-                const title = node.type === 'smart-prompt' ? 'Prompt' : node.type === 'smart-loop' ? 'Loop' : (imgs.length > 1 ? 'Group' : 'Image');
+                const title = node.type === 'smart-prompt' ? 'Prompt' : node.type === 'smart-loop' ? 'Loop' : node.type === 'smart-agent' ? 'Agent' : node.type === 'smart-skill' ? 'Skill' : node.type === 'smart-template-store' ? '存模板' : node.type === 'smart-template-call' ? '调用模板' : (imgs.length > 1 ? 'Group' : 'Image');
                 const scale = nodeScale(node);
                 const layout = imageLayout(imgs, scale, node);
                 const isPrompt = node.type === 'smart-prompt';
                 const isLoop = node.type === 'smart-loop';
+                const isAgent = node.type === 'smart-agent';
+                const isSkill = node.type === 'smart-skill';
+                const isAIRuntime = isAgent || isSkill;
+                const isTemplateStore = node.type === 'smart-template-store';
+                const isTemplateCall = node.type === 'smart-template-call';
+                const isTemplateNode = isTemplateStore || isTemplateCall;
                 const isImageNode = node.type === 'smart-image' || !node.type;
                 const isEmpty = isImageNode && imgs.length === 0 && !node.pending;
                 const isGroup = isImageNode && imgs.length > 1;
                 const isPending = node.pending && imgs.length === 0;
                 const body = nodeBodyHtml(node, layout);
                 const deleteBtn = isNodeSelected(node.id) ? `<button class="mini-x node-delete" type="button" title="${escapeHtml(tr('smart.deleteNode'))}"><i data-lucide="trash-2"></i></button>` : '';
-                return `<div class="image-node ${isEmpty ? 'empty-node' : ''} ${isGroup ? 'group-node' : ''} ${isPrompt ? 'prompt-smart-node' : ''} ${isLoop ? 'loop-smart-node' : ''} ${isNodeSelected(node.id) ? 'selected' : ''} ${(dragState?.groupIds?.includes(node.id) || dragState?.id === node.id) ? 'dragging' : ''} ${node.running ? 'node-running' : ''} ${isPending ? 'node-pending' : ''}" data-id="${escapeHtml(node.id)}" style="left:${node.x || 0}px;top:${node.y || 0}px;width:${layout.width}px;height:${layout.height}px">
+                return `<div class="image-node ${isEmpty ? 'empty-node' : ''} ${isGroup ? 'group-node' : ''} ${isPrompt ? 'prompt-smart-node' : ''} ${isLoop ? 'loop-smart-node' : ''} ${isAgent ? 'agent-node smart-agent-node' : ''} ${isSkill ? 'skill-node smart-skill-node' : ''} ${isTemplateStore ? 'template-store-node' : ''} ${isTemplateCall ? 'template-call-node' : ''} ${(node.templateMissing || node.saveError || node.templateError) ? 'node-error' : ''} ${isNodeSelected(node.id) ? 'selected' : ''} ${(dragState?.groupIds?.includes(node.id) || dragState?.id === node.id) ? 'dragging' : ''} ${node.running ? 'node-running' : ''} ${isPending ? 'node-pending' : ''}" data-id="${escapeHtml(node.id)}" style="left:${node.x || 0}px;top:${node.y || 0}px;width:${layout.width}px;height:${layout.height}px">
                     <div class="node-head"><div class="node-title">${title}</div><div class="node-actions">${deleteBtn}</div></div>
-                    ${(isPrompt || isLoop) && deleteBtn ? `<div class="floating-node-actions"><button class="mini-x node-delete" type="button" title="${escapeHtml(tr('smart.deleteNode'))}"><i data-lucide="trash-2"></i></button></div>` : ''}
+                    ${(isPrompt || isLoop || isAIRuntime || isTemplateNode) && deleteBtn ? `<div class="floating-node-actions"><button class="mini-x node-delete" type="button" title="${escapeHtml(tr('smart.deleteNode'))}"><i data-lucide="trash-2"></i></button></div>` : ''}
                     ${runTimePillHtml(node)}
                     <div class="node-body">${body}</div>
-                    <div class="node-hint">${isPending ? escapeHtml(tr('smart.hintPending')) : (imgs.length > 1 ? escapeHtml(tr('smart.hintMulti')) : imgs.length ? escapeHtml(tr('smart.hintSingle')) : escapeHtml(tr('smart.hintEmpty')))}</div>
-                    ${imgs.length || node.pending || isPrompt || isLoop ? '<div class="node-resize-handle" data-resize="1"></div>' : ''}
+                    <div class="node-hint">${isTemplateStore ? escapeHtml(node.outputText || '输出模板 JSON、风格提示词与参考图') : isTemplateCall ? escapeHtml(node.outputText || '纯本地数据源') : isAIRuntime ? escapeHtml(node.runError || node.outputText || '连接上游并运行') : isPending ? escapeHtml(tr('smart.hintPending')) : (imgs.length > 1 ? escapeHtml(tr('smart.hintMulti')) : imgs.length ? escapeHtml(tr('smart.hintSingle')) : escapeHtml(tr('smart.hintEmpty')))}</div>
+                    ${imgs.length || node.pending || isPrompt || isLoop || isAIRuntime || isTemplateNode ? '<div class="node-resize-handle" data-resize="1"></div>' : ''}
                     <div class="node-port port-in" data-port="in" title="输入"></div>
                     <div class="node-port port-out" data-port="out" title="输出"></div>
                 </div>`;
             }).join('');
             world.insertAdjacentHTML('beforeend', nodesHtml);
+            mountSmartAgentSkillBodies();
             bindNodeEvents();
             bindConnectionEvents();
             updateComposer();
@@ -2109,6 +2362,56 @@
             if(instructionEl) { bindScrollableText(instructionEl); instructionEl.oninput = e => { node.llmInstruction = e.target.value; scheduleSave(); }; }
             const runEl = el.querySelector('.prompt-node-run');
             if(runEl) runEl.onclick = e => { e.preventDefault(); e.stopPropagation(); runPromptLLMNode(node.id); };
+        }
+        function bindTemplateNodeControls(el, node){
+            el.querySelectorAll('input,select,button,.template-summary,.template-call-preview').forEach(control => {
+                control.addEventListener('mousedown', e => e.stopPropagation());
+                control.addEventListener('click', e => e.stopPropagation());
+                control.addEventListener('dblclick', e => e.stopPropagation());
+            });
+            if(node.type === 'smart-template-store'){
+                const nameInput = el.querySelector('[data-template-name]');
+                if(nameInput) nameInput.oninput = e => { node.templateName = e.target.value; scheduleSave(); };
+                const categorySelect = el.querySelector('[data-template-category]');
+                if(categorySelect) categorySelect.onchange = e => { node.templateCategoryId = e.target.value; scheduleSave(); };
+                const sourceSelect = el.querySelector('[data-template-source]');
+                if(sourceSelect) sourceSelect.onchange = e => { node.templateSourceNodeId = e.target.value; render(); scheduleSave(); };
+                el.querySelectorAll('[data-template-thumbnail]').forEach(button => {
+                    button.onclick = e => { e.preventDefault(); node.thumbnailUrl = button.dataset.templateThumbnail || ''; render(); scheduleSave(); };
+                });
+                const saveButton = el.querySelector('[data-template-save]');
+                if(saveButton) saveButton.onclick = e => { e.preventDefault(); runTemplateStoreNode(node.id).catch(error => { node.saveError = error.message || '保存模板失败'; render(); toast(node.saveError); }); };
+                const runChainButton = el.querySelector('[data-template-run-chain]');
+                if(runChainButton) runChainButton.onclick = e => { e.preventDefault(); runTemplateStoreNode(node.id, {runUpstream:true}).catch(error => toast((error.message || '运行失败').slice(0, 160))); };
+                const saveAsButton = el.querySelector('[data-template-save-as]');
+                if(saveAsButton) saveAsButton.onclick = e => { e.preventDefault(); node.templateId = ''; node.templateMissing = false; runTemplateStoreNode(node.id).catch(error => { node.saveError = error.message || '保存模板失败'; render(); toast(node.saveError); }); };
+                return;
+            }
+            const categorySelect = el.querySelector('[data-template-call-category]');
+            if(categorySelect) categorySelect.onchange = e => { node.templateCategoryFilter = e.target.value; render(); scheduleSave(); };
+            const searchInput = el.querySelector('[data-template-search]');
+            if(searchInput){
+                searchInput.oninput = e => { node.templateSearch = e.target.value; scheduleSave(); };
+                searchInput.onchange = () => render();
+                searchInput.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); render(); } };
+            }
+            const templateSelect = el.querySelector('[data-template-call-id]');
+            if(templateSelect) templateSelect.onchange = () => {
+                const item = allTemplateAssets().find(asset => asset.id === templateSelect.value);
+                node.templateId = item?.id || '';
+                node.templateName = item?.name || '';
+                node.templateThumbnailUrl = item?.thumbnail_url || '';
+                node.templateCategoryId = item?.categoryId || '';
+                node.templateMissing = false;
+                node.templateError = '';
+                delete node.structuredOutput;
+                delete node.outputText;
+                delete node._templateImages;
+                render(); scheduleSave();
+                if(node.templateId) refreshTemplateCallNode(node).catch(() => {});
+            };
+            const refreshButton = el.querySelector('[data-template-refresh]');
+            if(refreshButton) refreshButton.onclick = e => { e.preventDefault(); refreshTemplateCallNode(node).catch(() => {}); };
         }
         function bindLoopNodeControls(el, node){
             el.querySelectorAll('.loop-smart-control').forEach(control => {
@@ -2357,6 +2660,7 @@
                 const nodeForControls = nodes.find(n => n.id === id);
                 if(nodeForControls?.type === 'smart-prompt') bindPromptNodeControls(el, nodeForControls);
                 if(nodeForControls?.type === 'smart-loop') bindLoopNodeControls(el, nodeForControls);
+                if(nodeForControls?.type === 'smart-template-store' || nodeForControls?.type === 'smart-template-call') bindTemplateNodeControls(el, nodeForControls);
                 el.onclick = e => {
                     e.stopPropagation();
                     if(Date.now() < suppressNodeClickUntil) return;
@@ -2432,7 +2736,7 @@
                     capturePendingUndo();
                 });
                 const beginNodeDrag = e => {
-                    if(e.button !== 0 || e.target.closest('.mini-x, .node-resize-handle, .thumb-item, .node-port, select, input, button')) return;
+                    if(e.button !== 0 || e.target.closest('.mini-x, .node-resize-handle, .thumb-item, .node-port, select, input, button, textarea, .ai-node-output, .ai-skill-fields')) return;
                     if(e.target.closest('.prompt-node-pill, .prompt-node-llm, textarea:not(.prompt-node-text)')) return;
                     e.preventDefault(); e.stopPropagation();
                     window.getSelection?.()?.removeAllRanges?.();
@@ -2493,9 +2797,12 @@
         }
         function canAutoConnectDraggedNode(sourceNode, targetNode){
             if(!sourceNode || !targetNode || sourceNode.id === targetNode.id) return false;
-            if(sourceNode.type === 'smart-image') return targetNode.type === 'smart-image' || targetNode.type === 'smart-loop';
-            if(sourceNode.type === 'smart-prompt') return targetNode.type === 'smart-image' || targetNode.type === 'smart-loop';
-            if(sourceNode.type === 'smart-loop') return targetNode.type === 'smart-image';
+            if(sourceNode.type === 'smart-image') return ['smart-image','smart-loop','smart-agent','smart-skill','smart-template-store'].includes(targetNode.type);
+            if(sourceNode.type === 'smart-prompt') return ['smart-image','smart-loop','smart-agent','smart-skill'].includes(targetNode.type);
+            if(sourceNode.type === 'smart-loop') return ['smart-image','smart-agent','smart-skill'].includes(targetNode.type);
+            if(sourceNode.type === 'smart-agent' || sourceNode.type === 'smart-skill') return ['smart-image','smart-prompt','smart-agent','smart-skill','smart-template-store'].includes(targetNode.type);
+            if(sourceNode.type === 'smart-template-call') return ['smart-image','smart-agent','smart-skill','smart-template-store'].includes(targetNode.type);
+            if(sourceNode.type === 'smart-template-store') return ['smart-image','smart-agent','smart-skill'].includes(targetNode.type);
             return false;
         }
         function restoreDraggedNodePosition(){
@@ -3395,7 +3702,7 @@
         }
         function loadPromptDraft(subject){
             if(subject?.promptDraftHtml){
-                const hasToken = String(subject.promptDraftHtml || '').includes('mention-image-token');
+                const hasToken = /mention-image-token|prompt-template-token/.test(String(subject.promptDraftHtml || ''));
                 promptInput.innerHTML = hasToken
                     ? subject.promptDraftHtml
                     : (promptHtmlWithMentionTokens(subject.runPrompt || subject.promptDraftText || '', subject.runPromptRefs || []) || subject.promptDraftHtml);
@@ -3409,7 +3716,7 @@
         }
         function syncCascadeRunButton(node){
             if(!cascadeRunBtn) return;
-            const hasCascadePath = node && inputNodesFor(node).some(input => input.type === 'smart-prompt' || input.type === 'smart-loop');
+            const hasCascadePath = node && inputNodesFor(node).some(input => ['smart-prompt','smart-loop','smart-agent','smart-skill','smart-template-call'].includes(input.type));
             cascadeRunBtn.style.display = hasCascadePath ? '' : 'none';
         }
         function updateComposer(){
@@ -3429,7 +3736,7 @@
             const subject = node;
             const composerKey = `${node.id}:node`;
             const switchedNode = lastComposerNodeId !== composerKey;
-            if(switchedNode) savePromptDraftForCurrent();
+            if(switchedNode && activeComposerSubject?.id) savePromptDraftForCurrent();
             lastComposerNodeId = composerKey;
             activeComposerSubject = subject;
             const hasPromptInput = promptInputNodesFor(node).length > 0;
@@ -3544,12 +3851,219 @@
             });
             return [...ids].map(id => nodes.find(n => n.id === id)).filter(Boolean);
         }
+        function smartAgentSkillSources(node){
+            return inputNodesFor(node).map(source => {
+                let text = '';
+                let output = null;
+                let images = [];
+                if(source.type === 'smart-prompt') text = source.text || source.promptDraftText || '';
+                if(source.type === 'smart-loop') text = smartLoopPrompt(source);
+                if(source.type === 'smart-agent' || source.type === 'smart-skill'){
+                    text = source.outputText || '';
+                    output = source.structuredOutput || null;
+                }
+                if(source.type === 'smart-template-call' || source.type === 'smart-template-store'){
+                    text = source.outputText || '';
+                    output = source.structuredOutput || null;
+                    images = (source.type === 'smart-template-call' ? source._templateImages : source.referenceImages || []).map(item => typeof item === 'string' ? item : item?.url).filter(Boolean);
+                }
+                if(source.type === 'smart-image') images = (source.images || []).map(item => item?.url).filter(Boolean);
+                return {id:source.id, label:source.title || source.agentId || source.skillId || source.type, type:source.type, skillId:source.skillId || '', text, output, images};
+            });
+        }
+        function syncSmartAgentSkillBindings(node){
+            node.inputBindings = node.inputBindings || {};
+            const incoming = (canvas?.connections || []).filter(c => c.to === node.id);
+            Object.entries(node.inputBindings).forEach(([field, binding]) => {
+                if(binding?.sourceNodeId && !incoming.some(connection => connection.from === binding.sourceNodeId)) delete node.inputBindings[field];
+            });
+            incoming.filter(c => c.targetField).forEach(connection => {
+                if(!node.inputBindings[connection.targetField]) node.inputBindings[connection.targetField] = {mode:'connection', sourceNodeId:connection.from, sourceField:connection.sourceField || ''};
+            });
+        }
+        function bindSmartAgentSkillField(node, field, sourceId, sourceField='auto'){
+            (canvas?.connections || []).filter(c => c.to === node.id && c.targetField === field).forEach(connection => {
+                if(connection.from !== sourceId){ delete connection.targetField; delete connection.sourceField; }
+            });
+            const connection = (canvas?.connections || []).find(c => c.to === node.id && c.from === sourceId);
+            if(connection){ connection.targetField = field; connection.sourceField = sourceField || 'auto'; }
+            scheduleSave();
+        }
+        function smartAgentSkillContext(node){
+            syncSmartAgentSkillBindings(node);
+            return {
+                canvasId:canvas?.id || '',
+                sources:smartAgentSkillSources(node),
+                changed:rerender => { scheduleSave(); if(rerender) render(); },
+                updated:(rerender=true) => { scheduleSave(); if(rerender) render(); },
+                bindField:(field, sourceId, sourceField) => bindSmartAgentSkillField(node, field, sourceId, sourceField),
+                run:() => runSmartAgentSkillNode(node.id),
+                cancel:() => cancelSmartAgentSkillNode(node.id),
+            };
+        }
+        function mountSmartAgentSkillBodies(){
+            world.querySelectorAll('[data-ai-node-id]').forEach(mount => {
+                const node = nodes.find(item => item.id === mount.dataset.aiNodeId);
+                if(!node || !window.SynCanvasAgentSkills) return;
+                mount.replaceChildren(SynCanvasAgentSkills.render(node, smartAgentSkillContext(node)));
+            });
+        }
+        async function runSmartAgentSkillNode(nodeId, opts={}){
+            const node = nodes.find(item => item.id === nodeId);
+            if(!node || (node.running && !opts.cascade) || !window.SynCanvasAgentSkills) return;
+            try {
+                await refreshTemplateCallsFor(node);
+                await SynCanvasAgentSkills.runNode(node, smartAgentSkillContext(node));
+                scheduleSave();
+            } catch(error) {
+                if(opts.cascade) throw error;
+                toast((error.message || 'Agent/Skill 运行失败').slice(0, 180));
+            }
+        }
+        async function cancelSmartAgentSkillNode(nodeId){
+            const node = nodes.find(item => item.id === nodeId);
+            if(!node || !window.SynCanvasAgentSkills) return;
+            await SynCanvasAgentSkills.cancelNode(node, smartAgentSkillContext(node));
+        }
+        async function templateApiJson(url, options={}){
+            const response = await fetch(url, options);
+            const body = await response.json().catch(() => ({}));
+            if(!response.ok){
+                const error = new Error(body.detail || `模板请求失败 (${response.status})`);
+                error.status = response.status;
+                throw error;
+            }
+            return body;
+        }
+        async function refreshTemplateCallNode(nodeOrId, options={}){
+            const node = typeof nodeOrId === 'string' ? nodes.find(item => item.id === nodeOrId) : nodeOrId;
+            if(!node || node.type !== 'smart-template-call') return null;
+            if(!node.templateId){
+                node.templateMissing = false;
+                node.templateError = '请先选择模板';
+                if(!options.quiet) toast(node.templateError);
+                render();
+                throw new Error(node.templateError);
+            }
+            node.running = true;
+            node.templateError = '';
+            render();
+            try {
+                const data = await templateApiJson(`/api/asset-library/templates/${encodeURIComponent(node.templateId)}`);
+                node.templateName = data.item?.name || node.templateName || '模板';
+                node.templateThumbnailUrl = data.item?.thumbnail_url || '';
+                node.templateCategoryId = data.item?.category_id || node.templateCategoryId || '';
+                node.structuredOutput = data.template;
+                node.outputText = templateStylePrompt(data.template);
+                const urls = [...(data.item?.reference_image_urls || []), data.item?.thumbnail_url || ''].filter((url, index, all) => url && all.indexOf(url) === index);
+                node._templateImages = urls.map((url, index) => ({url, name:index ? `参考图 ${index + 1}` : '模板缩略图', kind:'image'}));
+                node.templateMissing = false;
+                node.templateLoadedAt = Date.now();
+                node.templateError = '';
+                scheduleSave();
+                return data;
+            } catch(error) {
+                node.templateMissing = error.status === 404;
+                node.templateError = node.templateMissing ? '模板已被删除或文件缺失' : (error.message || '读取模板失败');
+                delete node.structuredOutput;
+                delete node.outputText;
+                delete node._templateImages;
+                if(!options.quiet) toast(node.templateError);
+                throw error;
+            } finally {
+                node.running = false;
+                render();
+            }
+        }
+        async function refreshTemplateCallsFor(node){
+            const calls = [];
+            const seen = new Set();
+            const visit = current => {
+                if(!current || seen.has(current.id)) return;
+                seen.add(current.id);
+                inputNodesFor(current).forEach(visit);
+                if(current.type === 'smart-template-call') calls.push(current);
+            };
+            visit(node);
+            for(const call of calls) await refreshTemplateCallNode(call, {quiet:true});
+            return calls;
+        }
+        async function refreshAllTemplateCallNodes(){
+            const calls = nodes.filter(node => node.type === 'smart-template-call' && node.templateId);
+            await Promise.allSettled(calls.map(node => refreshTemplateCallNode(node, {quiet:true})));
+        }
+        async function runTemplateStoreNode(nodeId, options={}){
+            const node = nodes.find(item => item.id === nodeId);
+            if(!node || node.type !== 'smart-template-store' || node.running) return null;
+            if(options.runUpstream){
+                const order = smartAIRunOrder(node.id);
+                for(const upstream of order){
+                    if(upstream.type === 'smart-template-call') await refreshTemplateCallNode(upstream, {quiet:true});
+                    else await runSmartAgentSkillNode(upstream.id, {cascade:true});
+                }
+            } else {
+                await refreshTemplateCallsFor(node);
+            }
+            const source = selectedTemplateSource(node);
+            if(!source) throw new Error('上游没有有效的蒸馏模板 JSON');
+            const template = source.value;
+            if(!isDistilledTemplate(template)) throw new Error('模板至少需要 features、风格提示词或 pageStyles');
+            if(!assetCategories('template').length) await loadAssetLibrary();
+            const categories = assetCategories('template');
+            const category = categories.find(item => item.id === node.templateCategoryId) || categories.find(item => item.default) || categories[0];
+            if(!category) throw new Error('模板资产文件夹不存在');
+            const images = inputImagesFor(node).filter((image, index, all) => image?.url && all.findIndex(item => item?.url === image.url) === index).slice(0, 9);
+            const thumbnailUrl = images.some(image => image.url === node.thumbnailUrl) ? node.thumbnailUrl : (images[0]?.url || '');
+            const name = String(node.templateName || templateField(template, 'name') || '未命名模板').trim();
+            const payload = {
+                library_id:assetLibrary.active_library_id || '', category_id:category.id, name, template,
+                thumbnail_url:thumbnailUrl,
+                reference_image_urls:images.map(image => image.url).filter(url => url !== thumbnailUrl).slice(0, 8),
+                source_canvas_id:canvas?.id || canvasId || '', source_node_id:node.id,
+                source_skill_id:source.node.skillId || '',
+                source_metadata:{source_node_id:source.node.id, source_type:source.node.type}
+            };
+            node.running = true;
+            node.saveError = '';
+            render();
+            try {
+                const isUpdate = Boolean(node.templateId);
+                const endpoint = isUpdate ? `/api/asset-library/templates/${encodeURIComponent(node.templateId)}` : '/api/asset-library/templates';
+                const data = await templateApiJson(endpoint, {method:isUpdate ? 'PATCH' : 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+                node.templateId = data.item.id;
+                node.templateName = data.item.name || name;
+                node.templateCategoryId = data.item.category_id || category.id;
+                node.thumbnailUrl = data.item.thumbnail_url || thumbnailUrl;
+                node.structuredOutput = data.template;
+                node.outputText = templateStylePrompt(data.template);
+                node.referenceImages = [...(data.item.reference_image_urls || []), data.item.thumbnail_url || ''].filter(Boolean).map((url, index) => ({url, name:index ? `参考图 ${index + 1}` : '模板缩略图', kind:'image'}));
+                node.saveStatus = 'saved';
+                node.templateMissing = false;
+                setAssetLibraryFromResponse(data);
+                scheduleSave();
+                toast(isUpdate ? '模板已更新' : '模板已保存到资产库');
+                return data;
+            } catch(error) {
+                node.templateMissing = Boolean(node.templateId && error.status === 404);
+                node.saveStatus = 'failed';
+                node.saveError = node.templateMissing ? '原模板已被删除，请另存为' : (error.message || '保存模板失败');
+                if(!options.quiet) toast(node.saveError);
+                throw error;
+            } finally {
+                node.running = false;
+                render();
+            }
+        }
         function inputImagesFor(node){
-            return inputNodesFor(node).flatMap(input => (input.images || []).map((img, index) => ({
-                ...img,
-                nodeId:input.id,
-                imageIndex:index
-            }))).filter(img => img?.url);
+            return inputNodesFor(node).flatMap(input => {
+                const direct = (input.images || []).map((img, index) => ({...img, nodeId:input.id, imageIndex:index}));
+                const generated = (input.type === 'smart-agent' || input.type === 'smart-skill') && Array.isArray(input.structuredOutput?.images)
+                    ? input.structuredOutput.images.map((url, index) => ({url, name:`output-${index + 1}.png`, nodeId:input.id, imageIndex:index}))
+                    : [];
+                const templateImages = (input.type === 'smart-template-call' ? input._templateImages : input.type === 'smart-template-store' ? input.referenceImages : []) || [];
+                const fromTemplate = templateImages.map((img, index) => ({...(typeof img === 'string' ? {url:img} : img), nodeId:input.id, imageIndex:index}));
+                return [...direct, ...generated, ...fromTemplate];
+            }).filter(img => img?.url);
         }
         function smartLoopInputImages(node, ctx={}){
             const all = inputImagesFor(node);
@@ -3561,8 +4075,8 @@
         function smartLoopInputPromptItems(node){
             if(!node) return [];
             return inputNodesFor(node)
-                .filter(input => input.type === 'smart-prompt')
-                .map(input => String(input.text || input.promptDraftText || input.runPrompt || '').trim())
+                .filter(input => ['smart-prompt','smart-agent','smart-skill'].includes(input.type))
+                .map(input => String(input.type === 'smart-prompt' ? (input.text || input.promptDraftText || input.runPrompt || '') : (input.outputText || '')).trim())
                 .filter(Boolean);
         }
         function smartLoopPrompt(node, ctx=smartLoopContext){
@@ -3590,11 +4104,12 @@
             return base.filter(img => img?.url);
         }
         function promptInputNodesFor(node){
-            return inputNodesFor(node).filter(input => input.type === 'smart-prompt' || input.type === 'smart-loop');
+            return inputNodesFor(node).filter(input => ['smart-prompt','smart-loop','smart-agent','smart-skill','smart-template-call','smart-template-store'].includes(input.type));
         }
         function inputPromptTextFor(node){
             return promptInputNodesFor(node).map(input => {
                 if(input.type === 'smart-loop') return smartLoopPrompt(input);
+                if(['smart-agent','smart-skill','smart-template-call','smart-template-store'].includes(input.type)) return input.outputText || '';
                 return input.text || '';
             }).filter(Boolean).join('\n\n');
         }
@@ -3905,6 +4420,18 @@
             });
             return [...ids].map(id => nodes.find(n => n.id === id)).filter(Boolean);
         }
+        function smartAIRunOrder(targetId){
+            const order = [];
+            const seen = new Set();
+            const visit = node => {
+                if(!node || seen.has(node.id)) return;
+                seen.add(node.id);
+                smartFlowInputsFor(node).forEach(visit);
+                if(['smart-agent','smart-skill','smart-template-call'].includes(node.type)) order.push(node);
+            };
+            visit(nodes.find(node => node.id === targetId));
+            return order;
+        }
         function smartImageChainTo(tailId){
             const tail = nodes.find(n => n.id === tailId);
             if(!tail || tail.type !== 'smart-image') return [];
@@ -3953,15 +4480,18 @@
             return tail;
         }
         function canRunSmartCascade(node){
-            return Boolean(node && node.type === 'smart-image' && smartImageChainTo(node.id).length >= 1);
+            if(!node) return false;
+            if(node.type === 'smart-template-store') return Boolean(smartAIRunOrder(node.id).length || templateJsonSources(node).length);
+            return Boolean(node.type === 'smart-image' && (smartImageChainTo(node.id).length >= 2 || smartAIRunOrder(node.id).length));
         }
         async function runSmartCascade(targetNode=null){
             const tail = targetNode || selectedNode();
-            if(!canRunSmartCascade(tail)){ toast('请选择链路结尾图片节点'); return; }
+            if(!canRunSmartCascade(tail)){ toast('请选择可运行链路的结尾节点'); return; }
             if(smartCascadeRunning) return;
             savePromptDraftForCurrent();
             const chain = smartImageChainTo(tail.id);
-            if(chain.length < 2){ toast('没有可一键运行的上游链路'); return; }
+            const aiOrder = smartAIRunOrder(tail.id);
+            if(tail.type !== 'smart-template-store' && chain.length < 2 && !aiOrder.length){ toast('没有可一键运行的上游链路'); return; }
             const originalSelected = selectedId;
             const originalSettings = cloneSmartSettings(settings);
             const originalPromptHtml = promptInput.innerHTML;
@@ -3978,6 +4508,18 @@
                 const runRound = async (loopIndex=startIndex) => {
                     const ctx = loop ? {index:loopIndex, total:endIndex, nodeId:loop.node.id} : null;
                     smartLoopContext = ctx;
+                    for(const aiNode of aiOrder){
+                        if(aiNode.type === 'smart-template-call') await refreshTemplateCallNode(aiNode, {quiet:true});
+                        else await runSmartAgentSkillNode(aiNode.id, {cascade:true});
+                    }
+                    if(tail.type === 'smart-template-store'){
+                        await runTemplateStoreNode(tail.id, {quiet:true});
+                        return;
+                    }
+                    if(chain.length === 1 && aiOrder.length){
+                        await runCascadeStepIntoNode(aiOrder[aiOrder.length - 1], chain[0], inputImagesFor(chain[0]), ctx);
+                        return;
+                    }
                     let refs = outputImagesForNode(chain[0], true, ctx).filter(img => img?.url);
                     for(let i = 1; i < chain.length; i++){
                         const source = chain[i - 1];
@@ -4039,9 +4581,11 @@
         }
         async function runGeneration(){
             const node = selectedNode();
+            if(!node) return;
+            try { await refreshTemplateCallsFor(node); }
+            catch(error){ toast((error.message || '模板读取失败').slice(0, 160)); return; }
             const request = buildPromptRequest(node, null, true, smartLoopContext);
             const prompt = request.prompt.trim();
-            if(!node) return;
             if(!prompt){ toast(tr('smart.toastNeedPrompt')); return; }
             const refs = request.refs;
             const meta = snapshotRunMeta(prompt, node.id, request.displayPrompt, refs);
@@ -4133,7 +4677,9 @@
         async function runPromptLLMNode(nodeId){
             const node = nodes.find(n => n.id === nodeId);
             if(!node || node.type !== 'smart-prompt') return;
-            const message = (node.llmInstruction || node.text || '').trim();
+            try { await refreshTemplateCallsFor(node); }
+            catch(error){ toast((error.message || '模板读取失败').slice(0, 160)); return; }
+            const message = [inputPromptTextFor(node), node.llmInstruction || node.text || ''].map(value => String(value || '').trim()).filter(Boolean).join('\n\n');
             if(!message){ toast('请先输入给 LLM 的文本'); return; }
             const systemPrompt = (node.llmSystemPrompt || '').trim();
             node.llmEnabled = true;
@@ -4359,6 +4905,10 @@
             closeCreateMenu();
             if(type === 'prompt') return createPromptNode(p.x - 158, p.y - 97);
             if(type === 'loop') return createLoopNode(p.x - 135, p.y - 95);
+            if(type === 'agent') return createAgentNode(p.x - 200, p.y - 240);
+            if(type === 'skill') return createSkillNode(p.x - 215, p.y - 300);
+            if(type === 'template-store') return createTemplateStoreNode(p.x - 190, p.y - 270);
+            if(type === 'template-call') return createTemplateCallNode(p.x - 180, p.y - 220);
             return createNode(p.x - 130, p.y - 90);
         }
         shell.addEventListener('mousedown', e => {
@@ -4518,8 +5068,8 @@
                 if(!node) return;
                 const dx = (e.clientX - resizeState.startX) / viewport.scale;
                 const dy = (e.clientY - resizeState.startY) / viewport.scale;
-                const minW = node.type === 'smart-prompt' ? 260 : node.type === 'smart-loop' ? 252 : 48;
-                const minH = node.type === 'smart-prompt' ? 170 : node.type === 'smart-loop' ? 132 : 48;
+                const minW = node.type === 'smart-prompt' ? 260 : node.type === 'smart-loop' ? 252 : node.type === 'smart-agent' || node.type === 'smart-skill' ? 340 : 48;
+                const minH = node.type === 'smart-prompt' ? 170 : node.type === 'smart-loop' ? 132 : node.type === 'smart-agent' ? 420 : node.type === 'smart-skill' ? 480 : 48;
                 node.w = Math.max(minW, Math.round(resizeState.startW + dx));
                 node.h = Math.max(minH, Math.round(resizeState.startH + dy));
                 node.scale = 1;
@@ -4732,7 +5282,9 @@
             if(assetRaw){
                 try {
                     const asset = JSON.parse(assetRaw);
-                    if(asset?.url) createNode(p.x - 130, p.y - 90, [{url:asset.url, name:asset.name || 'asset'}]);
+                    if(asset?.kind === 'template' && asset.templateId){
+                        createTemplateCallNode(p.x - 180, p.y - 220, {templateId:asset.templateId, templateName:asset.name || '模板', templateThumbnailUrl:asset.thumbnailUrl || '', templateCategoryId:asset.categoryId || ''});
+                    } else if(asset?.url) createNode(p.x - 130, p.y - 90, [{url:asset.url, name:asset.name || 'asset'}]);
                     return;
                 } catch {}
             }
@@ -4872,10 +5424,35 @@
         document.getElementById('assetAddCategoryBtn').onclick = async () => {
             const name = await openAssetNameDialog({title:tr('smart.assetNewFolder'), value:tr('smart.assetFolder'), placeholder:tr('smart.assetFolder')});
             if(!name) return;
-            const data = await fetch('/api/asset-library/categories', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, type:'image'})}).then(r => r.json());
+            const data = await fetch('/api/asset-library/categories', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, type:assetTab === 'template' ? 'template' : 'image'})}).then(r => r.json());
             activeAssetCategoryId = data.category?.id || activeAssetCategoryId;
             setAssetLibraryFromResponse(data);
         };
+        document.getElementById('assetDeleteCategoryBtn').onclick = async () => {
+            const cat = activeAssetCategory('template');
+            if(!cat) return;
+            if(cat.default){ toast('默认模板文件夹不能删除'); return; }
+            if(!await StudioDialog.confirm('删除文件夹会同时删除其中的模板，是否继续？', {title:'删除模板文件夹', danger:true, confirmText:'删除'})) return;
+            const deletedTemplateIds = new Set((cat.items || []).map(item => item.id));
+            const data = await fetch(`/api/asset-library/categories/${encodeURIComponent(cat.id)}`, {method:'DELETE'}).then(async r => {
+                const body = await r.json().catch(() => ({}));
+                if(!r.ok) throw new Error(body.detail || '删除文件夹失败');
+                return body;
+            });
+            nodes.filter(node => deletedTemplateIds.has(node.templateId)).forEach(node => {
+                node.templateMissing = true;
+                if(node.type === 'smart-template-call'){
+                    node.templateError = '模板已被删除或文件缺失';
+                    delete node.structuredOutput;
+                    delete node.outputText;
+                    delete node._templateImages;
+                } else if(node.type === 'smart-template-store') node.saveError = '原模板已被删除，请另存为';
+            });
+            activeAssetCategoryId = '';
+            setAssetLibraryFromResponse(data);
+            scheduleSave();
+        };
+        assetSearchInput?.addEventListener('input', () => { if(assetTab === 'template') renderAssetLibrary(); });
         document.getElementById('assetRenameCategoryBtn').onclick = async () => {
             const cat = activeAssetCategory();
             if(!cat) return;
@@ -5135,6 +5712,7 @@
             await loadConfig();
             await loadAssetLibrary();
             await loadCanvas();
+            await refreshAllTemplateCallNodes();
             syncApiKindToggleVisibility();
             render();
         };
