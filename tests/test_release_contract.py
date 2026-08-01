@@ -31,8 +31,21 @@ class ReleaseContractTests(unittest.TestCase):
             '"static\\vendor\\css\\tailwind.css"',
             "manual_download",
             "independently versioned",
+            "must declare platforms",
         ):
             self.assertIn(required, script)
+
+    def test_macos_packaging_pipeline_is_present(self):
+        script = (ROOT / "tools" / "build_macos_dmg.ps1").read_text(encoding="utf-8")
+        launcher = (ROOT / "macos" / "SynCanvas").read_text(encoding="utf-8")
+        native = (ROOT / "tools" / "build_macos_dmg_native.sh").read_text(encoding="utf-8")
+        self.assertIn("macos-universal", script)
+        self.assertIn("dmg-bootstrap", script)
+        self.assertIn("release_smoke_test.py", script)
+        self.assertIn("Application Support/SynCanvas", launcher)
+        self.assertIn("requirements.lock", launcher)
+        self.assertIn("codesign", native)
+        self.assertIn("notarytool", native)
 
     def test_node_engine_source_offer_is_complete(self):
         manifest = json.loads((ROOT / "node-engine-manifest.json").read_text(encoding="utf-8"))

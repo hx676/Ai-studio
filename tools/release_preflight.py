@@ -122,6 +122,9 @@ def _audit_manifests(root: Path, errors: list[str], warnings: list[str]) -> None
         errors.append("components-manifest.json 缺少 digital-human 组件定义")
     else:
         for artifact in digital_component.get("artifacts") or []:
+            platforms = [str(item).strip() for item in artifact.get("platforms") or [] if str(item).strip()]
+            if not platforms:
+                errors.append(f"数字人组件 {artifact.get('id')} 未声明支持平台")
             urls = [str(item).strip() for item in artifact.get("urls") or [] if str(item).strip()]
             manual = artifact.get("manual_download") if isinstance(artifact.get("manual_download"), dict) else {}
             manual_url = str(manual.get("share_url") or "").strip()
@@ -149,6 +152,9 @@ def _audit_manifests(root: Path, errors: list[str], warnings: list[str]) -> None
         if not value or (field.endswith("url") and not value.startswith("https://")):
             errors.append(f"节点引擎缺少有效 {field}")
     artifact = node_component.get("artifact") or {}
+    platforms = [str(item).strip() for item in artifact.get("platforms") or [] if str(item).strip()]
+    if not platforms:
+        errors.append("节点引擎运行时未声明支持平台")
     urls = [str(item).strip() for item in artifact.get("urls") or [] if str(item).strip()]
     checksum = str(artifact.get("sha256") or "").strip()
     if urls and not re.fullmatch(r"[0-9a-fA-F]{64}", checksum):

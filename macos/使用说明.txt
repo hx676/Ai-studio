@@ -1,0 +1,23 @@
+SynCanvas macOS 版使用说明
+
+1. 将 SynCanvas.app 拖到右侧 Applications 文件夹。
+2. 首次打开时，建议右键 SynCanvas.app，选择“打开”。
+3. 首次启动会使用本机 Python 3.10+ 创建独立环境并在线安装锁定依赖，所需时间取决于网络。
+4. 启动完成后会自动打开 http://127.0.0.1:3000/。
+5. 如需停止后台服务，可运行镜像中的“停止 SynCanvas.command”。
+
+本版本同时支持 Apple Silicon 与 Intel，因为应用核心为 Python/Web，依赖会按当前 Mac 架构安装。
+
+当前限制：
+- 数字人 TTS 与 HeyGem 组件包是 Windows/CUDA 运行时，macOS 版不提供安装。
+- 当前内置 Comfy 节点引擎运行时是 Windows 版本，macOS 版暂不提供安装。
+- 本镜像未经过 Apple Developer ID 签名和公证，正式公开分发前需在真实 Mac 上签名、公证并复测。
+
+用户数据目录：
+~/Library/Application Support/SynCanvas
+
+启动日志：
+~/Library/Application Support/SynCanvas/logs/launcher.log
+
+服务日志：
+~/Library/Application Support/SynCanvas/logs/service.log

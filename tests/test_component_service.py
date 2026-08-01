@@ -187,6 +187,22 @@ class ComponentServiceTests(unittest.TestCase):
 
         self.assertNotIn("manual_download", normalized["component"]["artifacts"][0])
 
+    def test_windows_component_is_reported_as_unsupported_on_macos(self):
+        manifest = self._write_manifest()
+        for artifact in manifest["component"]["artifacts"]:
+            artifact["platforms"] = ["win-x64"]
+        service.MANIFEST_FILE.write_text(json.dumps(manifest), encoding="utf-8")
+
+        with mock.patch.object(service, "current_platform_tag", return_value="macos-arm64"), mock.patch.object(
+            service, "platform_supported", return_value=False
+        ):
+            status = service.get_component_status()
+
+        self.assertEqual("unsupported", status["state"])
+        self.assertFalse(status["supported"])
+        self.assertFalse(status["can_install"])
+        self.assertTrue(all(not item["platform_supported"] for item in status["artifacts"]))
+
     def test_invalid_sha256_is_rejected(self):
         manifest = self._write_manifest()
         manifest["component"]["artifacts"][0]["sha256"] = "0" * 64

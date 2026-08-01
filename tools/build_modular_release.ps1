@@ -159,10 +159,16 @@ function Assert-ReleaseManifest([object]$DigitalManifest, [object]$NodeManifest)
         }
     }
     $nodeArtifact = $NodeManifest.component.artifact
+    if (@($nodeArtifact.platforms).Count -eq 0) {
+        throw "Node engine artifact must declare platforms"
+    }
     if (@($nodeArtifact.urls).Count -gt 0 -and [string]$nodeArtifact.sha256 -notmatch '^[0-9a-fA-F]{64}$') {
         throw "Downloadable node engine artifact must include SHA-256"
     }
     foreach ($artifact in @($DigitalManifest.component.artifacts)) {
+        if (@($artifact.platforms).Count -eq 0) {
+            throw "Digital-human artifact $($artifact.id) must declare platforms"
+        }
         $hasManualDownload = $artifact.manual_download -and [string]$artifact.manual_download.share_url
         if ((@($artifact.urls).Count -gt 0 -or $hasManualDownload) -and [string]$artifact.sha256 -notmatch '^[0-9a-fA-F]{64}$') {
             throw "Downloadable component artifact $($artifact.id) must include SHA-256"
