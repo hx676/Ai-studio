@@ -1,10 +1,33 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="canvas-booting">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="/static/images/logo.png" type="image/png">
     <title>无限画布</title>
+    <style>
+        html.canvas-booting,
+        html.canvas-booting body { background:#f8fafc !important; }
+        html.canvas-booting.theme-dark,
+        html.canvas-booting.theme-dark body,
+        html.canvas-booting.studio-theme-dark,
+        html.canvas-booting.studio-theme-dark body { background:#0b1020 !important; }
+        html.canvas-booting .shell { visibility:hidden !important; }
+        html.canvas-booting body::after {
+            content:"";
+            position:fixed;
+            left:50%;
+            top:50%;
+            width:24px;
+            height:24px;
+            margin:-12px 0 0 -12px;
+            border:2px solid rgba(100,116,139,.22);
+            border-top-color:#64748b;
+            border-radius:50%;
+            animation:canvas-boot-spin .7s linear infinite;
+        }
+        @keyframes canvas-boot-spin { to { transform:rotate(360deg); } }
+    </style>
     <script>
         (function(){
             try {
@@ -16,12 +39,15 @@
             } catch(e) {}
         })();
     </script>
-    <script src="/static/vendor/js/tailwindcss-cdn.js?v=2026.07.08.1"></script>
-    <script src="/static/vendor/js/lucide.js?v=2026.07.08.1"></script>
-    <script src="/static/js/theme.js?v=2026.07.08.1"></script>
-    <script src="/static/js/i18n.js?v=2026.07.08.1"></script>
-    <link rel="stylesheet" href="/static/css/canvas.css?v=2026.07.08.1">
-    <link rel="stylesheet" href="/static/css/theme.css?v=2026.07.08.1">
+    <link rel="stylesheet" href="/static/vendor/css/tailwind.css?v=2026.08.01.4">
+    <script src="/static/vendor/js/lucide.js?v=2026.08.01.4"></script>
+    <script src="/static/js/theme.js?v=2026.08.01.4"></script>
+    <script src="/static/js/i18n-core.js?v=2026.08.01.4"></script><script src="/static/js/i18n/common.js?v=2026.08.01.4"></script><script src="/static/js/i18n/studio.js?v=2026.08.01.4"></script><script src="/static/js/i18n/api-settings.js?v=2026.08.01.4"></script><script src="/static/js/i18n/canvas.js?v=2026.08.01.4"></script><script src="/static/js/i18n/smart-canvas.js?v=2026.08.01.4"></script><script src="/static/js/i18n/comfyui-settings.js?v=2026.08.01.4"></script><script src="/static/js/i18n/legacy.js?v=2026.08.01.4"></script>
+    <link rel="stylesheet" href="/static/css/canvas.css?v=2026.08.01.4">
+    <link rel="stylesheet" href="/static/css/upstream-canvas-features.css?v=2026.08.01.4">
+    <link rel="stylesheet" href="/static/css/canvas-assistant.css?v=2026.08.01.4">
+    <link rel="stylesheet" href="/static/css/theme.css?v=2026.08.01.4">
+    <link rel="stylesheet" href="/static/css/node-extensions.css?v=2026.08.01.4">
 </head>
 <body>
     <div id="shell" class="shell no-canvas">
@@ -36,19 +62,42 @@
             </div>
             <div id="quickToolbar" class="panel toolbar editor-only">
                 <button class="tool-btn toolbar-toggle" type="button" onclick="toggleQuickToolbar()" title="折叠快捷菜单" aria-label="折叠快捷菜单"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
-                <div class="toolbar-items">
-                    <button class="tool-btn" onclick="addImageNode()"><i data-lucide="image-plus" class="w-4 h-4"></i><span data-i18n="canvas.image">图片</span></button>
-                    <button class="tool-btn" onclick="addAudioNode()"><i data-lucide="audio-lines" class="w-4 h-4"></i><span data-i18n="canvas.audio">音频</span></button>
-                    <button class="tool-btn" onclick="addPromptNode()"><i data-lucide="text-cursor-input" class="w-4 h-4"></i><span data-i18n="canvas.prompt">提示词</span></button>
-                    <button class="tool-btn" onclick="addLoopNode()"><i data-lucide="repeat-2" class="w-4 h-4"></i><span data-i18n="canvas.loop">循环</span></button>
-                    <button class="tool-btn" onclick="addLLMNode()"><i data-lucide="message-square-text" class="w-4 h-4"></i>LLM</button>
-                    <button class="tool-btn" onclick="addGeneratorNode()"><i data-lucide="wand-sparkles" class="w-4 h-4"></i><span data-i18n="canvas.apiGenerate">API生成</span></button>
-                    <button class="tool-btn" onclick="addVideoNode()"><i data-lucide="clapperboard" class="w-4 h-4"></i><span data-i18n="canvas.videoGenerate">视频生成</span></button>
-                    <button class="tool-btn" onclick="addOutputNode()"><i data-lucide="circle-dot" class="w-4 h-4"></i>Output</button>
-                    <button class="tool-btn" onclick="groupSelectedImages()"><i data-lucide="group" class="w-4 h-4"></i><span data-i18n="canvas.group">分组</span></button>
-                </div>
-                <div class="toolbar-fixed">
-                    <button class="tool-btn toolbar-log" onclick="openCanvasLog()" title="日志" aria-label="日志" data-i18n-title="canvas.logs"><i data-lucide="list-todo" class="w-4 h-4"></i><span data-i18n="canvas.logs">日志</span></button>
+                <div class="toolbar-main">
+                    <div class="toolbar-row toolbar-row-primary">
+                        <div class="toolbar-group toolbar-group-input" role="group" aria-label="输入节点">
+                            <button class="tool-btn" onclick="addImageNode()"><i data-lucide="image-plus" class="w-4 h-4"></i><span data-i18n="canvas.image">图片</span></button>
+                            <button class="tool-btn" onclick="addVideoInputNode()"><i data-lucide="video" class="w-4 h-4"></i><span data-i18n="canvas.videoInput">视频</span></button>
+                            <button class="tool-btn" onclick="addAudioNode()"><i data-lucide="audio-lines" class="w-4 h-4"></i><span data-i18n="canvas.audio">音频</span></button>
+                            <button class="tool-btn" onclick="addPromptNode()"><i data-lucide="text-cursor-input" class="w-4 h-4"></i><span data-i18n="canvas.prompt">提示词</span></button>
+                        </div>
+                        <div class="toolbar-group toolbar-group-ai" role="group" aria-label="智能与流程节点">
+                            <button class="tool-btn" onclick="addLoopNode()"><i data-lucide="repeat-2" class="w-4 h-4"></i><span data-i18n="canvas.loop">循环</span></button>
+                            <button class="tool-btn" onclick="addLLMNode()"><i data-lucide="message-square-text" class="w-4 h-4"></i><span>LLM</span></button>
+                            <button class="tool-btn" onclick="addAgentNode()"><i data-lucide="bot" class="w-4 h-4"></i><span data-i18n="canvas.agent">智能体</span></button>
+                            <button class="tool-btn" onclick="addSkillNode()"><i data-lucide="blocks" class="w-4 h-4"></i><span data-i18n="canvas.aiWorkflow">AI 工作流</span></button>
+                        </div>
+                        <div class="toolbar-group toolbar-group-generate" role="group" aria-label="生成节点">
+                            <button class="tool-btn" onclick="addGeneratorNode()"><i data-lucide="wand-sparkles" class="w-4 h-4"></i><span data-i18n="canvas.apiGenerate">API生成</span></button>
+                            <button class="tool-btn" onclick="addVideoNode()"><i data-lucide="clapperboard" class="w-4 h-4"></i><span data-i18n="canvas.videoGenerate">视频生成</span></button>
+                        </div>
+                    </div>
+                    <div class="toolbar-row toolbar-row-secondary">
+                        <div class="toolbar-group toolbar-group-template" role="group" aria-label="模板节点">
+                            <button class="tool-btn" onclick="addTemplateStoreNode()"><i data-lucide="archive" class="w-4 h-4"></i><span>存模板</span></button>
+                            <button class="tool-btn" onclick="addTemplateCallNode()"><i data-lucide="book-open-check" class="w-4 h-4"></i><span>调用模板</span></button>
+                        </div>
+                        <div class="toolbar-group toolbar-group-result" role="group" aria-label="结果与分组节点">
+                            <button class="tool-btn" onclick="addOutputNode()"><i data-lucide="circle-dot" class="w-4 h-4"></i><span>Output</span></button>
+                            <button class="tool-btn" onclick="groupSelectedImages()"><i data-lucide="group" class="w-4 h-4"></i><span data-i18n="canvas.group">分组</span></button>
+                        </div>
+                        <div class="toolbar-fixed" role="group" aria-label="画布工具">
+                            <button id="canvasAssistantToggle" class="tool-btn toolbar-assistant" type="button" title="画布精灵" aria-label="画布精灵" aria-expanded="false"><i data-lucide="sparkles" class="w-4 h-4"></i><span>画布精灵</span></button>
+                            <button id="canvasPromptTemplateToggle" class="tool-btn toolbar-template" type="button" title="提示词模板" aria-label="提示词模板"><i data-lucide="library" class="w-4 h-4"></i><span>提示词模板</span></button>
+                            <button id="canvasWorkflowToggle" class="tool-btn toolbar-workflow" type="button" title="导入导出工作流" aria-label="导入导出工作流"><i data-lucide="package-open" class="w-4 h-4"></i><span>工作流</span></button>
+                            <button id="canvasAssetToggle" class="tool-btn toolbar-asset" type="button" title="画布素材" aria-label="画布素材"><i data-lucide="images" class="w-4 h-4"></i><span>素材</span></button>
+                            <button class="tool-btn toolbar-log" onclick="openCanvasLog()" title="日志" aria-label="日志" data-i18n-title="canvas.logs"><i data-lucide="list-todo" class="w-4 h-4"></i><span data-i18n="canvas.logs">日志</span></button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -93,6 +142,7 @@
             <div id="selectionHub" class="selection-hub"></div>
             <div id="createMenu" class="create-menu">
                 <button class="menu-btn" onclick="menuAdd('image')"><i data-lucide="image-plus" class="w-4 h-4"></i><span data-i18n="canvas.imageCard">图片卡片</span></button>
+                <button class="menu-btn" onclick="menuAdd('videoInput')"><i data-lucide="video" class="w-4 h-4"></i><span data-i18n="canvas.videoInputNode">视频输入节点</span></button>
                 <button class="menu-btn" onclick="menuAdd('audio')"><i data-lucide="audio-lines" class="w-4 h-4"></i><span data-i18n="canvas.audioNode">音频节点</span></button>
                 <button class="menu-btn" onclick="menuAdd('prompt')"><i data-lucide="text-cursor-input" class="w-4 h-4"></i><span data-i18n="canvas.prompt">提示词</span></button>
                 <button class="menu-btn" onclick="menuAdd('loop')"><i data-lucide="repeat-2" class="w-4 h-4"></i><span data-i18n="canvas.loopNode">循环节点</span></button>
@@ -100,6 +150,10 @@
                 <button class="menu-btn" onclick="menuAdd('generator')"><i data-lucide="wand-sparkles" class="w-4 h-4"></i><span data-i18n="canvas.apiGenerate">API生成</span></button>
                 <button class="menu-btn" onclick="menuAdd('video')"><i data-lucide="clapperboard" class="w-4 h-4"></i><span data-i18n="canvas.videoGenerateNode">视频生成</span></button>
                 <button class="menu-btn" onclick="menuAdd('output')"><i data-lucide="circle-dot" class="w-4 h-4"></i>Output</button>
+                    <button class="menu-btn" onclick="menuAdd('agent')"><i data-lucide="bot" class="w-4 h-4"></i><span data-i18n="canvas.agentNode">智能体节点</span></button>
+                    <button class="menu-btn" onclick="menuAdd('skill')"><i data-lucide="blocks" class="w-4 h-4"></i><span data-i18n="canvas.aiWorkflowNode">AI 工作流节点</span></button>
+                <button class="menu-btn" onclick="menuAdd('template-store')"><i data-lucide="archive" class="w-4 h-4"></i><span>存模板节点</span></button>
+                <button class="menu-btn" onclick="menuAdd('template-call')"><i data-lucide="book-open-check" class="w-4 h-4"></i><span>调用模板节点</span></button>
             </div>
             <div id="linkCreateMenu" class="create-menu"></div>
             <div id="nodeInputMenu" class="create-menu"></div>
@@ -116,6 +170,57 @@
                 </div>
             </div>
         </div>
+        <aside id="canvasAssistantPanel" class="sync-feature-panel canvas-assistant-panel" aria-hidden="true">
+            <div class="sync-feature-head">
+                <div><strong>画布精灵</strong><span>多轮 API 对话 · 将回复发送为提示词节点</span></div>
+                <div class="canvas-assistant-head-actions"><button id="canvasAssistantClose" type="button" title="关闭"><i data-lucide="x"></i></button></div>
+            </div>
+            <div class="canvas-assistant-config">
+                <div class="canvas-assistant-conversation-row">
+                    <select id="canvasAssistantConversation" aria-label="画布精灵会话"></select>
+                    <button id="canvasAssistantNew" class="canvas-assistant-icon-btn" type="button" title="新建会话"><i data-lucide="plus"></i></button>
+                    <button id="canvasAssistantDelete" class="canvas-assistant-icon-btn danger" type="button" title="删除会话"><i data-lucide="trash-2"></i></button>
+                </div>
+                <div class="canvas-assistant-source-row"><select id="canvasAssistantSource" aria-label="提示词来源"></select></div>
+                <div class="canvas-assistant-model-row"><select id="canvasAssistantProvider" aria-label="API 平台"></select><select id="canvasAssistantModel" aria-label="模型"></select></div>
+            </div>
+            <div id="canvasAssistantMessages" class="canvas-assistant-messages"></div>
+            <div id="canvasAssistantAttachments" class="canvas-assistant-attachments"></div>
+            <div id="canvasAssistantComposer" class="canvas-assistant-composer">
+                <textarea id="canvasAssistantInput" rows="3" maxlength="20000" placeholder="输入消息，Enter 发送…"></textarea>
+                <div class="canvas-assistant-composer-foot">
+                    <button id="canvasAssistantUpload" class="canvas-assistant-icon-btn" type="button" title="上传图片"><i data-lucide="paperclip"></i></button>
+                    <button id="canvasAssistantUseSelection" class="canvas-assistant-icon-btn" type="button" title="引用画布选中图片"><i data-lucide="mouse-pointer-2"></i></button>
+                    <button id="canvasAssistantSend" class="canvas-assistant-primary" type="button"><i data-lucide="play"></i><span>开始对话</span></button>
+                </div>
+                <div id="canvasAssistantStatus" class="canvas-assistant-status" role="status" aria-live="polite"></div>
+                <input id="canvasAssistantFile" class="canvas-assistant-file-input" type="file" accept="image/png,image/jpeg,image/webp" multiple>
+            </div>
+        </aside>
+        <aside id="canvasPromptTemplatePanel" class="sync-feature-panel sync-template-panel" aria-hidden="true">
+            <div class="sync-feature-head"><div><strong>提示词模板库</strong><span>选择模板应用到提示词节点</span></div><button type="button" data-sync-close="canvasPromptTemplatePanel" title="关闭"><i data-lucide="x"></i></button></div>
+            <div class="sync-feature-tools"><select id="canvasPromptLibrarySelect"></select><input id="canvasPromptTemplateSearch" type="search" placeholder="搜索模板"></div>
+            <div id="canvasPromptTemplateCategories" class="sync-chip-row"></div>
+            <div id="canvasPromptTemplateList" class="sync-template-list"></div>
+            <div id="canvasPromptTemplateDetail" class="sync-template-detail"></div>
+        </aside>
+        <aside id="canvasWorkflowPanel" class="sync-feature-panel sync-workflow-panel" aria-hidden="true">
+            <div class="sync-feature-head"><div><strong>工作流</strong><span>导出选中节点，或追加导入工作流</span></div><button type="button" data-sync-close="canvasWorkflowPanel" title="关闭"><i data-lucide="x"></i></button></div>
+            <div class="sync-workflow-example">
+                <div class="sync-workflow-example-icon"><i data-lucide="wand-sparkles"></i></div>
+                <div class="sync-workflow-example-copy"><span>内置示例</span><strong>参考图提炼与提示词合成</strong></div>
+                <button id="canvasWorkflowInsertExample" type="button"><i data-lucide="plus"></i><span>插入</span></button>
+            </div>
+            <div id="canvasWorkflowMeta" class="sync-feature-status">请先框选要导出的节点</div>
+            <div class="sync-command-row"><button id="canvasWorkflowExportJson" type="button"><i data-lucide="file-json"></i><span>导出 JSON</span></button><button id="canvasWorkflowExportZip" class="primary" type="button"><i data-lucide="package"></i><span>包含素材</span></button></div>
+            <label class="sync-drop-zone" for="canvasWorkflowImportInput"><i data-lucide="upload"></i><strong>导入工作流</strong><span>支持 JSON 和 ZIP，内容会追加到当前画布</span></label>
+            <input id="canvasWorkflowImportInput" type="file" accept=".json,.zip,application/json,application/zip" hidden>
+        </aside>
+        <aside id="canvasAssetPanel" class="sync-feature-panel sync-asset-panel" aria-hidden="true">
+            <div class="sync-feature-head"><div><strong>画布素材</strong><span>点击素材添加到当前画布</span></div><button type="button" data-sync-close="canvasAssetPanel" title="关闭"><i data-lucide="x"></i></button></div>
+            <div class="sync-feature-tools"><select id="canvasAssetLibrarySelect"></select><select id="canvasAssetCategorySelect"></select></div>
+            <div id="canvasAssetGrid" class="sync-asset-grid"></div>
+        </aside>
         <div class="hint editor-only" data-i18n="canvas.hint">拖拽画布或按住滚轮移动，Ctrl 框选多选，拖动选中节点可一起移动。图片/提示词节点右下端口拖线到生成节点。</div>
         <div id="outputLightbox" class="output-lightbox" onclick="closeOutputLightbox()">
             <div id="outputLightboxShell" class="output-lightbox-shell" onclick="event.stopPropagation()">
@@ -249,14 +354,13 @@
         </div>
     </div>
 
-    <script src="/static/js/canvas/state.js?v=2026.07.08.1"></script>
-    <script src="/static/js/canvas/utils.js?v=2026.07.08.1"></script>
-    <script src="/static/js/canvas/api.js?v=2026.07.08.1"></script>
-    <script src="/static/js/canvas/nodes.js?v=2026.07.08.1"></script>
-    <script src="/static/js/canvas/generation.js?v=2026.07.08.1"></script>
-    <script src="/static/js/canvas/interactions.js?v=2026.07.08.1"></script>
-    <script src="/static/js/canvas/events.js?v=2026.07.08.1"></script>
-    <script src="/static/js/canvas/bootstrap.js?v=2026.07.08.1"></script>
-    <script src="/static/js/canvas/exports.js?v=2026.07.08.1"></script>
+    <script src="/static/js/node-extensions.js?v=2026.08.01.4"></script>
+    <script src="/static/js/graph-model.js?v=2026.08.01.4"></script>
+    <script src="/static/vendor/js/marked-15.0.12.min.js?v=2026.08.01.4"></script>
+    <script src="/static/vendor/js/dompurify-3.2.6.min.js?v=2026.08.01.4"></script>
+    <script src="/static/js/canvas/state.js?v=2026.08.01.4"></script>
+    <script src="/static/js/canvas-assistant.js?v=2026.08.01.4"></script>
+    <script src="/static/js/upstream-canvas-features.js?v=2026.08.01.4"></script>
+    <script src="/static/js/canvas/exports.js?v=2026.08.01.4"></script>
 </body>
 </html>

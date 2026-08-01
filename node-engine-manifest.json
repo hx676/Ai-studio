@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "component": {
+    "id": "node-engine",
+    "display_name": "SynCanvas 节点引擎",
+    "version": "2026.07.30.1",
+    "license": "GPL-3.0",
+    "source_url": "https://github.com/comfyanonymous/ComfyUI",
+    "source_version": "v0.20.1",
+    "source_offer_url": "https://github.com/comfyanonymous/ComfyUI/tree/v0.20.1",
+    "download_size": 0,
+    "installed_size": 0,
+    "minimum_free_bytes": 21474836480,
+    "artifact": {
+      "platforms": ["win-x64"],
+      "filename": "SynCanvas-NodeEngine-20260730.zip",
+      "sha256": "",
+      "urls": [],
+      "sentinels": [
+        "python/python.exe",
+        "main.py",
+        "LICENSE"
+      ]
+    }
+  }
+}

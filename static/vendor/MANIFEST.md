@@ -4,13 +4,14 @@ This folder contains third-party assets mirrored locally so the app can load wit
 
 ## JavaScript
 
-- `js/tailwindcss-cdn.js`: local mirror of `https://cdn.tailwindcss.com`
-- `js/lucide.js`: local mirror of `https://unpkg.com/lucide@latest`
+- `js/tailwindcss-cdn.js`: legacy local mirror retained for old package compatibility; current pages do not load it.
+- `js/lucide.js`: Lucide `1.16.0` (ISC).
 - `js/three-0.160.0.module.js`: local mirror of `https://unpkg.com/three@0.160.0/build/three.module.js`
 
 ## CSS
 
 - `css/fonts.css`: local `@font-face` declarations used by all pages.
+- `css/tailwind.css`: precompiled from Tailwind CSS `3.4.17` (MIT) using the locked root npm dependency.
 
 ## Fonts
 

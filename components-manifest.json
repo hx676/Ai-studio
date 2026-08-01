@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "component": {
+    "id": "digital-human",
+    "display_name": "数字人组件",
+    "version": "2026.07.27.1",
+    "download_size": 25507251942,
+    "installed_size": 38622330612,
+    "minimum_free_bytes": 53687091200,
+    "artifacts": [
+      {
+        "id": "tts",
+        "display_name": "IndexTTS 语音引擎",
+        "version": "2026.07.27.1",
+        "platforms": ["win-x64"],
+        "filename": "SynCanvas-DigitalHuman-TTS-20260727.zip",
+        "download_size": 19152861898,
+        "installed_size": 27314150553,
+        "sha256": "842a77dcf632f5f4981cc9be7318c9dba8174bcf1509f4d5f13fae9e181ca8a4",
+        "urls": [],
+        "manual_download": {
+          "provider": "baidu-pan",
+          "share_url": "https://pan.baidu.com/s/1cUjx6OxSbBWPTCgJWbxUQQ",
+          "extraction_code": "ae7k",
+          "filename": "SynCanvas-DigitalHuman-TTS-20260727.zip"
+        },
+        "target": "tts",
+        "sentinels": [
+          "py312/python.exe",
+          "app.py",
+          "checkpoints/config.yaml"
+        ],
+        "preserve_paths": [
+          "assets/bak",
+          "voices",
+          "outputs"
+        ]
+      },
+      {
+        "id": "heygem",
+        "display_name": "HeyGem 数字人引擎",
+        "version": "2026.07.27.1",
+        "platforms": ["win-x64"],
+        "filename": "SynCanvas-DigitalHuman-HeyGem-20260727.zip",
+        "download_size": 6354390044,
+        "installed_size": 11308180059,
+        "sha256": "50aab2481fa892621a039ac8bf98932ac8626f26eb9dbc51ee7fc059c919f31a",
+        "urls": [],
+        "manual_download": {
+          "provider": "baidu-pan",
+          "share_url": "https://pan.baidu.com/s/1DD9SnWtn5hxG_BvZut_Pxg",
+          "extraction_code": "i5s8",
+          "filename": "SynCanvas-DigitalHuman-HeyGem-20260727.zip"
+        },
+        "target": "heygem",
+        "sentinels": [
+          "py38/python.exe",
+          "app.py",
+          "pretrain_models"
+        ],
+        "preserve_paths": [
+          "save",
+          "视频输出"
+        ]
+      }
+    ]
+  }
+}

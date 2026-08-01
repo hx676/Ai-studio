@@ -20,12 +20,74 @@
             }
         })();
     </script>
-    <script src="/static/js/theme.js?v=2026.07.08.1"></script>
-    <script src="/static/js/i18n.js?v=2026.07.08.1"></script>
-    <link rel="stylesheet" href="/static/css/theme.css?v=2026.07.08.1">
-        <link rel="stylesheet" href="/static/css/digital-human.css?v=2026.07.08.1">
+    <script src="/static/js/theme.js?v=2026.08.01.4"></script>
+    <script src="/static/js/i18n-core.js?v=2026.08.01.4"></script><script src="/static/js/i18n/common.js?v=2026.08.01.4"></script><script src="/static/js/i18n/studio.js?v=2026.08.01.4"></script><script src="/static/js/i18n/api-settings.js?v=2026.08.01.4"></script><script src="/static/js/i18n/canvas.js?v=2026.08.01.4"></script><script src="/static/js/i18n/smart-canvas.js?v=2026.08.01.4"></script><script src="/static/js/i18n/comfyui-settings.js?v=2026.08.01.4"></script><script src="/static/js/i18n/legacy.js?v=2026.08.01.4"></script>
+    <link rel="stylesheet" href="/static/css/theme.css?v=2026.08.01.4">
+        <link rel="stylesheet" href="/static/css/digital-human.css?v=2026.08.01.4">
 </head>
 <body>
+    <section class="component-install-gate" id="digital-human-component-gate" hidden>
+        <div class="component-install-shell">
+            <div class="component-install-heading">
+                <div class="component-install-mark" aria-hidden="true">DH</div>
+                <div>
+                    <div class="component-install-kicker">可选本地组件</div>
+                    <h1>安装数字人运行组件</h1>
+                    <p id="component-install-description">画布功能已经可以正常使用。首次使用数字人时，需要下载本地 TTS 与 HeyGem 运行环境。</p>
+                </div>
+                <span class="component-install-state" id="component-install-state">正在检查</span>
+            </div>
+
+            <div class="component-install-metrics">
+                <div>
+                    <span>下载大小</span>
+                    <strong id="component-download-size">--</strong>
+                </div>
+                <div>
+                    <span>安装后占用</span>
+                    <strong id="component-installed-size">--</strong>
+                </div>
+                <div>
+                    <span>当前可用空间</span>
+                    <strong id="component-free-space">--</strong>
+                </div>
+            </div>
+
+            <div class="component-install-progress" id="component-install-progress" hidden>
+                <div class="component-progress-line">
+                    <span id="component-progress-label">准备安装</span>
+                    <strong id="component-progress-percent">0%</strong>
+                </div>
+                <div class="component-progress-track" aria-hidden="true">
+                    <div class="component-progress-value" id="component-progress-value"></div>
+                </div>
+                <div class="component-progress-detail" id="component-progress-detail"></div>
+            </div>
+
+            <div class="component-install-error" id="component-install-error" hidden></div>
+
+            <div class="component-manual-downloads" id="component-manual-downloads" hidden>
+                <div class="component-manual-heading">
+                    <strong>通过百度网盘获取组件包</strong>
+                    <span id="component-manual-summary">请下载后保持原文件名不变</span>
+                </div>
+                <div class="component-manual-list" id="component-manual-list"></div>
+            </div>
+
+            <div class="component-install-actions">
+                <button class="btn primary" id="component-install-btn" type="button">下载并安装</button>
+                <button class="btn" id="component-repair-btn" type="button" hidden>重新安装</button>
+                <button class="btn" id="component-cancel-btn" type="button" hidden>取消下载</button>
+                <button class="btn" id="component-refresh-btn" type="button">重新检查</button>
+            </div>
+
+            <div class="component-install-foot">
+                <span id="component-install-location"></span>
+                <span>网盘文件会在本机完成大小与 SHA-256 校验，通过后才会解压。</span>
+            </div>
+        </div>
+    </section>
+
     <div class="page">
         <div class="topbar">
             <div>
@@ -254,12 +316,13 @@
         </div>
     </div>
 
-        <script src="/static/js/digital-human/state.js?v=2026.07.08.1"></script>
-        <script src="/static/js/digital-human/tts.js?v=2026.07.08.1"></script>
-        <script src="/static/js/digital-human/people.js?v=2026.07.08.1"></script>
-        <script src="/static/js/digital-human/voices.js?v=2026.07.08.1"></script>
-        <script src="/static/js/digital-human/generation.js?v=2026.07.08.1"></script>
-        <script src="/static/js/digital-human/events.js?v=2026.07.08.1"></script>
-        <script src="/static/js/digital-human/bootstrap.js?v=2026.07.08.1"></script>
+        <script src="/static/js/digital-human/state.js?v=2026.08.01.4"></script>
+        <script src="/static/js/digital-human/tts.js?v=2026.08.01.4"></script>
+        <script src="/static/js/digital-human/people.js?v=2026.08.01.4"></script>
+        <script src="/static/js/digital-human/voices.js?v=2026.08.01.4"></script>
+        <script src="/static/js/digital-human/generation.js?v=2026.08.01.4"></script>
+        <script src="/static/js/digital-human/events.js?v=2026.08.01.4"></script>
+        <script src="/static/js/digital-human/component.js?v=2026.08.01.4"></script>
+        <script src="/static/js/digital-human/bootstrap.js?v=2026.08.01.4"></script>
 </body>
 </html>

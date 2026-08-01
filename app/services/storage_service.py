@@ -1,4 +1,5 @@
 import base64
+import asyncio
 import os
 import urllib.parse
 import uuid
@@ -8,6 +9,8 @@ from fastapi import HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, Response
 
 from app import legacy
+from app.core.security import redact_sensitive_text
+from app.core.upload_limits import ensure_request_upload_size
 
 
 def _comfy_instances():
@@ -26,6 +29,11 @@ def output_url_for(filename, category="output"):
 def output_path_for(filename, category="output"):
     folder, _ = output_storage(category)
     return os.path.join(folder, filename)
+
+
+def _read_file_bytes(path: str) -> bytes:
+    with open(path, "rb") as handle:
+        return handle.read()
 
 def output_file_from_url(url):
     if isinstance(url, dict):
@@ -71,12 +79,15 @@ def content_type_for_path(path):
     return "image/png"
 
 CANVAS_AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".ogg"}
+CANVAS_VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov", ".m4v"}
 
 def canvas_audio_extension(file: UploadFile):
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext in CANVAS_AUDIO_EXTENSIONS:
         return ext
     content_type = (file.content_type or "").lower()
+    if content_type.startswith("video/"):
+        return ""
     if "wav" in content_type:
         return ".wav"
     if "mpeg" in content_type or "mp3" in content_type:
@@ -86,6 +97,35 @@ def canvas_audio_extension(file: UploadFile):
     if "ogg" in content_type:
         return ".ogg"
     return ""
+
+def canvas_video_extension(file: UploadFile):
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext in CANVAS_VIDEO_EXTENSIONS:
+        return ext
+    content_type = (file.content_type or "").lower()
+    if content_type == "video/webm":
+        return ".webm"
+    if content_type in {"video/quicktime", "video/mov"}:
+        return ".mov"
+    if content_type in {"video/x-m4v", "video/m4v"}:
+        return ".m4v"
+    if content_type == "video/mp4":
+        return ".mp4"
+    return ""
+
+def canvas_media_kind_extension(file: UploadFile):
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext in CANVAS_VIDEO_EXTENSIONS:
+        return "video", ext
+    if ext in CANVAS_AUDIO_EXTENSIONS:
+        return "audio", ext
+    audio_ext = canvas_audio_extension(file)
+    if audio_ext:
+        return "audio", audio_ext
+    video_ext = canvas_video_extension(file)
+    if video_ext:
+        return "video", video_ext
+    return "", ""
 
 def view_image(filename: str, type: str = "input", subfolder: str = ""):
     # 先按原逻辑去各 ComfyUI 后端找
@@ -152,24 +192,23 @@ async def save_upload_limited(file: UploadFile, path: str, max_bytes=UPLOAD_MAX_
     return total
 
 async def upload_image(files: List[UploadFile] = File(...)):
+    await ensure_request_upload_size(files)
     uploaded_files = []
-    files_content = []
     for file in files:
-        content = await read_upload_limited(file)
-        files_content.append((file, content))
-
-    for file, content in files_content:
         success_count = 0
         last_result = None
         for addr in legacy.COMFYUI_INSTANCES:
             try:
-                files_data = {'image': (file.filename, content, file.content_type)}
-                response = requests.post(f"http://{addr}/upload/image", files=files_data, timeout=5)
+                await file.seek(0)
+                def post_to_backend():
+                    files_data = {'image': (file.filename, file.file, file.content_type)}
+                    return requests.post(f"http://{addr}/upload/image", files=files_data, timeout=30)
+                response = await asyncio.to_thread(post_to_backend)
                 if response.status_code == 200:
                     last_result = response.json()
                     success_count += 1
             except Exception as e:
-                print(f"Upload error for {addr}: {e}")
+                print(f"Upload error for {addr}: {redact_sensitive_text(e)}")
 
         if success_count > 0 and last_result:
             uploaded_files.append({"comfy_name": last_result.get("name", file.filename)})
@@ -179,22 +218,22 @@ async def upload_image(files: List[UploadFile] = File(...)):
     return {"files": uploaded_files}
 
 async def upload_ai_reference(files: List[UploadFile] = File(...)):
+    await ensure_request_upload_size(files)
     uploaded = []
     for file in files:
-        content = await read_upload_limited(file)
-        if not content:
-            continue
         ext = os.path.splitext(file.filename or "")[1].lower()
         if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
             content_type = (file.content_type or "").lower()
             ext = ".jpg" if "jpeg" in content_type else ".webp" if "webp" in content_type else ".png"
         filename = f"ai_ref_{uuid.uuid4().hex[:12]}{ext}"
         path = output_path_for(filename, "input")
-        with open(path, "wb") as f:
-            f.write(content)
+        size = await save_upload_limited(file, path, max_bytes=50 * 1024 * 1024, detail="Image cannot exceed 50MB")
+        if size <= 0:
+            continue
         mime = file.content_type or content_type_for_path(path)
         if not str(mime).startswith("image/"):
             mime = content_type_for_path(path)
+        content = await asyncio.to_thread(_read_file_bytes, path)
         uploaded.append({
             "url": output_url_for(filename, "input"),
             "name": file.filename or filename,
@@ -203,12 +242,13 @@ async def upload_ai_reference(files: List[UploadFile] = File(...)):
     return {"files": uploaded}
 
 async def upload_canvas_media(files: List[UploadFile] = File(...)):
+    await ensure_request_upload_size(files)
     uploaded = []
     for file in files:
-        ext = canvas_audio_extension(file)
+        kind, ext = canvas_media_kind_extension(file)
         if not ext:
-            raise HTTPException(status_code=400, detail="Only audio files are supported for canvas media upload.")
-        filename = f"canvas_audio_{uuid.uuid4().hex[:12]}{ext}"
+            raise HTTPException(status_code=400, detail="Only audio or video files are supported for canvas media upload.")
+        filename = f"canvas_{kind}_{uuid.uuid4().hex[:12]}{ext}"
         path = output_path_for(filename, "input")
         size = await save_upload_limited(file, path)
         if size <= 0:
@@ -218,13 +258,13 @@ async def upload_canvas_media(files: List[UploadFile] = File(...)):
                 pass
             continue
         mime = file.content_type or content_type_for_path(path)
-        if not str(mime).startswith("audio/"):
+        if not str(mime).startswith(f"{kind}/"):
             mime = content_type_for_path(path)
         uploaded.append({
             "url": output_url_for(filename, "input"),
             "name": file.filename or filename,
             "mime": mime,
-            "kind": "audio",
+            "kind": kind,
             "size": size,
         })
     return {"files": uploaded}

@@ -14,6 +14,7 @@ from fastapi import File, HTTPException, UploadFile
 from PIL import Image
 
 from app.models.providers import ApiProviderPayload, TestConnectionPayload
+from app.core.json_store import atomic_write_json, atomic_write_text
 
 PROVIDER_RESPONSE_CACHE_TTL = 1.0
 _AI_CONFIG_RESPONSE_CACHE = {"expires": 0.0, "data": None}
@@ -80,7 +81,15 @@ PROVIDER_LOGO_MAX_RATIO = 6.0
 PROVIDER_LOGO_MIN_RATIO = 4.0
 RUNNINGHUB_DEFAULT_BASE_URL = "https://www.runninghub.cn"
 RUNNINGHUB_DEFAULT_IMAGE_MODELS = ["seedream-v5-lite/text-to-image", "seedream-v5-lite/image-to-image"]
-SUPPORTED_PROVIDER_PROTOCOLS = {"openai", "apimart", "gemini", "volcengine", "runninghub"}
+JIMENG_DEFAULT_IMAGE_MODELS = ["5.0Pro", "5.0", "4.7", "4.6", "4.5", "4.1", "4.0", "3.1", "3.0"]
+JIMENG_DEFAULT_VIDEO_MODELS = ["seedance2.0fast_vip", "seedance2.0_vip", "seedance2.0", "seedance2.0fast", "seedance2.0mini"]
+CODEX_DEFAULT_IMAGE_MODELS = ["gpt-image-2"]
+CODEX_DEFAULT_CHAT_MODELS = ["gpt-5.5"]
+GEMINI_CLI_DEFAULT_MODELS = ["auto"]
+SUPPORTED_PROVIDER_PROTOCOLS = {
+    "openai", "apimart", "gemini", "grok", "gemini-cli",
+    "volcengine", "runninghub", "jimeng", "codex",
+}
 
 
 def selected_model(requested, fallback):
@@ -250,9 +259,23 @@ def normalize_ms_loras(values):
         })
     return normalized
 
+def is_deprecated_openai_image_async_endpoint(value):
+    text = str(value or "").strip()
+    if not text:
+        return False
+    try:
+        path = urllib.parse.urlsplit(text).path if re.match(r"^https?://", text, re.I) else text
+    except Exception:
+        path = text
+    path = path.rstrip("/").lower()
+    return path.endswith("/v1/images/generations/async") or path.endswith("/images/generations/async")
+
+
 def normalize_endpoint_override(value, label):
     endpoint = str(value or "").strip()
     if not endpoint:
+        return ""
+    if "文生图" in str(label or "") and is_deprecated_openai_image_async_endpoint(endpoint):
         return ""
     if len(endpoint) > 300 or re.search(r"\s", endpoint):
         raise HTTPException(status_code=400, detail=f"{label} 不合法，请填写类似 /v1/images/edits 的路径")
@@ -265,6 +288,8 @@ def normalize_endpoint_override(value, label):
 def provider_endpoint_url(provider, key, default_path):
     base_url = str((provider or {}).get("base_url") or AI_BASE_URL).strip().rstrip("/")
     override = str((provider or {}).get(key) or "").strip()
+    if key == "image_generation_endpoint" and is_deprecated_openai_image_async_endpoint(override):
+        override = ""
     if override:
         if re.match(r"^https?://", override, re.I):
             return override.rstrip("/")
@@ -307,7 +332,7 @@ def normalize_provider(item):
     image_generation_endpoint = normalize_endpoint_override(item.get("image_generation_endpoint"), "文生图端口")
     image_edit_endpoint = normalize_endpoint_override(item.get("image_edit_endpoint"), "图生图/编辑端口")
     logo_url = normalize_provider_logo_url(item.get("logo_url"))
-    return {
+    provider = {
         "id": provider_id,
         "name": name,
         "base_url": base_url,
@@ -323,6 +348,21 @@ def normalize_provider(item):
         "ms_loras": normalize_ms_loras(item.get("ms_loras") or []),
         "ms_defaults_version": int(item.get("ms_defaults_version") or 0),
     }
+    if protocol == "jimeng":
+        provider["base_url"] = ""
+        provider["image_models"] = model_list_from_values([*provider["image_models"], *JIMENG_DEFAULT_IMAGE_MODELS])
+        provider["video_models"] = model_list_from_values([*provider["video_models"], *JIMENG_DEFAULT_VIDEO_MODELS])
+    elif protocol == "codex":
+        provider["base_url"] = ""
+        provider["image_models"] = model_list_from_values([*provider["image_models"], *CODEX_DEFAULT_IMAGE_MODELS])
+        provider["chat_models"] = model_list_from_values([*provider["chat_models"], *CODEX_DEFAULT_CHAT_MODELS])
+        provider["video_models"] = []
+    elif protocol == "gemini-cli":
+        provider["base_url"] = ""
+        provider["image_models"] = model_list_from_values([*provider["image_models"], *GEMINI_CLI_DEFAULT_MODELS])
+        provider["chat_models"] = model_list_from_values([*provider["chat_models"], *GEMINI_CLI_DEFAULT_MODELS])
+        provider["video_models"] = []
+    return provider
 
 def load_api_providers():
     defaults = default_api_providers()
@@ -340,8 +380,7 @@ def load_api_providers():
 def save_api_providers(providers):
     os.makedirs(DATA_DIR, exist_ok=True)
     with GLOBAL_CONFIG_LOCK:
-        with open(API_PROVIDERS_FILE, "w", encoding="utf-8") as f:
-            json.dump(providers, f, ensure_ascii=False, indent=2)
+        atomic_write_json(API_PROVIDERS_FILE, providers)
     clear_provider_response_cache()
 
 def public_provider(provider):
@@ -432,8 +471,7 @@ def update_env_values(updates):
         if key not in seen:
             next_lines.append(f"{key}={env_quote(value)}")
             os.environ[key] = str(value or "")
-    with open(API_ENV_FILE, "w", encoding="utf-8") as f:
-        f.write("\n".join(next_lines).rstrip() + "\n")
+    atomic_write_text(API_ENV_FILE, "\n".join(next_lines).rstrip() + "\n")
 
 async def upload_provider_logo(file: UploadFile = File(...)):
     from app.services.storage_service import read_upload_limited
@@ -540,17 +578,17 @@ async def save_providers(payload: List[ApiProviderPayload]):
     return {"providers": [public_provider(p) for p in providers]}
 
 async def get_global_token():
-    # 优先读 env，回退到 global_config.json（兼容旧数据）
-    if MODELSCOPE_API_KEY:
-        return {"token": MODELSCOPE_API_KEY}
+    # Never return credentials to the browser.  Keep the legacy route as a
+    # configuration-status probe so old clients fail closed.
+    configured = bool(str(MODELSCOPE_API_KEY or "").strip())
     if os.path.exists(GLOBAL_CONFIG_FILE):
         try:
             with open(GLOBAL_CONFIG_FILE, 'r', encoding='utf-8') as f:
                 config = json.load(f)
-                return {"token": config.get("modelscope_token", "")}
+                configured = configured or bool(str(config.get("modelscope_token", "")).strip())
         except Exception:
             pass
-    return {"token": ""}
+    return {"configured": configured}
 
 def protocol_from_payload(payload):
     protocol = str(getattr(payload, "protocol", "") or "openai").strip().lower()

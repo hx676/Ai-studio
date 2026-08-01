@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/static/images/logo.png" type="image/png">
+    <title>智能体与 AI 工作流</title>
+    <script>
+        (function(){
+            try {
+                var theme = localStorage.getItem('studio_theme') || 'light';
+                if(theme === 'dark') document.documentElement.classList.add('studio-theme-dark');
+            } catch(e) {}
+        })();
+    </script>
+    <script src="/static/vendor/js/lucide.js?v=2026.08.01.4"></script>
+    <script src="/static/js/theme.js?v=2026.08.01.4"></script>
+    <link rel="stylesheet" href="/static/css/agent-skills.css?v=2026.08.01.4">
+</head>
+<body>
+    <main class="page">
+        <header class="topbar">
+            <div class="title-row">
+                <div class="title-icon"><i data-lucide="bot"></i></div>
+                <div>
+                    <h1>智能体与 AI 工作流</h1>
+                    <div class="subtitle"><span id="agentCount">0</span> 个智能体 · <span id="skillCount">0</span> 个 AI 工作流</div>
+                </div>
+            </div>
+            <div id="pageStatus" class="status" role="status">正在加载...</div>
+        </header>
+
+        <section class="runtime-band" aria-label="默认运行模型">
+            <div class="field">
+                <label for="runtimeProvider">默认 Provider</label>
+                <select id="runtimeProvider"></select>
+            </div>
+            <div class="field">
+                <label for="runtimeTextModel">文本模型</label>
+                <select id="runtimeTextModel"></select>
+            </div>
+            <div class="field">
+                <label for="runtimeVisionModel">视觉模型</label>
+                <select id="runtimeVisionModel"></select>
+            </div>
+            <button id="saveRuntimeBtn" class="btn primary" type="button"><i data-lucide="save"></i><span>保存默认模型</span></button>
+        </section>
+
+        <section class="workspace">
+            <div class="tabs" role="tablist">
+                <button class="tab active" type="button" data-tab="agents" role="tab">智能体</button>
+                <button class="tab" type="button" data-tab="skills" role="tab">AI 工作流</button>
+            </div>
+
+            <div id="agentsView" class="view">
+                <div class="agents-layout">
+                    <aside class="agent-list-panel">
+                        <div class="list-tools">
+                            <input id="agentSearch" type="search" placeholder="搜索名称或 ID">
+                            <select id="agentKindFilter" aria-label="模型类型">
+                                <option value="all">全部类型</option>
+                                <option value="text">文本</option>
+                                <option value="vision">视觉</option>
+                                <option value="unbound">未绑定</option>
+                            </select>
+                            <button id="newAgentBtn" class="icon-btn primary" type="button" title="新建智能体" aria-label="新建智能体"><i data-lucide="plus"></i></button>
+                        </div>
+                        <div id="agentList" class="agent-list"></div>
+                    </aside>
+
+                    <section id="agentEditor" class="agent-editor">
+                        <div class="empty-editor">选择一个智能体开始编辑</div>
+                    </section>
+                </div>
+            </div>
+
+            <div id="skillsView" class="view" hidden>
+                <div class="skills-layout">
+                    <aside class="skill-list-panel">
+                        <div class="skill-toolbar">
+                            <input id="skillSearch" type="search" placeholder="搜索 AI 工作流或智能体">
+                        </div>
+                        <div id="skillList" class="skill-list"></div>
+                    </aside>
+                    <section id="skillEditor" class="skill-editor">
+                        <div class="empty-editor">选择一个 AI 工作流查看定义</div>
+                    </section>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <input id="agentImportInput" type="file" accept="application/json,.json" hidden>
+    <div id="toast" class="toast" role="status"></div>
+    <script src="/static/js/agent-skills.js?v=2026.08.01.4"></script>
+</body>
+</html>

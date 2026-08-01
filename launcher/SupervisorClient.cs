@@ -20,8 +20,8 @@ public sealed class SupervisorClient
     public string LogDir => Path.Combine(RootDir, "data", "service-logs");
     public string InputDir => Path.Combine(RootDir, "assets", "input");
     public string OutputDir => Path.Combine(RootDir, "assets", "output");
-    public string VoiceDir => Path.Combine(RootDir, "index-tts-2", "assets", "bak");
-    public string HeyGemOutputDir => Path.Combine(RootDir, "heygem-win-fix", "heygem-win", "视频输出");
+    public string VoiceDir => ResolveDigitalHumanPath("tts", "assets", "bak");
+    public string HeyGemOutputDir => ResolveDigitalHumanPath("heygem", "视频输出");
 
     public SupervisorClient()
     {
@@ -63,20 +63,59 @@ public sealed class SupervisorClient
 
     public async Task<SupervisorActionResult> StartAsync()
     {
-        var result = await RunPythonAsync("tools\\service_supervisor.py --start-once");
-        return ParseActionResult(result.Stdout);
+        var result = await RunPythonAsync("tools\\service_supervisor.py --start-once main");
+        var payload = ParseActionResult(result.Stdout);
+        if (!payload.Ok)
+        {
+            return payload;
+        }
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(500);
+            var status = await GetStatusAsync(includeGpu: false, quick: true);
+            var main = status?.Services.FirstOrDefault(service => service.Key == "main");
+            if (main?.Ready == true)
+            {
+                return payload;
+            }
+            if (main?.State == "stopped")
+            {
+                var detail = status?.Diagnostics
+                    .FirstOrDefault(item => item.Status == "error" && (item.Key == "log_main" || item.Key == "exited_main"))
+                    ?.Detail;
+                payload.Ok = false;
+                payload.Errors += 1;
+                payload.ErrorItems.Add(new SupervisorActionError
+                {
+                    Key = "main",
+                    Label = "Main app",
+                    Message = string.IsNullOrWhiteSpace(detail) ? "主应用进程在接口就绪前退出。" : detail
+                });
+                return payload;
+            }
+        }
+        payload.Ok = false;
+        payload.Errors += 1;
+        payload.ErrorItems.Add(new SupervisorActionError
+        {
+            Key = "main",
+            Label = "Main app",
+            Message = "主应用启动超时，请查看 main.err.log。"
+        });
+        return payload;
     }
 
     public async Task<SupervisorActionResult> StopAsync()
     {
-        var result = await RunPythonAsync("tools\\service_supervisor.py --stop", throwOnNonZero: false, timeout: TimeSpan.FromSeconds(15));
+        var result = await RunPythonAsync("tools\\service_supervisor.py --stop main", throwOnNonZero: false, timeout: TimeSpan.FromSeconds(15));
         var output = string.IsNullOrWhiteSpace(result.Stdout) ? result.Stderr : result.Stdout;
         return new SupervisorActionResult { Ok = result.ExitCode == 0, RawOutput = output, TimedOut = result.TimedOut };
     }
 
     public async Task<ProjectBackendPids?> GetProjectBackendPidsAsync()
     {
-        var result = await RunPythonAsync("tools\\service_supervisor.py --project-backend-pids", timeout: TimeSpan.FromSeconds(4));
+        var result = await RunPythonAsync("tools\\service_supervisor.py --project-backend-pids main", timeout: TimeSpan.FromSeconds(4));
         return JsonSerializer.Deserialize<ProjectBackendPids>(result.Stdout, JsonOptions);
     }
 
@@ -117,6 +156,40 @@ public sealed class SupervisorClient
     public void OpenLogs()
     {
         OpenDirectory(LogDir, createIfMissing: true);
+    }
+
+    private string ResolveDigitalHumanPath(string artifact, params string[] relativeParts)
+    {
+        var installRoot = Path.Combine(RootDir, "components", "digital-human");
+        var registryPath = Path.Combine(RootDir, "data", "components", "digital-human-installed.json");
+        try
+        {
+            if (File.Exists(registryPath))
+            {
+                using var document = JsonDocument.Parse(File.ReadAllText(registryPath));
+                if (document.RootElement.TryGetProperty("install_root", out var value)
+                    && value.ValueKind == JsonValueKind.String
+                    && !string.IsNullOrWhiteSpace(value.GetString()))
+                {
+                    installRoot = value.GetString()!;
+                }
+            }
+        }
+        catch
+        {
+            // Fall back to the standard component location when the registry is unreadable.
+        }
+
+        var managed = Path.Combine(new[] { installRoot, artifact }.Concat(relativeParts).ToArray());
+        if (Directory.Exists(managed))
+        {
+            return managed;
+        }
+
+        var legacyRoot = artifact == "tts"
+            ? Path.Combine(RootDir, "index-tts-2")
+            : Path.Combine(RootDir, "heygem-win-fix", "heygem-win");
+        return Path.Combine(new[] { legacyRoot }.Concat(relativeParts).ToArray());
     }
 
     public string ExportFullLogs()
@@ -169,6 +242,7 @@ public sealed class SupervisorClient
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8
         };
+        psi.Environment["PYTHONDONTWRITEBYTECODE"] = "1";
 
         using var process = Process.Start(psi) ?? throw new InvalidOperationException("无法启动 Python 进程");
         var stdoutTask = process.StandardOutput.ReadToEndAsync();

@@ -46,6 +46,21 @@ public sealed class ServiceStatus
     [JsonPropertyName("ready")]
     public bool Ready { get; set; }
 
+    [JsonPropertyName("required")]
+    public bool Required { get; set; } = true;
+
+    [JsonPropertyName("optional")]
+    public bool Optional { get; set; }
+
+    [JsonPropertyName("installed")]
+    public bool Installed { get; set; } = true;
+
+    [JsonPropertyName("component_id")]
+    public string ComponentId { get; set; } = "";
+
+    [JsonPropertyName("component_state")]
+    public string ComponentState { get; set; } = "";
+
     [JsonPropertyName("managed")]
     public bool Managed { get; set; }
 

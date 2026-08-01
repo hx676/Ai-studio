@@ -1,6 +1,13 @@
 # SynCanvas
 Supports comfyui/API calls/modelscope calls
 
+项目目录分为源码、可选组件和用户运行数据。开发和打包边界见
+[`docs/PROJECT_STRUCTURE.md`](docs/PROJECT_STRUCTURE.md)，数字人及节点引擎运行时统一安装在
+`components/`，不会提交到 Git。
+
+安全边界与本机访问规则见 [`docs/SECURITY.md`](docs/SECURITY.md)，正式打包和干净目录验收见
+[`docs/RELEASE.md`](docs/RELEASE.md)。主服务默认只监听 `127.0.0.1`，当前版本不开放局域网模式。
+
 详细教程：[https://youtu.be/1y9ShTvgC_w](https://youtu.be/r_y_9ALr7fg)
 
 由于最近很多API网址关停，我找到一个稳定的网址：

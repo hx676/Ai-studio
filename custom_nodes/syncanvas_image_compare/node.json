@@ -1,0 +1,40 @@
+{
+  "$schema": "../node-extension.schema.json",
+  "schema_version": 1,
+  "id": "syncanvas.image-compare",
+  "name": "SynCanvas Image Compare",
+  "name_zh": "图像比对",
+  "version": "1.0.0",
+  "description": "Compare two connected images with an interactive split slider.",
+  "description_zh": "使用交互式分割滑块比对两张连接图片。",
+  "app_version": ">=2026.7",
+  "enabled_by_default": true,
+  "web_directory": "web",
+  "requirements": "requirements.txt",
+  "nodes": [
+    {
+      "id": "compare",
+      "display_name": "图像比对",
+      "display_name_zh": "图像比对",
+      "description": "通过滑块对比两张输入图片。",
+      "description_zh": "通过滑块对比两张输入图片。",
+      "category": "Image",
+      "icon": "columns-2",
+      "version": 1,
+      "surfaces": ["classic", "smart"],
+      "legacy_types": {},
+      "inputs": [
+        {"id": "a", "name": "A", "name_zh": "图片 A", "types": ["image"], "required": true},
+        {"id": "b", "name": "B", "name_zh": "图片 B", "types": ["image"], "required": true}
+      ],
+      "outputs": [],
+      "defaults": {"position": 50},
+      "size": {
+        "classic": {"width": 460, "height": 420},
+        "smart": {"width": 460, "height": 420}
+      },
+      "execution": "frontend",
+      "frontend_key": "compare"
+    }
+  ]
+}

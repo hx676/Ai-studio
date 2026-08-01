@@ -1,0 +1,35 @@
+{
+  "$schema": "../node-extension.schema.json",
+  "schema_version": 1,
+  "id": "example.text-tools",
+  "name": "Example Text Tools",
+  "name_zh": "示例文本工具",
+  "version": "1.0.0",
+  "description": "A minimal extension for both canvas surfaces.",
+  "description_zh": "同时支持普通画布和智能画布的最小扩展示例。",
+  "app_version": ">=2026.7",
+  "enabled_by_default": true,
+  "web_directory": "web",
+  "requirements": "requirements.txt",
+  "nodes": [
+    {
+      "id": "uppercase",
+      "display_name": "Uppercase",
+      "display_name_zh": "转为大写",
+      "description": "Convert connected text to uppercase.",
+      "description_zh": "将连接的文本转换为大写。",
+      "category": "Text",
+      "icon": "case-upper",
+      "version": 1,
+      "surfaces": ["classic", "smart"],
+      "legacy_types": {},
+      "inputs": [{"id": "text", "name": "Text", "name_zh": "文本", "types": ["text"], "required": true}],
+      "outputs": [{"id": "text", "name": "Text", "name_zh": "文本", "types": ["text"]}],
+      "defaults": {"text": "Hello SynCanvas"},
+      "size": {"classic": {"width": 320, "height": 240}, "smart": {"width": 320, "height": 240}},
+      "execution": "python",
+      "backend_class": "uppercase",
+      "frontend_key": "uppercase"
+    }
+  ]
+}

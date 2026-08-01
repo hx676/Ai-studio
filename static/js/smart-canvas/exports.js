@@ -264,6 +264,10 @@
     if (typeof createPromptNode !== 'undefined') window.createPromptNode = window.createPromptNode || createPromptNode;
     if (typeof createLoopNode !== 'undefined') page.createLoopNode = createLoopNode;
     if (typeof createLoopNode !== 'undefined') window.createLoopNode = window.createLoopNode || createLoopNode;
+    if (typeof createAgentNode !== 'undefined') page.createAgentNode = createAgentNode;
+    if (typeof createAgentNode !== 'undefined') window.createAgentNode = window.createAgentNode || createAgentNode;
+    if (typeof createSkillNode !== 'undefined') page.createSkillNode = createSkillNode;
+    if (typeof createSkillNode !== 'undefined') window.createSkillNode = window.createSkillNode || createSkillNode;
     if (typeof cloneSmartNode !== 'undefined') page.cloneSmartNode = cloneSmartNode;
     if (typeof cloneSmartNode !== 'undefined') window.cloneSmartNode = window.cloneSmartNode || cloneSmartNode;
     if (typeof copySelectedNodes !== 'undefined') page.copySelectedNodes = copySelectedNodes;
@@ -586,6 +590,10 @@
     if (typeof runGeneration !== 'undefined') window.runGeneration = window.runGeneration || runGeneration;
     if (typeof runPromptLLMNode !== 'undefined') page.runPromptLLMNode = runPromptLLMNode;
     if (typeof runPromptLLMNode !== 'undefined') window.runPromptLLMNode = window.runPromptLLMNode || runPromptLLMNode;
+    if (typeof runSmartAgentSkillNode !== 'undefined') page.runSmartAgentSkillNode = runSmartAgentSkillNode;
+    if (typeof runSmartAgentSkillNode !== 'undefined') window.runSmartAgentSkillNode = window.runSmartAgentSkillNode || runSmartAgentSkillNode;
+    if (typeof cancelSmartAgentSkillNode !== 'undefined') page.cancelSmartAgentSkillNode = cancelSmartAgentSkillNode;
+    if (typeof cancelSmartAgentSkillNode !== 'undefined') window.cancelSmartAgentSkillNode = window.cancelSmartAgentSkillNode || cancelSmartAgentSkillNode;
     if (typeof runApiGeneration !== 'undefined') page.runApiGeneration = runApiGeneration;
     if (typeof runApiGeneration !== 'undefined') window.runApiGeneration = window.runApiGeneration || runApiGeneration;
     if (typeof runApiVideoGeneration !== 'undefined') page.runApiVideoGeneration = runApiVideoGeneration;

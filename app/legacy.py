@@ -26,8 +26,9 @@ import math
 import requests
 import zipfile
 import mimetypes
+import tempfile
 from typing import List, Dict, Any, Optional
-from threading import Lock
+from threading import Lock, RLock
 import httpx
 from PIL import Image
 from io import BytesIO
@@ -35,6 +36,7 @@ from fastapi import HTTPException, WebSocket, WebSocketDisconnect, UploadFile, F
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, Response, StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
+from starlette.background import BackgroundTask
 
 QUIET_ACCESS_PATHS = {
     "/api/queue_status",
@@ -68,6 +70,9 @@ from app.services.system_service import index
 from app.services.system_service import get_history_api
 from app.services.system_service import get_queue_status
 from app.services.system_service import delete_history
+from app.core.security import redact_sensitive_text, websocket_origin_allowed
+from app.core.json_store import atomic_write_json, read_json_resilient
+from app.core.run_retention import prune_terminal_mapping, retain_recent_records
 
 
 logging.getLogger("uvicorn.access").addFilter(QuietAccessLogFilter())
@@ -93,6 +98,9 @@ async def startup_event():
     sync_static_html_versions()
 
 async def websocket_endpoint(websocket: WebSocket, client_id: str = None):
+    if not websocket_origin_allowed(websocket):
+        await websocket.close(code=1008, reason="Origin not allowed")
+        return
     await manager.connect(websocket, client_id)
     try:
         while True:
@@ -102,7 +110,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str = None):
     except WebSocketDisconnect:
         await manager.disconnect(websocket, client_id)
     except Exception as e:
-        print(f"WS Error: {e}")
+        print(f"WS Error: {redact_sensitive_text(e)}")
         await manager.disconnect(websocket, client_id)
 
 # --- 配置区域 ---
@@ -132,6 +140,8 @@ DIGITAL_HUMAN_AUDIO_DIR = os.path.join(OUTPUT_OUTPUT_DIR, "digital-human", "audi
 DIGITAL_HUMAN_VIDEO_DIR = os.path.join(OUTPUT_OUTPUT_DIR, "digital-human", "video")
 DIGITAL_HUMAN_INPUT_DIR = os.path.join(OUTPUT_INPUT_DIR, "digital-human")
 CANVAS_TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
+DEFAULT_PROJECT_ID = "default"
+CANVAS_COLORS = {"", "red", "orange", "amber", "green", "teal", "blue", "violet", "pink", "slate"}
 
 QUEUE = []
 QUEUE_LOCK = Lock()
@@ -144,7 +154,7 @@ TTS_SERVICE_LOCK = Lock()
 TTS_GENERATION_LOCK = Lock()
 HEYGEM_GENERATION_LOCK = Lock()
 CONVERSATION_LOCK = Lock()
-CANVAS_LOCK = Lock()
+CANVAS_LOCK = RLock()
 LOAD_LOCK = Lock()
 NEXT_TASK_ID = 1
 UPDATE_LOCK = Lock()
@@ -152,7 +162,10 @@ TTS_PROCESS = None
 TTS_LAST_ERROR = ""
 
 PROVIDER_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{2,40}$")
-SUPPORTED_PROVIDER_PROTOCOLS = {"openai", "apimart", "gemini", "volcengine", "runninghub"}
+SUPPORTED_PROVIDER_PROTOCOLS = {
+    "openai", "apimart", "gemini", "grok", "gemini-cli",
+    "volcengine", "runninghub", "jimeng", "codex",
+}
 UPLOAD_MAX_BYTES = 500 * 1024 * 1024
 UPLOAD_CHUNK_BYTES = 1024 * 1024
 PROVIDER_LOGO_MAX_BYTES = 512 * 1024
@@ -253,6 +266,7 @@ MAX_HISTORY_MESSAGES = int(os.getenv("MAX_HISTORY_MESSAGES", "30"))
 AI_REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "1800"))
 IMAGE_POLL_INTERVAL = float(os.getenv("IMAGE_POLL_INTERVAL", "2"))
 IMAGE_TASK_TIMEOUT = float(os.getenv("IMAGE_TASK_TIMEOUT", str(AI_REQUEST_TIMEOUT)))
+CANVAS_IMAGE_PROVIDER_CONCURRENCY = max(1, min(8, int(os.getenv("CANVAS_IMAGE_PROVIDER_CONCURRENCY", "3") or 3)))
 COMFYUI_HISTORY_TIMEOUT = int(float(os.getenv("COMFYUI_HISTORY_TIMEOUT", "1800")))
 APIMART_IMAGE_TASK_TIMEOUT = float(os.getenv("APIMART_IMAGE_TASK_TIMEOUT", "1800"))
 APIMART_IMAGE_POLL_INTERVAL = float(os.getenv("APIMART_IMAGE_POLL_INTERVAL", "5"))
@@ -408,6 +422,8 @@ from app.models.workflow import WorkflowField, WorkflowConfig, WorkflowUploadReq
 
 CANVAS_TASKS: Dict[str, Dict[str, Any]] = {}
 CANVAS_TASK_LOCK = Lock()
+CANVAS_TASK_MAX_PENDING = max(1, int(os.getenv("AI_RUN_MAX_QUEUE", "100")))
+CANVAS_IMAGE_PROVIDER_LIMITERS: Dict[tuple, asyncio.Semaphore] = {}
 DIGITAL_HUMAN_TASKS: Dict[str, Dict[str, Any]] = {}
 
 
@@ -541,17 +557,13 @@ def download_comfy_output(comfy_address, item, prefix="studio_"):
 
 def save_to_history(record):
     with HISTORY_LOCK:
-        history = []
-        if os.path.exists(HISTORY_FILE):
-            try:
-                with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
-                    history = json.load(f)
-            except: pass
+        history = read_json_resilient(HISTORY_FILE, [])
+        if not isinstance(history, list):
+            history = []
         if "timestamp" not in record:
             record["timestamp"] = time.time()
         history.insert(0, record)
-        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
-            json.dump(history[:5000], f, ensure_ascii=False, indent=4)
+        atomic_write_json(HISTORY_FILE, retain_recent_records(history), indent=4)
 
 def get_comfy_history(comfy_address, prompt_id):
     try:
@@ -586,8 +598,7 @@ def now_ms():
 def save_conversation(user_id, conversation):
     with CONVERSATION_LOCK:
         path = conversation_path(user_id, conversation["id"])
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(conversation, f, ensure_ascii=False, indent=2)
+        atomic_write_json(path, conversation)
 
 def new_conversation(user_id, title="新对话"):
     timestamp = now_ms()
@@ -605,8 +616,10 @@ def load_conversation(user_id, conversation_id):
     path = conversation_path(user_id, conversation_id)
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="对话不存在")
-    with open(path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+    conversation = read_json_resilient(path, {})
+    if not isinstance(conversation, dict) or not conversation:
+        raise HTTPException(status_code=500, detail="Conversation data is damaged; a backup was preserved")
+    return conversation
 
 def list_conversations(user_id):
     records = []
@@ -614,10 +627,8 @@ def list_conversations(user_id):
         if not filename.endswith(".json"):
             continue
         path = os.path.join(user_dir(user_id), filename)
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-        except Exception:
+        data = read_json_resilient(path, {})
+        if not isinstance(data, dict) or not data:
             continue
         messages = data.get("messages", [])
         last_message = next((m for m in reversed(messages) if m.get("role") != "system"), None)
@@ -639,13 +650,17 @@ def canvas_path(canvas_id):
 def save_canvas(canvas):
     canvas["updated_at"] = now_ms()
     with CANVAS_LOCK:
-        with open(canvas_path(canvas["id"]), 'w', encoding='utf-8') as f:
-            json.dump(canvas, f, ensure_ascii=False, indent=2)
+        atomic_write_json(canvas_path(canvas["id"]), canvas)
 
 def normalize_canvas_kind(kind="classic"):
     return "smart" if str(kind or "").strip().lower() == "smart" else "classic"
 
-def new_canvas(title="未命名画布", icon="layers", kind="classic"):
+def normalize_canvas_color(value):
+    color = str(value or "").strip().lower()
+    return color if color in CANVAS_COLORS else ""
+
+
+def new_canvas(title="未命名画布", icon="layers", kind="classic", project=None, board_x=None, board_y=None):
     timestamp = now_ms()
     canvas_kind = normalize_canvas_kind(kind)
     canvas = {
@@ -653,12 +668,20 @@ def new_canvas(title="未命名画布", icon="layers", kind="classic"):
         "title": (title or ("智能画布" if canvas_kind == "smart" else "未命名画布"))[:80],
         "icon": (icon or ("sparkles" if canvas_kind == "smart" else "🧩"))[:32],
         "kind": canvas_kind,
+        "owner": "",
+        "color": "",
+        "pinned": False,
+        "project": str(project or "").strip() or DEFAULT_PROJECT_ID,
         "created_at": timestamp,
         "updated_at": timestamp,
         "nodes": [],
         "connections": [],
         "viewport": {"x": 0, "y": 0, "scale": 1},
     }
+    if board_x is not None:
+        canvas["board_x"] = float(board_x)
+    if board_y is not None:
+        canvas["board_y"] = float(board_y)
     save_canvas(canvas)
     return canvas
 
@@ -666,8 +689,9 @@ def load_canvas(canvas_id):
     path = canvas_path(canvas_id)
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="画布不存在")
-    with open(path, 'r', encoding='utf-8') as f:
-        canvas = json.load(f)
+    canvas = read_json_resilient(path, {})
+    if not isinstance(canvas, dict) or not canvas:
+        raise HTTPException(status_code=500, detail="Canvas data is damaged; a backup was preserved")
     if canvas.get("deleted_at"):
         raise HTTPException(status_code=404, detail="画布已在回收站")
     return canvas
@@ -676,8 +700,10 @@ def load_canvas_any(canvas_id):
     path = canvas_path(canvas_id)
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="画布不存在")
-    with open(path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+    canvas = read_json_resilient(path, {})
+    if not isinstance(canvas, dict) or not canvas:
+        raise HTTPException(status_code=500, detail="Canvas data is damaged; a backup was preserved")
+    return canvas
 
 def canvas_record(data):
     return {
@@ -685,6 +711,12 @@ def canvas_record(data):
         "title": data.get("title", "未命名画布"),
         "icon": data.get("icon", "🧩"),
         "kind": normalize_canvas_kind(data.get("kind")),
+        "owner": str(data.get("owner") or "")[:40],
+        "color": normalize_canvas_color(data.get("color")),
+        "pinned": bool(data.get("pinned") or False),
+        "project": str(data.get("project") or "").strip() or DEFAULT_PROJECT_ID,
+        "board_x": data.get("board_x"),
+        "board_y": data.get("board_y"),
         "created_at": data.get("created_at", 0),
         "updated_at": data.get("updated_at", 0),
         "deleted_at": data.get("deleted_at", 0),
@@ -699,8 +731,7 @@ def cleanup_expired_canvas_trash():
                 continue
             path = os.path.join(CANVAS_DIR, filename)
             try:
-                with open(path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
+                data = read_json_resilient(path, {})
                 deleted_at = int(data.get("deleted_at") or 0)
                 if deleted_at and deleted_at < cutoff:
                     os.remove(path)
@@ -713,10 +744,8 @@ def iter_canvas_records(include_deleted=False):
     for filename in os.listdir(CANVAS_DIR):
         if not filename.endswith(".json"):
             continue
-        try:
-            with open(os.path.join(CANVAS_DIR, filename), 'r', encoding='utf-8') as f:
-                data = json.load(f)
-        except Exception:
+        data = read_json_resilient(os.path.join(CANVAS_DIR, filename), {})
+        if not isinstance(data, dict) or not data:
             continue
         is_deleted = bool(data.get("deleted_at"))
         if include_deleted != is_deleted:
@@ -765,7 +794,7 @@ def api_headers(json_body=True, provider=None):
         api_key = AI_API_KEY
         if not api_key:
             raise HTTPException(status_code=400, detail="未配置 COMFLY_API_KEY，请在 API/.env 中填写。")
-    if provider and provider_protocol(provider) == "gemini":
+    if provider and provider_protocol(provider) == "gemini" and not is_apimart_provider(provider):
         headers = {"Accept": "application/json", "x-goog-api-key": api_key}
     else:
         headers = {"Accept": "application/json", "Authorization": f"Bearer {api_key}"}
@@ -1373,10 +1402,8 @@ def load_asset_library():
         lib = default_asset_library()
         save_asset_library(lib)
         return lib
-    try:
-        with open(ASSET_LIBRARY_PATH, "r", encoding="utf-8") as f:
-            lib = json.load(f)
-    except Exception:
+    lib = read_json_resilient(ASSET_LIBRARY_PATH, default_asset_library())
+    if not isinstance(lib, dict):
         lib = default_asset_library()
     cats = lib.get("categories") if isinstance(lib.get("categories"), list) else []
     if not any(c.get("type") == "workflow" for c in cats):
@@ -1388,8 +1415,7 @@ def load_asset_library():
 def save_asset_library(lib):
     lib["updated_at"] = now_ms()
     os.makedirs(DATA_DIR, exist_ok=True)
-    with open(ASSET_LIBRARY_PATH, "w", encoding="utf-8") as f:
-        json.dump(lib, f, ensure_ascii=False, indent=2)
+    atomic_write_json(ASSET_LIBRARY_PATH, lib)
 
 def find_asset_category(lib, category_id):
     for cat in lib.get("categories", []):
@@ -1551,6 +1577,33 @@ def audio_payload_values(refs):
         if value:
             values.append(value)
     return values
+
+def video_reference_value(value, max_bytes=100 * 1024 * 1024) -> str:
+    ref_url = str(value or "").strip()
+    if not ref_url:
+        return ""
+    if ref_url.startswith(("data:video/", "http://", "https://", "asset://")):
+        return ref_url
+    if ref_url.startswith(("/output/", "/assets/")):
+        path = output_file_from_url(ref_url)
+        if not path:
+            raise HTTPException(status_code=400, detail=f"Video input file is missing: {ref_url}")
+        size = os.path.getsize(path)
+        if size > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Video input exceeds {max_bytes // (1024 * 1024)}MB and cannot be embedded in this provider request.",
+            )
+        with open(path, "rb") as fh:
+            encoded = base64.b64encode(fh.read()).decode("ascii")
+        return f"data:{content_type_for_path(path)};base64,{encoded}"
+    raise HTTPException(status_code=400, detail="Video input must be a local canvas asset, HTTP URL, asset URL, or video Data URL.")
+
+def valid_apimart_video_input(value: str) -> bool:
+    if not isinstance(value, str):
+        return False
+    value = value.strip()
+    return value.startswith(("http://", "https://", "asset://"))
 
 def is_apimart_veo31_model(model: str) -> bool:
     return str(model or "").strip().lower().startswith("veo3.1")
@@ -1718,6 +1771,59 @@ async def upload_image_for_apimart(client, provider, ref_url: str) -> str:
             return f"ERR:上传异常 {e}"
     return "ERR:不支持的图片来源（仅支持 http/https/asset/data 或本地 /output/ /assets/ 路径）"
 
+async def upload_video_for_apimart(client, provider, ref_url: str) -> str:
+    """Upload a local canvas video to APIMart before submitting video-to-video work."""
+    ref_url = str(ref_url or "").strip()
+    if not ref_url:
+        return "ERR:空地址"
+    if valid_apimart_video_input(ref_url):
+        return ref_url
+    base_url = video_api_root(provider).rstrip("/")
+    upload_root = base_url if base_url.endswith("/v1") else f"{base_url}/v1"
+    upload_url = f"{upload_root}/uploads/videos"
+    try:
+        if ref_url.startswith("data:video/"):
+            if ";base64," not in ref_url:
+                return "ERR:不支持的 video data URL（缺少 base64 段）"
+            header, encoded = ref_url.split(";base64,", 1)
+            mime = header.split(":", 1)[1].split(";", 1)[0]
+            content = base64.b64decode(encoded)
+            ext = mimetypes.guess_extension(mime) or ".mp4"
+            files = {"file": (f"canvas_video{ext}", content, mime)}
+            response = await client.post(
+                upload_url,
+                headers=api_headers(json_body=False, provider=provider),
+                files=files,
+                timeout=300,
+            )
+        elif ref_url.startswith(("/output/", "/assets/")):
+            path = output_file_from_url(ref_url)
+            if not path:
+                return "ERR:本地视频不存在或已被删除"
+            mime = content_type_for_path(path)
+            with open(path, "rb") as fh:
+                files = {"file": (os.path.basename(path), fh, mime)}
+                response = await client.post(
+                    upload_url,
+                    headers=api_headers(json_body=False, provider=provider),
+                    files=files,
+                    timeout=300,
+                )
+        else:
+            return "ERR:不支持的视频来源"
+        if response.status_code not in (200, 201):
+            print(f"APIMart 视频上传失败 ({response.status_code}): {response.text[:300]}")
+            return f"ERR:APIMart 视频上传失败({response.status_code})"
+        raw = response.json()
+        url = extract_apimart_asset_url(raw)
+        if valid_apimart_video_input(url):
+            return url
+        print(f"APIMart 视频上传响应未包含可用 URL: {str(raw)[:300]}")
+        return "ERR:APIMart 视频上传响应未包含可用 URL"
+    except Exception as exc:
+        print(f"APIMart 视频上传异常: {exc}")
+        return f"ERR:视频上传异常 {exc}"
+
 async def save_ai_image_to_output(image_data, prefix="online_", category="output"):
     filename = f"{prefix}{uuid.uuid4().hex[:10]}.png"
     path = output_path_for(filename, category)
@@ -1777,24 +1883,30 @@ async def normalize_ai_image_to_size(image_data, target_size):
                     raw = response.content
             else:
                 return image_data
-        with Image.open(BytesIO(raw)) as img:
-            img = img.convert("RGB")
-            if img.size == (target_width, target_height):
-                return image_data
-            target_ratio = target_width / max(1, target_height)
-            current_ratio = img.size[0] / max(1, img.size[1])
-            if current_ratio > target_ratio:
-                new_width = max(1, int(round(img.size[1] * target_ratio)))
-                left = max(0, (img.size[0] - new_width) // 2)
-                img = img.crop((left, 0, left + new_width, img.size[1]))
-            elif current_ratio < target_ratio:
-                new_height = max(1, int(round(img.size[0] / target_ratio)))
-                top = max(0, (img.size[1] - new_height) // 2)
-                img = img.crop((0, top, img.size[0], top + new_height))
-            img = img.resize((target_width, target_height), Image.LANCZOS)
-            buffer = BytesIO()
-            img.save(buffer, format="PNG")
-        return {"type": "b64", "value": base64.b64encode(buffer.getvalue()).decode("ascii"), "mime_type": "image/png"}
+        def resize_image():
+            with Image.open(BytesIO(raw)) as img:
+                img = img.convert("RGB")
+                if img.size == (target_width, target_height):
+                    return None
+                target_ratio = target_width / max(1, target_height)
+                current_ratio = img.size[0] / max(1, img.size[1])
+                if current_ratio > target_ratio:
+                    new_width = max(1, int(round(img.size[1] * target_ratio)))
+                    left = max(0, (img.size[0] - new_width) // 2)
+                    img = img.crop((left, 0, left + new_width, img.size[1]))
+                elif current_ratio < target_ratio:
+                    new_height = max(1, int(round(img.size[0] / target_ratio)))
+                    top = max(0, (img.size[1] - new_height) // 2)
+                    img = img.crop((0, top, img.size[0], top + new_height))
+                img = img.resize((target_width, target_height), Image.LANCZOS)
+                buffer = BytesIO()
+                img.save(buffer, format="PNG")
+                return buffer.getvalue()
+
+        resized = await asyncio.to_thread(resize_image)
+        if resized is None:
+            return image_data
+        return {"type": "b64", "value": base64.b64encode(resized).decode("ascii"), "mime_type": "image/png"}
     except Exception as e:
         print(f"resize AI image failed: {e}")
         return image_data
@@ -1986,8 +2098,6 @@ def normalize_gpt_image_2_size(size):
     width, height = parse_size_pair(size)
     if not width or not height:
         return size or "auto"
-    if width == height and (width > 2048 or width * height > 4_194_304):
-        return "3840x2160"
     ratio = width / height
     if ratio > 3:
         width = height * 3
@@ -2032,6 +2142,53 @@ def apimart_size_resolution(size):
     ratio = width / height
     best = min(common, key=lambda item: abs(ratio - item[0] / item[1]))
     return best[2], resolution
+
+def apimart_image_model_lc(model=""):
+    return str(model or "").strip().lower()
+
+def apimart_model_supports_official_fallback(model=""):
+    value = apimart_image_model_lc(model)
+    if not value or "official" in value or "lite" in value:
+        return False
+    return value in {
+        "gemini-2.5-flash-image-preview",
+        "gemini-3.1-flash-image-preview",
+        "gemini-3-pro-image-preview",
+        "nano-banana-ext",
+        "nano-banana-2-ext",
+        "nano-banana-pro-ext",
+    }
+
+def apimart_image_resolution_for_model(model="", resolution="1K"):
+    value = apimart_image_model_lc(model)
+    # APIMART Lite and Gemini 2.5 Nano Banana models only support 1K.
+    if "lite" in value or value in {
+        "gemini-2.5-flash-image-preview",
+        "gemini-2.5-flash-image-preview-official",
+        "nano-banana",
+        "nano-banana-ext",
+    }:
+        return "1K"
+    text = str(resolution or "1K").strip().upper()
+    return text if text in {"0.5K", "1K", "2K", "4K"} else "1K"
+
+def apimart_image_modalities_pricing_error(text):
+    raw = str(text or "")
+    lower = raw.lower()
+    if "image_modalities" not in lower:
+        return False
+    if "model_price_error" in lower:
+        return True
+    try:
+        payload = json.loads(raw)
+    except Exception:
+        payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    error = payload.get("error") if isinstance(payload.get("error"), dict) else {}
+    code = str(error.get("code") or payload.get("code") or "").strip().lower()
+    message = str(error.get("message") or payload.get("message") or "").strip().lower()
+    return code == "model_price_error" or ("precharge" in message and "pricing_mode" in message)
 
 async def generate_modelscope_provider_image(prompt, size, model, reference_images=None, provider=None):
     clean_token = MODELSCOPE_API_KEY.strip()
@@ -2103,6 +2260,10 @@ def gemini_endpoint_url(provider, model):
     model_name = urllib.parse.quote(gemini_model_name(model), safe="")
     return provider_endpoint_url(provider, "image_generation_endpoint", f"/v1beta/models/{model_name}:generateContent")
 
+def gemini_new_api_endpoint_url(provider, model):
+    model_name = urllib.parse.quote(gemini_model_name(model), safe="")
+    return provider_endpoint_url(provider, "_gemini_new_api_endpoint", f"/v1/models/{model_name}:generateContent")
+
 def gemini_image_config(size):
     width, height = parse_size_pair(size)
     if not width or not height:
@@ -2144,6 +2305,17 @@ async def generate_gemini_provider_image(prompt, size, model, reference_images=N
     }
     async with httpx.AsyncClient(timeout=httpx.Timeout(connect=20.0, read=1800.0, write=120.0, pool=20.0)) as client:
         response = await client.post(endpoint, headers=api_headers(provider=provider), json=body)
+        explicit_endpoint = str((provider or {}).get("image_generation_endpoint") or "").strip()
+        if response.status_code in {404, 405} and not explicit_endpoint:
+            # New API gateways expose Gemini's native generateContent payload
+            # below /v1/models/... instead of Google's /v1beta/models/....
+            # Retry only after a route-level rejection, before generation starts.
+            fallback_url = gemini_new_api_endpoint_url(provider, model_name)
+            response = await client.post(
+                fallback_url,
+                headers=api_headers(provider=provider),
+                json=body,
+            )
         response.raise_for_status()
         raw = response.json()
         return extract_image(raw), raw
@@ -2448,15 +2620,20 @@ async def generate_runninghub_provider_image(prompt, size, model, reference_imag
 
 async def generate_ai_image(prompt, size, quality, model, reference_images=None, provider_id="comfly", aspect_ratio="", resolution=""):
     provider = get_api_provider(provider_id)
+    if provider_protocol(provider) in {"jimeng", "codex", "gemini-cli", "grok", "volcengine"}:
+        from app import upstream_runtime
+        return await upstream_runtime.generate_ai_image(
+            prompt, size, quality, model, reference_images, provider_id, aspect_ratio, resolution
+        )
     if provider["id"] == "modelscope":
         return await generate_modelscope_provider_image(prompt, size, model, reference_images, provider)
     if is_runninghub_provider(provider):
         return await generate_runninghub_provider_image(prompt, size, model, reference_images, provider)
-    if is_gemini_provider(provider):
+    if is_gemini_provider(provider) and not is_apimart_provider(provider):
         return await generate_gemini_provider_image(prompt, size, model, reference_images, provider)
     if is_volcengine_provider(provider):
         return await generate_volcengine_provider_image(prompt, size, model, reference_images, provider)
-    if is_nano_banana_model(model):
+    if is_nano_banana_model(model) and not is_apimart_provider(provider):
         return await generate_banana_provider_image(prompt, size, quality, model, reference_images, provider, aspect_ratio, resolution)
     is_gpt2 = is_gpt_image_2_model(model)
     is_apimart = is_apimart_provider(provider)
@@ -2496,12 +2673,18 @@ async def generate_ai_image(prompt, size, quality, model, reference_images=None,
                 "prompt": prompt,
                 "n": 1,
                 "size": apimart_size,
-                "resolution": resolution,
-                "official_fallback": False,
+                "resolution": apimart_image_resolution_for_model(model, resolution),
             }
             if image_refs:
                 body["image_urls"] = [reference_to_data_url(ref, max_size=1536) for ref in image_refs[:16]]
             response = await client.post(gen_url, headers=api_headers(provider=provider), json=body)
+            if (
+                response.status_code >= 400
+                and apimart_image_modalities_pricing_error(response.text)
+                and apimart_model_supports_official_fallback(model)
+            ):
+                retry_body = {**body, "official_fallback": True}
+                response = await client.post(gen_url, headers=api_headers(provider=provider), json=retry_body)
         elif is_gpt2 and not image_refs and not mask_refs:
             body = {"model": model, "prompt": prompt, "size": size}
             if quality:
@@ -2662,7 +2845,8 @@ async def build_online_image_result(payload: OnlineImageRequest):
             image_data = await normalize_ai_image_to_size(image_data, gpt_image_2_target_size(payload.size, payload.aspect_ratio, payload.resolution))
         local_url = await save_ai_image_to_output(image_data, prefix="online_")
     except httpx.HTTPStatusError as exc:
-        text = exc.response.text or ''
+        status_code = int(exc.response.status_code or 502)
+        text = (exc.response.text or '').strip()
         # 把上游英文错误转成中文友好提示
         friendly = None
         m = re.search(r"longest edge must be less than or equal to (\d+)", text)
@@ -2671,16 +2855,24 @@ async def build_online_image_result(payload: OnlineImageRequest):
             friendly = f"该模型不支持当前分辨率：最长边超过 {limit}px。请把图片分辨率调低（例如换到 2K 或更小），或更换支持高分辨率的模型。"
         elif "Invalid size" in text or "invalid_value" in text:
             friendly = f"该模型不支持当前尺寸：{payload.size}。请尝试更换分辨率或模型。"
-        elif "rate limit" in text.lower() or "429" in text:
+        elif status_code == 429 or "rate limit" in text.lower() or "429" in text:
             friendly = "请求过于频繁，已被上游限流，请稍后再试。"
+        elif status_code in {502, 503, 504} and not text:
+            friendly = f"上游生图平台返回 HTTP {status_code}，但没有错误详情。通常是平台网关繁忙或并发限制，并非本地等待超时。"
         elif "Unauthorized" in text or "401" in text:
             friendly = "API Key 无效或已过期，请到「API 设置」检查 Key。"
         elif "model_not_found" in text or "channel not found" in text:
             friendly = f"上游平台找不到模型「{model}」可用通道。可能该模型未在此账号开通，请换一个已开通的模型。"
-        detail = friendly or f"上游生图接口错误：{text[:300]}"
-        raise HTTPException(status_code=exc.response.status_code, detail=detail) from exc
+        detail = friendly or f"上游生图接口返回 HTTP {status_code}：{text[:300] or '未返回错误详情'}"
+        raise HTTPException(status_code=status_code, detail=detail) from exc
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"请求上游生图接口失败：{exc}") from exc
+        error_name = exc.__class__.__name__
+        error_text = str(exc).strip() or error_name
+        if isinstance(exc, httpx.TimeoutException):
+            detail = f"请求上游生图接口超时：{error_text}。当前连接等待 20 秒、响应等待 1800 秒。"
+        else:
+            detail = f"请求上游生图接口失败：{error_text}"
+        raise HTTPException(status_code=502, detail=detail) from exc
 
     result = {
         "prompt": payload.prompt,
@@ -2766,34 +2958,55 @@ async def zimage_api_image(payload: OnlineImageRequest):
         asyncio.run_coroutine_threadsafe(manager.broadcast_new_image(result), GLOBAL_LOOP)
     return result
 
+def canvas_image_provider_limiter(provider_id: str):
+    loop = asyncio.get_running_loop()
+    key = (id(loop), str(provider_id or "default"))
+    limiter = CANVAS_IMAGE_PROVIDER_LIMITERS.get(key)
+    if limiter is None:
+        limiter = asyncio.Semaphore(CANVAS_IMAGE_PROVIDER_CONCURRENCY)
+        CANVAS_IMAGE_PROVIDER_LIMITERS[key] = limiter
+    return limiter
+
+
 async def run_canvas_image_task(task_id: str, payload: OnlineImageRequest):
-    with CANVAS_TASK_LOCK:
-        if task_id in CANVAS_TASKS:
-            CANVAS_TASKS[task_id]["status"] = "running"
-            CANVAS_TASKS[task_id]["updated_at"] = time.time()
+    limiter = canvas_image_provider_limiter(payload.provider_id)
     try:
-        result = await build_online_image_result(payload)
-        with CANVAS_TASK_LOCK:
-            CANVAS_TASKS[task_id].update({
-                "status": "succeeded",
-                "result": result,
-                "error": "",
-                "updated_at": time.time(),
-            })
+        async with limiter:
+            with CANVAS_TASK_LOCK:
+                if task_id in CANVAS_TASKS:
+                    CANVAS_TASKS[task_id].update({
+                        "status": "running",
+                        "started_at": time.time(),
+                        "updated_at": time.time(),
+                    })
+            result = await build_online_image_result(payload)
+            with CANVAS_TASK_LOCK:
+                CANVAS_TASKS[task_id].update({
+                    "status": "succeeded",
+                    "result": result,
+                    "error": "",
+                    "updated_at": time.time(),
+                })
+                prune_terminal_mapping(CANVAS_TASKS, {"succeeded", "failed", "cancelled", "canceled"})
     except Exception as exc:
         detail = getattr(exc, "detail", None) or str(exc)
         status_code = getattr(exc, "status_code", 500)
         with CANVAS_TASK_LOCK:
             CANVAS_TASKS[task_id].update({
                 "status": "failed",
-                "error": str(detail),
+                "error": redact_sensitive_text(detail),
                 "status_code": status_code,
                 "updated_at": time.time(),
             })
+            prune_terminal_mapping(CANVAS_TASKS, {"succeeded", "failed", "cancelled", "canceled"})
 
 async def create_canvas_image_task(payload: OnlineImageRequest):
     task_id = f"canvas_img_{uuid.uuid4().hex}"
     with CANVAS_TASK_LOCK:
+        prune_terminal_mapping(CANVAS_TASKS, {"succeeded", "failed", "cancelled", "canceled"})
+        active = sum(1 for task in CANVAS_TASKS.values() if task.get("status") in {"queued", "running", "pending"})
+        if active >= CANVAS_TASK_MAX_PENDING:
+            raise HTTPException(status_code=429, detail="AI 任务队列已满，请稍后重试")
         CANVAS_TASKS[task_id] = {
             "id": task_id,
             "type": "online-image",
@@ -2802,6 +3015,8 @@ async def create_canvas_image_task(payload: OnlineImageRequest):
             "updated_at": time.time(),
             "result": None,
             "error": "",
+            "provider_id": payload.provider_id,
+            "concurrency_limit": CANVAS_IMAGE_PROVIDER_CONCURRENCY,
         }
     asyncio.create_task(run_canvas_image_task(task_id, payload))
     return {"task_id": task_id, "status": "queued"}
@@ -3030,6 +3245,16 @@ def apimart_video_size(size):
 
 async def canvas_video(payload: CanvasVideoRequest):
     provider = get_api_provider(payload.provider_id)
+    if provider_protocol(provider) in {"jimeng", "grok", "volcengine"}:
+        from app import upstream_runtime
+        data = payload.model_dump()
+        data["images"] = [item.model_dump() if hasattr(item, "model_dump") else item for item in payload.images]
+        data["audios"] = [
+            str(getattr(item, "url", item) or "").strip()
+            for item in payload.audios
+            if str(getattr(item, "url", item) or "").strip()
+        ]
+        return await upstream_runtime.canvas_video(upstream_runtime.CanvasVideoRequest(**data))
     base_url = video_api_root(provider)
     if not base_url:
         raise HTTPException(status_code=400, detail=f"{provider.get('name') or provider['id']} 未配置 Base URL")
@@ -3049,6 +3274,20 @@ async def canvas_video(payload: CanvasVideoRequest):
                 image_with_roles = []
                 invalid_images = []  # 每项为 (原始 URL, 失败原因)
                 apimart_model = apimart_veo31_model(requested_model) if is_veo31 else ""
+                if is_veo31 and payload.videos:
+                    raise HTTPException(status_code=400, detail="当前 VEO3.1 模型不支持视频素材输入，请移除视频节点或选择支持视频输入的模型。")
+                video_payload = []
+                invalid_videos = []
+                for video_url in payload.videos[:3]:
+                    uploaded_url = await upload_video_for_apimart(client, provider, video_url)
+                    if valid_apimart_video_input(uploaded_url):
+                        video_payload.append(uploaded_url)
+                    else:
+                        reason = uploaded_url[4:] if isinstance(uploaded_url, str) and uploaded_url.startswith("ERR:") else "未知错误"
+                        invalid_videos.append((video_url, reason))
+                if payload.videos and not video_payload:
+                    reason = invalid_videos[0][1] if invalid_videos else "未知错误"
+                    raise HTTPException(status_code=400, detail=f"输入视频无法上传到 APIMart：{reason}")
                 if apimart_model == "veo3.1-lite" and payload.images:
                     raise HTTPException(status_code=400, detail="veo3.1-lite 不支持图片输入，请改用 veo3.1-fast 或 veo3.1-quality。")
                 image_limit = 0 if apimart_model == "veo3.1-lite" else (3 if is_veo31 else 9)
@@ -3115,8 +3354,8 @@ async def canvas_video(payload: CanvasVideoRequest):
                         body["image_with_roles"] = image_with_roles
                     elif image_payload:
                         body["image_urls"] = image_payload[:9]
-                    if payload.videos:
-                        body["video_urls"] = [v for v in payload.videos if v][:3]
+                    if video_payload:
+                        body["video_urls"] = video_payload
                     if audio_payload:
                         body["audios"] = audio_payload
                         body["audio_url"] = audio_payload[0]
@@ -3149,7 +3388,7 @@ async def canvas_video(payload: CanvasVideoRequest):
                 if image_payload:
                     body["images"] = image_payload
                 if payload.videos:
-                    body["videos"] = [v for v in payload.videos if v]
+                    body["videos"] = [video_reference_value(value) for value in payload.videos[:3] if value]
                 if audio_payload:
                     body["audios"] = audio_payload
                     body["audio_url"] = audio_payload[0]
@@ -3170,6 +3409,7 @@ async def canvas_video(payload: CanvasVideoRequest):
             print("[CanvasVideo] submit", video_debug_summary(provider, model=body.get("model", requested_model), submit_url=submit_url, raw={
                 "body_keys": list(body.keys()),
                 "image_count": len(body.get("image_urls") or body.get("images") or body.get("image_with_roles") or []),
+                "video_input_count": len(body.get("video_urls") or body.get("videos") or []),
                 "audio_count": len(audio_payload),
                 "duration": body.get("duration"),
                 "resolution": body.get("resolution"),
@@ -3341,7 +3581,7 @@ async def trashed_canvases():
     return {"canvases": list_deleted_canvases(), "retention_days": 30}
 
 async def create_canvas(payload: CanvasCreateRequest):
-    return {"canvas": new_canvas(payload.title, payload.icon, payload.kind)}
+    return {"canvas": new_canvas(payload.title, payload.icon, payload.kind, payload.project, payload.board_x, payload.board_y)}
 
 async def get_canvas_meta(canvas_id: str):
     canvas = load_canvas(canvas_id)
@@ -3369,36 +3609,51 @@ async def check_canvas_assets(payload: CanvasAssetCheckRequest):
     return {"exists": result}
 
 async def download_canvas_assets(payload: CanvasAssetDownloadRequest):
-    buffer = BytesIO()
-    used_names = set()
-    count = 0
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for url in payload.urls[:1000]:
-            text = str(url or "").strip()
-            if not text or not (text.startswith("/output/") or text.startswith("/assets/")):
-                continue
-            path = output_file_from_url(text)
-            if not path or not os.path.isfile(path):
-                continue
-            base = os.path.basename(path) or f"image-{count + 1}.png"
-            name, ext = os.path.splitext(base)
-            archive_name = base
-            suffix = 2
-            while archive_name in used_names:
-                archive_name = f"{name}-{suffix}{ext}"
-                suffix += 1
-            used_names.add(archive_name)
-            zf.write(path, archive_name)
-            count += 1
-    if count <= 0:
-        raise HTTPException(status_code=404, detail="没有可下载的本地图片")
-    buffer.seek(0)
+    def build_archive():
+        handle = tempfile.NamedTemporaryFile(prefix="syncanvas-assets-", suffix=".zip", delete=False)
+        archive_path = handle.name
+        handle.close()
+        used_names = set()
+        count = 0
+        try:
+            with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
+                for url in payload.urls[:1000]:
+                    text = str(url or "").strip()
+                    if not text or not (text.startswith("/output/") or text.startswith("/assets/")):
+                        continue
+                    path = output_file_from_url(text)
+                    if not path or not os.path.isfile(path):
+                        continue
+                    base = os.path.basename(path) or f"image-{count + 1}.png"
+                    name, ext = os.path.splitext(base)
+                    archive_name = base
+                    suffix = 2
+                    while archive_name in used_names:
+                        archive_name = f"{name}-{suffix}{ext}"
+                        suffix += 1
+                    used_names.add(archive_name)
+                    zf.write(path, archive_name)
+                    count += 1
+            if count <= 0:
+                raise HTTPException(status_code=404, detail="没有可下载的本地图片")
+            return archive_path
+        except Exception:
+            try:
+                os.remove(archive_path)
+            except OSError:
+                pass
+            raise
+
+    archive_path = await asyncio.to_thread(build_archive)
     filename = re.sub(r'[\\/:*?"<>|]+', "_", payload.filename or "canvas-output-images.zip")
     if not filename.lower().endswith(".zip"):
         filename += ".zip"
-    encoded = urllib.parse.quote(filename)
-    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{encoded}"}
-    return Response(buffer.getvalue(), media_type="application/zip", headers=headers)
+    return FileResponse(
+        archive_path,
+        media_type="application/zip",
+        filename=filename,
+        background=BackgroundTask(os.remove, archive_path),
+    )
 
 async def get_asset_library():
     return {"library": load_asset_library()}
@@ -3449,7 +3704,7 @@ async def add_asset_library_item(payload: AssetLibraryAddRequest):
         safe_name += ext
     dest_name = f"lib_{uuid.uuid4().hex[:12]}_{safe_name}"
     dest_path = os.path.join(ASSET_LIBRARY_DIR, dest_name)
-    shutil.copy2(src, dest_path)
+    await asyncio.to_thread(shutil.copy2, src, dest_path)
     item = {"id": f"asset_{uuid.uuid4().hex[:12]}", "name": os.path.splitext(safe_name)[0][:120], "url": f"/assets/library/{dest_name}", "created_at": now_ms()}
     cat.setdefault("items", []).append(item)
     save_asset_library(lib)
@@ -3482,23 +3737,28 @@ async def delete_asset_library_item(item_id: str):
     return {"library": lib}
 
 async def update_canvas(canvas_id: str, payload: CanvasSaveRequest):
-    canvas = load_canvas(canvas_id)
-    current_updated_at = int(canvas.get("updated_at") or 0)
-    if payload.base_updated_at and current_updated_at and int(payload.base_updated_at) < current_updated_at:
-        raise HTTPException(status_code=409, detail={
-            "message": "画布已被其他页面更新，已拒绝旧版本覆盖。",
-            "canvas": canvas,
-            "updated_at": current_updated_at,
-        })
-    canvas["title"] = (payload.title or canvas.get("title") or "未命名画布")[:80]
-    canvas["icon"] = (payload.icon or canvas.get("icon") or "layers")[:32]
-    canvas["kind"] = normalize_canvas_kind(canvas.get("kind"))
-    canvas["nodes"] = payload.nodes
-    canvas["connections"] = payload.connections
-    canvas["viewport"] = payload.viewport
-    canvas["logs"] = payload.logs[-500:]
-    canvas["settings"] = payload.settings or {}
-    save_canvas(canvas)
+    def mutate_canvas():
+        with CANVAS_LOCK:
+            canvas = load_canvas(canvas_id)
+            current_updated_at = int(canvas.get("updated_at") or 0)
+            if payload.base_updated_at and current_updated_at and int(payload.base_updated_at) < current_updated_at:
+                raise HTTPException(status_code=409, detail={
+                    "message": "画布已被其他页面更新，已拒绝旧版本覆盖。",
+                    "canvas": canvas,
+                    "updated_at": current_updated_at,
+                })
+            canvas["title"] = (payload.title or canvas.get("title") or "未命名画布")[:80]
+            canvas["icon"] = (payload.icon or canvas.get("icon") or "layers")[:32]
+            canvas["kind"] = normalize_canvas_kind(canvas.get("kind"))
+            canvas["nodes"] = payload.nodes
+            canvas["connections"] = payload.connections
+            canvas["viewport"] = payload.viewport
+            canvas["logs"] = payload.logs[-500:]
+            canvas["settings"] = payload.settings or {}
+            save_canvas(canvas)
+            return canvas
+
+    canvas = await asyncio.to_thread(mutate_canvas)
     await manager.broadcast_canvas_updated(canvas_id, int(canvas.get("updated_at") or now_ms()), payload.client_id)
     return {"canvas": canvas}
 
@@ -3709,7 +3969,7 @@ async def chat_stream(payload: ChatRequest, request: Request, x_user_id: str = H
 
 async def poll_angle_cloud(req: CloudPollRequest):
     base_url = 'https://api-inference.modelscope.cn/'
-    clean_token = (req.api_key or MODELSCOPE_API_KEY).strip()
+    clean_token = MODELSCOPE_API_KEY.strip()
     if not clean_token:
         raise HTTPException(status_code=400, detail="未提供 ModelScope API Key")
 
@@ -3781,7 +4041,7 @@ async def poll_angle_cloud(req: CloudPollRequest):
 
 async def generate_angle_cloud(req: CloudGenRequest):
     base_url = 'https://api-inference.modelscope.cn/'
-    clean_token = (req.api_key or MODELSCOPE_API_KEY).strip()
+    clean_token = MODELSCOPE_API_KEY.strip()
     if not clean_token:
         raise HTTPException(status_code=400, detail="未提供 ModelScope API Key")
 
@@ -3878,7 +4138,7 @@ async def generate_angle_cloud(req: CloudGenRequest):
 
 async def generate_cloud(req: CloudGenRequest):
     base_url = 'https://api-inference.modelscope.cn/'
-    clean_token = (req.api_key or MODELSCOPE_API_KEY).strip()
+    clean_token = MODELSCOPE_API_KEY.strip()
     if not clean_token:
         raise HTTPException(status_code=400, detail="未提供 ModelScope API Key")
 
@@ -3970,7 +4230,7 @@ async def generate_cloud(req: CloudGenRequest):
 
 async def ms_generate(req: MsGenerateRequest):
     base_url = 'https://api-inference.modelscope.cn/'
-    clean_token = (req.api_key or MODELSCOPE_API_KEY).strip()
+    clean_token = MODELSCOPE_API_KEY.strip()
     if not clean_token:
         raise HTTPException(status_code=400, detail="未配置 ModelScope API Key，请在 API 设置中填写，或重新保存 ModelScope Token。")
 

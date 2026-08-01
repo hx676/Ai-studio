@@ -166,6 +166,8 @@ public partial class MainWindow : Window
     private bool _isStopping;
     private bool _backendBindingBlocked;
     private string? _backendBindingError;
+    private string? _backendLifecycleWarning;
+    private bool _backendLifecycleWarningShown;
 
     public MainWindow()
     {
@@ -195,23 +197,13 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            BlockBackendBinding($"后台进程无法绑定到启动器生命周期，请先停止残留服务后重试。{Environment.NewLine}{ex.Message}");
+            _backendLifecycleWarning =
+                $"无法启用 Windows 作业对象，将改用运行态 PID 管理后台进程。{Environment.NewLine}{ex.Message}";
         }
     }
 
     private async Task<bool> BindProjectBackendsAsync(bool showErrors)
     {
-        if (_backendJob == null)
-        {
-            var message = _backendBindingError
-                ?? "后台进程无法绑定到启动器生命周期，请先停止残留服务后重试。";
-            if (showErrors)
-            {
-                BlockBackendBinding(message);
-            }
-            return false;
-        }
-
         try
         {
             var payload = await _client.GetProjectBackendPidsAsync();
@@ -227,6 +219,14 @@ public partial class MainWindow : Window
                 BlockBackendBinding(message);
                 return false;
             }
+
+            if (_backendJob == null)
+            {
+                ClearBackendBindingBlock();
+                ShowBackendLifecycleWarning(showErrors);
+                return true;
+            }
+
             var pids = (payload?.Pids ?? new List<int>())
                 .Concat(payload?.Processes.Select(process => process.Pid) ?? Enumerable.Empty<int>())
                 .Where(pid => pid > 0 && pid != Environment.ProcessId)
@@ -244,11 +244,12 @@ public partial class MainWindow : Window
 
             if (failures.Count > 0)
             {
-                var message = "后台进程无法绑定到启动器生命周期，请先停止残留服务后重试。"
+                _backendLifecycleWarning = "部分后台进程无法加入 Windows 作业对象，将继续使用运行态 PID 管理。"
                     + Environment.NewLine
                     + string.Join(Environment.NewLine, failures);
-                BlockBackendBinding(message);
-                return false;
+                ClearBackendBindingBlock();
+                ShowBackendLifecycleWarning(showErrors);
+                return true;
             }
 
             ClearBackendBindingBlock();
@@ -256,19 +257,23 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            var message = $"后台进程无法绑定到启动器生命周期，请先停止残留服务后重试。{Environment.NewLine}{ex.Message}";
-            if (showErrors)
-            {
-                BlockBackendBinding(message);
-            }
-            else
-            {
-                _backendBindingBlocked = true;
-                _backendBindingError = message;
-                UpdateStartButtonBindingState();
-            }
-            return false;
+            _backendLifecycleWarning =
+                $"后台生命周期检查失败，将继续使用运行态 PID 管理。{Environment.NewLine}{ex.Message}";
+            ClearBackendBindingBlock();
+            ShowBackendLifecycleWarning(showErrors);
+            return true;
         }
+    }
+
+    private void ShowBackendLifecycleWarning(bool show)
+    {
+        if (!show || _backendLifecycleWarningShown || string.IsNullOrWhiteSpace(_backendLifecycleWarning))
+        {
+            return;
+        }
+
+        _backendLifecycleWarningShown = true;
+        ShowOperationMessage(_backendLifecycleWarning);
     }
 
     private void BlockBackendBinding(string message)
@@ -288,50 +293,7 @@ public partial class MainWindow : Window
 
     private bool HasRunningServices()
     {
-        return _status?.Services.Any(s => s.State == "ready" || s.State == "starting" || s.State == "partial") == true;
-    }
-
-    private void RenderStoppedStatusAfterStop()
-    {
-        if (_status == null)
-        {
-            RenderHomeStartButton();
-            return;
-        }
-
-        foreach (var service in _status.Services)
-        {
-            service.State = "stopped";
-            service.Ready = false;
-            service.Managed = false;
-            service.Pid = null;
-            service.Source = "none";
-            foreach (var check in service.Checks)
-            {
-                check.Ready = false;
-                check.PortOpen = false;
-                check.Error = "";
-            }
-        }
-
-        _status.Diagnostics = _status.Services.Select(service => new DiagnosticItem
-        {
-            Group = "服务接口",
-            Key = service.Key,
-            Label = service.Label,
-            Status = "idle",
-            Detail = "服务尚未启动",
-            Suggestion = "点击一键启动后，启动器会等待服务完成预热。"
-        }).ToList();
-        _status.Counts = new Dictionary<string, int>
-        {
-            ["ok"] = 0,
-            ["warning"] = 0,
-            ["error"] = 0,
-            ["running"] = 0,
-            ["idle"] = _status.Services.Count
-        };
-        RenderStatus(_status);
+        return _status?.Services.Any(s => s.Required && (s.State == "ready" || s.State == "starting" || s.State == "partial")) == true;
     }
 
     private void UpdateStartButtonBindingState()
@@ -359,14 +321,14 @@ public partial class MainWindow : Window
 
     private void RenderHomeStartButton()
     {
-        HomePrimaryButton.Content = "▶  一键启动";
+        HomePrimaryButton.Content = "▶  启动主应用";
         HomePrimaryButton.Style = (Style)FindResource("PrimaryButton");
         HomePrimaryButton.Height = 42;
     }
 
     private void RenderHomeStopButton()
     {
-        HomePrimaryButton.Content = "■  一键停止";
+        HomePrimaryButton.Content = "■  停止主应用";
         HomePrimaryButton.Style = (Style)FindResource("DangerButton");
         HomePrimaryButton.Height = 42;
     }
@@ -429,7 +391,7 @@ public partial class MainWindow : Window
             || _mainOpenedForStartAttempt
             || !(_config?.Launcher.OpenMainAfterReady ?? false)
             || _status?.Services.Count == 0
-            || _status?.Services.All(s => s.Ready) != true)
+            || _status?.Services.Where(s => s.Required).All(s => s.Ready) != true)
         {
             return;
         }
@@ -441,7 +403,7 @@ public partial class MainWindow : Window
                 : _config?.Main.BaseUrl ?? "";
             _client.OpenMain(mainUrl);
             _mainOpenedForStartAttempt = true;
-            AddLauncherEvent("服务全部就绪，已打开主应用。", "stdout");
+            AddLauncherEvent("主应用已就绪，已打开画布。数字人组件将在使用时按需启动。", "stdout");
         }
         catch (Exception ex)
         {
@@ -459,7 +421,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        var services = _status?.Services ?? new List<ServiceStatus>();
+        var services = (_status?.Services ?? new List<ServiceStatus>())
+            .Where(s => s.Required)
+            .ToList();
         var timedOut = DateTime.Now - _startupPollStartedAt.Value >= _startupPollLimit;
         var shouldContinue = !timedOut
             && _hasStartAttempted
@@ -555,16 +519,17 @@ public partial class MainWindow : Window
     private void RenderTroubleshooting(SupervisorStatus status)
     {
         TroubleList.Children.Clear();
-        if (status.Services.Count > 0 && status.Services.All(s => s.State == "stopped") && !_hasStartAttempted)
+        var requiredServices = status.Services.Where(s => s.Required).ToList();
+        if (requiredServices.Count > 0 && requiredServices.All(s => s.State == "stopped") && !_hasStartAttempted)
         {
             TroubleSummaryText.Text = "服务尚未启动";
-            TroubleHintText.Text = "当前没有故障结论。点击一键启动后，启动器会跟随刷新预热状态。";
-            foreach (var service in status.Services)
+            TroubleHintText.Text = "当前没有故障结论。点击启动主应用后，启动器会跟随刷新预热状态。";
+            foreach (var service in requiredServices)
             {
                 TroubleList.Children.Add(CreateTroubleCard(
                     $"{ServiceDisplayName(service.Key, service.Label)} 待启动",
                     "服务还没有启动，接口未连接是正常状态。",
-                    "点击一键启动后等待服务完成预热。",
+                    "点击启动主应用后等待核心服务完成预热。",
                     "idle"));
             }
             return;
@@ -596,6 +561,10 @@ public partial class MainWindow : Window
     {
         foreach (var service in status.Services)
         {
+            if (!service.Required)
+            {
+                continue;
+            }
             if (service.State == "ready")
             {
                 continue;
@@ -622,8 +591,8 @@ public partial class MainWindow : Window
                 ? "服务还没有完成启动。"
                 : $"未就绪接口：{string.Join("、", missing)}。";
             var action = service.State == "partial"
-                ? "点击一键启动补齐缺失的后台，或打开控制台查看启动输出。"
-                : "打开控制台查看启动输出，或重新执行一键启动。";
+                ? "点击启动主应用补齐核心服务，或打开控制台查看启动输出。"
+                : "打开控制台查看启动输出，或重新启动主应用。";
             yield return new TroubleItem(title, detail, action, service.State == "partial" ? "warning" : "error");
         }
 
@@ -687,6 +656,8 @@ public partial class MainWindow : Window
         else
         {
             HomeActionText.Text = message;
+            HomeActionText.Foreground = isError ? ErrorBrush : TextMutedBrush;
+            HomeActionText.Visibility = Visibility.Visible;
         }
     }
 
@@ -724,11 +695,14 @@ public partial class MainWindow : Window
 
     private Border CreateConsoleServiceCard(ServiceStatus service)
     {
+        var isComponentService = !service.Required;
         var stateText = service.State switch
         {
             "ready" => "就绪",
             "starting" => "预热中",
             "partial" => "部分就绪",
+            "not_installed" => "组件未安装",
+            _ when isComponentService => "按需待命",
             _ => "未运行"
         };
         var stateBrush = service.State switch
@@ -736,6 +710,7 @@ public partial class MainWindow : Window
             "ready" => OkBrush,
             "starting" => RunningBrush,
             "partial" => WarningBrush,
+            "not_installed" => IdleBrush,
             _ => IdleBrush
         };
         var source = service.Source switch
@@ -744,9 +719,13 @@ public partial class MainWindow : Window
             "external" => "外部运行",
             "partial" => "部分接口运行",
             "warming" => "端口已打开，等待接口就绪",
+            _ when isComponentService && service.Installed => "由数字人页面按需启动",
+            _ when isComponentService => "请在数字人页面安装组件",
             _ => "等待启动"
         };
-        var checks = string.Join(" / ", service.Checks.Select(c => $"{c.Label}:{(c.Ready ? "ready" : c.PortOpen ? "端口已开" : "等待")}"));
+        var checks = isComponentService && service.State is ("stopped" or "not_installed")
+            ? $"组件状态：{(service.Installed ? "已安装" : "未安装")}"
+            : string.Join(" / ", service.Checks.Select(c => $"{c.Label}:{(c.Ready ? "ready" : c.PortOpen ? "端口已开" : "等待")}"));
         var logInfo = LatestLogInfo(service.Key);
 
         var panel = new StackPanel();
@@ -776,14 +755,16 @@ public partial class MainWindow : Window
 
     private void RenderStatusSummary(SupervisorStatus status)
     {
-        var ready = status.Services.Count(s => s.State == "ready");
-        var starting = status.Services.Count(s => s.State == "starting");
-        var partial = status.Services.Count(s => s.State == "partial");
-        var stopped = status.Services.Count(s => s.State == "stopped");
+        var requiredServices = status.Services.Where(s => s.Required).ToList();
+        var optionalServices = status.Services.Where(s => !s.Required).ToList();
+        var ready = requiredServices.Count(s => s.State == "ready");
+        var starting = requiredServices.Count(s => s.State == "starting");
+        var partial = requiredServices.Count(s => s.State == "partial");
+        var stopped = requiredServices.Count(s => s.State == "stopped");
         var errors = status.Counts.TryGetValue("error", out var errorCount) ? errorCount : 0;
         var warnings = status.Counts.TryGetValue("warning", out var warningCount) ? warningCount : 0;
 
-        var stateText = status.Services.All(s => s.State == "ready")
+        var stateText = requiredServices.Count > 0 && requiredServices.All(s => s.State == "ready")
             ? "已就绪"
             : starting > 0
                 ? "预热中"
@@ -791,9 +772,11 @@ public partial class MainWindow : Window
                     ? "部分就绪"
                     : "未运行";
 
-        TopStatusText.Text = $"{stateText} · 正常 {ready}/{status.Services.Count}";
+        TopStatusText.Text = $"{stateText} · 核心服务 {ready}/{requiredServices.Count}";
         HeroReadyText.Text = stateText;
-        HeroStatusText.Text = $"主应用、TTS、HeyGem 状态：就绪 {ready}，预热中 {starting}，部分就绪 {partial}，未运行 {stopped}";
+        var digitalInstalled = optionalServices.Any(s => s.Installed);
+        var digitalState = digitalInstalled ? "数字人组件已安装，使用时按需启动" : "数字人组件未安装，不影响画布使用";
+        HeroStatusText.Text = $"主应用状态：就绪 {ready}，预热中 {starting}，未运行 {stopped}；{digitalState}";
 
         // 右下角公告面板已重构为静态使用指南，因此不再动态更新该文本 / Notice panel has been refactored to static guide, no dynamic replacement needed
         /*
@@ -807,7 +790,7 @@ public partial class MainWindow : Window
         */
 
         // 动态切换一键启动/一键停止按钮的内容与样式 / Dynamically switch the content and style of the primary button
-        if (status.Services.Any(s => s.State == "ready" || s.State == "starting" || s.State == "partial"))
+        if (requiredServices.Any(s => s.State == "ready" || s.State == "starting" || s.State == "partial"))
         {
             RenderHomeStopButton();
         }
@@ -831,12 +814,6 @@ public partial class MainWindow : Window
         MainBaseUrlBox.Text = config.Main.BaseUrl;
         MainPythonBox.Text = config.Main.PythonPath;
         MainScriptBox.Text = config.Main.ScriptPath;
-        TtsBaseUrlBox.Text = config.Tts.BaseUrl;
-        TtsRootBox.Text = config.Tts.RootDir;
-        TtsPythonBox.Text = config.Tts.PythonPath;
-        HeyGemBaseUrlBox.Text = config.HeyGem.BaseUrl;
-        HeyGemApiUrlBox.Text = config.HeyGem.ApiBaseUrl;
-        HeyGemRootBox.Text = config.HeyGem.RootDir;
         OpenMainAfterReadyBox.IsChecked = config.Launcher.OpenMainAfterReady;
     }
 
@@ -846,15 +823,6 @@ public partial class MainWindow : Window
         cfg.Main.BaseUrl = MainBaseUrlBox.Text.Trim();
         cfg.Main.PythonPath = MainPythonBox.Text.Trim();
         cfg.Main.ScriptPath = MainScriptBox.Text.Trim();
-        cfg.Tts.BaseUrl = TtsBaseUrlBox.Text.Trim();
-        cfg.Tts.RootDir = TtsRootBox.Text.Trim();
-        cfg.Tts.PythonPath = TtsPythonBox.Text.Trim();
-        cfg.Tts.ScriptPath = string.IsNullOrWhiteSpace(cfg.Tts.ScriptPath) ? System.IO.Path.Combine(cfg.Tts.RootDir, "app.py") : cfg.Tts.ScriptPath;
-        cfg.HeyGem.BaseUrl = HeyGemBaseUrlBox.Text.Trim();
-        cfg.HeyGem.ApiBaseUrl = HeyGemApiUrlBox.Text.Trim();
-        cfg.HeyGem.RootDir = HeyGemRootBox.Text.Trim();
-        cfg.HeyGem.PythonPath = string.IsNullOrWhiteSpace(cfg.HeyGem.PythonPath) ? System.IO.Path.Combine(cfg.HeyGem.RootDir, "py38", "python.exe") : cfg.HeyGem.PythonPath;
-        cfg.HeyGem.ScriptPath = string.IsNullOrWhiteSpace(cfg.HeyGem.ScriptPath) ? System.IO.Path.Combine(cfg.HeyGem.RootDir, "app.py") : cfg.HeyGem.ScriptPath;
         cfg.Launcher.OpenMainAfterReady = OpenMainAfterReadyBox.IsChecked == true;
         return cfg;
     }
@@ -954,7 +922,7 @@ public partial class MainWindow : Window
         try
         {
             // 如果是首页按钮，且当前有任何服务在运行，则点击时执行“一键停止”逻辑 / If it's the home button and any service is running, perform "One-click Stop"
-            if (sender == HomePrimaryButton && _status?.Services.Any(s => s.State == "ready" || s.State == "starting" || s.State == "partial") == true)
+            if (sender == HomePrimaryButton && HasRunningServices())
             {
                 StopAllClicked(sender, e); // 调用一键停止 / Call one-click stop
                 return;
@@ -966,13 +934,13 @@ public partial class MainWindow : Window
             }
             await OpenConsoleAsync(true);
             HomeActionText.Text = "正在发送启动命令...";
-            AddLauncherEvent("正在启动全部后台服务。", "stdout");
+            AddLauncherEvent("正在启动 SynCanvas 主应用。数字人组件不会随主应用预热。", "stdout");
             var mainPreferredUrl = !string.IsNullOrWhiteSpace(_status?.MainUrl)
                 ? _status.MainUrl
                 : !string.IsNullOrWhiteSpace(_config?.Main.BaseUrl)
                     ? _config.Main.BaseUrl
                     : MainBaseUrlBox.Text.Trim();
-            AddLauncherEvent($"主应用首选地址 {mainPreferredUrl}，冲突时自动选择 3001-3099；TTS 端口 7861，HeyGem 页面端口 7860，HeyGem 接口端口 8383。", "stdout");
+            AddLauncherEvent($"主应用首选地址 {mainPreferredUrl}，冲突时自动选择 3001-3099；TTS 与 HeyGem 在数字人功能中按需启动。", "stdout");
             AddExpectedServiceEvents();
             RenderConsoleSnapshot();
             BeginStartupPolling();
@@ -1014,11 +982,11 @@ public partial class MainWindow : Window
             StopStartupPolling(resetAttempt: true);
             _consoleLogStreamingEnabled = false;
             _consoleTimer.Stop();
-            HomeActionText.Text = "正在停止本次启动的服务...";
-            AddLauncherEvent("正在停止本次启动器拉起的后台服务。", "stdout");
+            HomeActionText.Text = "正在停止主应用...";
+            AddLauncherEvent("正在停止主应用；按需数字人组件保持独立管理。", "stdout");
             RenderConsoleSnapshot();
             var result = await StopBackendsWithUiTimeoutAsync("停止", TimeSpan.FromSeconds(12));
-            var message = result.Ok ? "停止命令已完成，所有本项目后台已清理。" : "停止命令失败，详细输出已写入日志。";
+            var message = result.Ok ? "主应用已停止；数字人组件状态未受影响。" : "主应用停止失败，详细输出已写入日志。";
             HomeActionText.Text = message;
             await RefreshStatusAsync(false);
             await BindProjectBackendsAsync(showErrors: false);
@@ -1048,7 +1016,7 @@ public partial class MainWindow : Window
             _consoleLogStreamingEnabled = false;
             _consoleTimer.Stop();
             UpdateStartButtonBindingState();
-            AddLauncherEvent("正在停止本次启动器拉起的后台服务。", "stdout");
+            AddLauncherEvent("正在停止主应用；TTS 与 HeyGem 组件不会被启动器清理。", "stdout");
             RenderConsoleSnapshot();
 
             var result = await StopBackendsAsync("停止");
@@ -1066,18 +1034,18 @@ public partial class MainWindow : Window
 
             if (result.Ok && confirmError == null && leftoverPids.Count == 0)
             {
-                AddLauncherEvent("停止完成，未发现本项目后台残留进程。", "stdout");
-                ShowOperationMessage("停止完成，未发现本项目后台残留进程。");
-                RenderStoppedStatusAfterStop();
+                AddLauncherEvent("主应用停止完成，未发现主应用残留进程。", "stdout");
+                ShowOperationMessage("主应用已停止；数字人组件保持独立状态。");
+                await RefreshStatusAsync(false);
             }
             else
             {
                 if (leftoverPids.Count == 0)
                 {
-                    RenderStoppedStatusAfterStop();
+                    await RefreshStatusAsync(false);
                 }
                 var message = leftoverPids.Count > 0
-                    ? $"停止未完全完成，仍发现本项目后台 PID：{string.Join(", ", leftoverPids)}。请稍后重试或关闭启动器触发生命周期清理。"
+                    ? $"主应用停止未完全完成，仍发现 PID：{string.Join(", ", leftoverPids)}。请稍后重试。"
                     : confirmError != null
                         ? $"停止命令已返回，但无法确认残留进程：{confirmError}"
                         : result.TimedOut
@@ -1117,9 +1085,14 @@ public partial class MainWindow : Window
             e.Cancel = true;
             return;
         }
+        if (!HasRunningServices())
+        {
+            _allowClose = true;
+            return;
+        }
         var answer = MessageBox.Show(
             this,
-            "启动器将退出，并停止主应用、TTS、HeyGem 等所有本项目后台服务。确定要关闭当前实例吗？",
+            "启动器将退出并停止主应用。TTS 与 HeyGem 组件不会被停止。确定要关闭吗？",
             "关闭",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question,
@@ -1135,9 +1108,9 @@ public partial class MainWindow : Window
         {
             _timer.Stop();
             _consoleTimer.Stop();
-            AddLauncherEvent("正在关闭启动器，先清理所有本项目后台服务。", "stdout");
+            AddLauncherEvent("正在关闭启动器并停止主应用；数字人组件保持独立状态。", "stdout");
             RenderConsoleSnapshot();
-            HomeActionText.Text = "正在关闭后台服务...";
+            HomeActionText.Text = "正在停止主应用...";
             await StopBackendsWithUiTimeoutAsync("关闭启动器", TimeSpan.FromSeconds(12));
         }
         finally
@@ -1207,7 +1180,7 @@ public partial class MainWindow : Window
         {
             _config = ReadConfigForm();
             var output = await _client.SaveConfigAsync(_config);
-            ShowConfigMessage("配置已保存，并已同步数字人服务配置。");
+            ShowConfigMessage("主应用与启动器配置已保存。数字人组件由数字人页面管理。");
             await LoadConfigAsync();
             await RefreshStatusAsync(false);
         }
@@ -1372,15 +1345,8 @@ public partial class MainWindow : Window
 
     private void AddExpectedServiceEvents()
     {
-        foreach (var service in new[]
-        {
-            ("main", "主应用", "http://127.0.0.1:3000/"),
-            ("tts", "TTS", "http://127.0.0.1:7861/"),
-            ("heygem", "HeyGem", "http://127.0.0.1:7860/ 和 http://127.0.0.1:8383/")
-        })
-        {
-            AddLauncherEvent($"准备检查/启动 {service.Item2}：{service.Item3}", "stdout", service.Item1);
-        }
+        AddLauncherEvent("准备检查/启动主应用：http://127.0.0.1:3000/（冲突时自动换端口）", "stdout", "main");
+        AddLauncherEvent("数字人组件为可选组件，进入数字人页面后按需安装和启动。", "stdout", "launcher");
     }
 
     private void AddActionResultEvents(string action, SupervisorActionResult result)
@@ -1409,6 +1375,14 @@ public partial class MainWindow : Window
         }
         foreach (var service in status.Services)
         {
+            if (!service.Required && service.State is ("stopped" or "not_installed"))
+            {
+                AddLauncherEvent(
+                    $"{ServiceDisplayName(service.Key, service.Label)}：{(service.Installed ? "组件已安装，按需待命" : "组件未安装")}",
+                    "stdout",
+                    service.Key);
+                continue;
+            }
             var checks = string.Join(" / ", service.Checks.Select(check => $"{check.Label}:{(check.Ready ? "ready" : check.PortOpen ? "端口已开，等待接口" : "等待")}"));
             var pidText = service.Pid.HasValue ? $"，PID {service.Pid}" : "";
             AddLauncherEvent($"{ServiceDisplayName(service.Key, service.Label)} 状态：{StateDisplayName(service.State)}{pidText}；{checks}", service.Ready ? "stdout" : "stderr", service.Key);
@@ -1445,7 +1419,7 @@ public partial class MainWindow : Window
         var merged = _launcherEvents.Concat(logLines).ToList();
         if (merged.Count == 0)
         {
-            merged.Add(new ConsoleLine(null, 0, "", "", "暂无关键日志。点击一键启动后会显示启动进度；完整原始日志可用“导出完整日志”查看。"));
+            merged.Add(new ConsoleLine(null, 0, "", "", "暂无关键日志。点击启动主应用后会显示启动进度；完整原始日志可用“导出完整日志”查看。"));
             return merged;
         }
         return merged

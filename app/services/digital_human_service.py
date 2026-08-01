@@ -15,6 +15,9 @@ from fastapi import File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 
 from app import legacy
+from app.core.json_store import atomic_write_json
+from app.core.run_retention import prune_terminal_mapping
+from app.core.security import redact_sensitive_value
 from app.models.digital_human import (
     DigitalHumanConfigPayload,
     DigitalHumanGenerateRequest,
@@ -80,6 +83,7 @@ DIGITAL_HUMAN_POSTER_DIR = os.path.join(DIGITAL_HUMAN_INPUT_DIR, "posters")
 DIGITAL_HUMAN_QUEUE = []
 DIGITAL_HUMAN_QUEUE_WORKER = None
 DIGITAL_HUMAN_RECENT_LIMIT = 30
+DIGITAL_HUMAN_MAX_QUEUE = max(1, int(os.getenv("AI_RUN_MAX_QUEUE", "100")))
 DIGITAL_HUMAN_TERMINAL_STATUSES = {"succeeded", "failed", "canceled"}
 DIGITAL_HUMAN_QUEUE_STATE = {
     "paused": False,
@@ -96,6 +100,7 @@ DIGITAL_HUMAN_RESOURCE_STATE = {
     "owner": "",
     "waiting_tts": 0,
     "waiting_heygem": 0,
+    "waiting_node_engine": 0,
 }
 DIGITAL_HUMAN_GPU_IDLE_TASK = None
 DIGITAL_HUMAN_GPU_LAST_ACTIVITY = time.time()
@@ -248,8 +253,11 @@ def update_digital_human_task_stage(task_id, stage):
 
 async def acquire_digital_human_resource(kind, task_id="", waiting_stage="", running_stage=""):
     touch_digital_human_gpu_activity(f"acquire:{kind}")
-    kind = "heygem" if kind == "heygem" else "tts"
-    waiting_key = "waiting_heygem" if kind == "heygem" else "waiting_tts"
+    kind = kind if kind in {"tts", "heygem", "node-engine"} else "tts"
+    waiting_key = {
+        "heygem": "waiting_heygem",
+        "node-engine": "waiting_node_engine",
+    }.get(kind, "waiting_tts")
     started_wait = time.time()
     if waiting_stage:
         update_digital_human_task_stage(task_id, waiting_stage)
@@ -442,8 +450,11 @@ async def generate_heygem_video_monitored(audio_path, video_path, config, task_i
 
 
 def digital_human_default_config():
-    tts_root = os.path.join(BASE_DIR, "index-tts-2")
-    heygem_root = os.path.join(BASE_DIR, "heygem-win-fix", "heygem-win")
+    from app.services.component_service import resolve_digital_human_roots
+
+    resolved_tts_root, resolved_heygem_root, _ = resolve_digital_human_roots()
+    tts_root = str(resolved_tts_root)
+    heygem_root = str(resolved_heygem_root)
     release_services = [
         item.strip().lower()
         for item in str(os.getenv("DIGITAL_HUMAN_GPU_RELEASE_SERVICES", "tts,heygem")).split(",")
@@ -503,8 +514,7 @@ def load_digital_human_config():
 def save_digital_human_config(config):
     os.makedirs(DATA_DIR, exist_ok=True)
     with DIGITAL_HUMAN_CONFIG_LOCK:
-        with open(DIGITAL_HUMAN_CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(config, f, ensure_ascii=False, indent=2)
+        atomic_write_json(DIGITAL_HUMAN_CONFIG_FILE, config)
 
 def normalize_digital_human_config(payload=None):
     config = load_digital_human_config()
@@ -888,12 +898,17 @@ def digital_human_local_path(value):
     if text.startswith("/assets/") or text.startswith("/output/"):
         return output_file_from_url(text) or ""
     path = os.path.abspath(text)
+    config = normalize_digital_human_config()
+    tts_root = os.path.abspath((config.get("tts") or {}).get("root_dir") or os.path.join(BASE_DIR, "index-tts-2"))
+    heygem_root = os.path.abspath((config.get("heygem") or {}).get("root_dir") or os.path.join(BASE_DIR, "heygem-win-fix", "heygem-win"))
     roots = [
         os.path.abspath(BASE_DIR),
         os.path.abspath(OUTPUT_INPUT_DIR),
         os.path.abspath(OUTPUT_OUTPUT_DIR),
         os.path.abspath(os.path.join(BASE_DIR, "heygem-win-fix")),
         os.path.abspath(os.path.join(BASE_DIR, "index-tts-2")),
+        tts_root,
+        heygem_root,
     ]
     try:
         if any(os.path.commonpath([root, path]) == root for root in roots) and os.path.exists(path):
@@ -998,8 +1013,7 @@ def save_digital_human_library(data):
     os.makedirs(DATA_DIR, exist_ok=True)
     data["updated_at"] = time.time()
     with DIGITAL_HUMAN_LIBRARY_LOCK:
-        with open(DIGITAL_HUMAN_LIBRARY_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        atomic_write_json(DIGITAL_HUMAN_LIBRARY_FILE, data)
 
 def normalize_library_video(item):
     path = digital_human_local_path((item or {}).get("path") or (item or {}).get("url") or "")
@@ -1189,11 +1203,33 @@ async def save_digital_human_config_api(payload: DigitalHumanConfigPayload):
     return {"config": config}
 
 async def digital_human_tts_status(auto_start: bool = False):
+    from app.services.component_service import get_component_status
+
+    component = get_component_status()
+    if not component.get("ready"):
+        return {
+            "connected": False,
+            "managed": False,
+            "started": False,
+            "component_state": component.get("state") or "not_installed",
+            "last_error": "数字人组件尚未安装，请先在数字人页面完成安装。",
+        }
     config = normalize_digital_human_config()
     status = await ensure_tts_service(config, wait_seconds=45 if auto_start else 3, auto_start=auto_start)
     return status
 
 async def digital_human_heygem_status(auto_start: bool = False):
+    from app.services.component_service import get_component_status
+
+    component = get_component_status()
+    if not component.get("ready"):
+        return {
+            "connected": False,
+            "managed": False,
+            "started": False,
+            "component_state": component.get("state") or "not_installed",
+            "last_error": "数字人组件尚未安装，请先在数字人页面完成安装。",
+        }
     config = normalize_digital_human_config()
     status = await ensure_heygem_service(config, wait_seconds=90 if auto_start else 3, auto_start=auto_start)
     return status
@@ -1434,6 +1470,11 @@ async def delete_digital_human_voice(voice_name: str):
     return {"ok": True, "deleted": name, "path": path, "deleted_paths": deleted_paths, "voices": voices, "tts_status": tts_status}
 
 async def upload_digital_human_asset(files: List[UploadFile] = File(...), kind: str = "asset", save_voice: bool = False, voice_name: str = "", overwrite: bool = False):
+    if save_voice:
+        from app.services.component_service import digital_human_component_ready
+
+        if not digital_human_component_ready():
+            raise HTTPException(status_code=409, detail="数字人组件尚未安装，暂时不能保存本地音色。")
     config = normalize_digital_human_config()
     uploaded = []
     allowed = {
@@ -1502,6 +1543,10 @@ async def upload_digital_human_asset(files: List[UploadFile] = File(...), kind: 
     return {"files": uploaded}
 
 async def digital_human_tts(payload: DigitalHumanTTSRequest):
+    from app.services.component_service import digital_human_component_ready
+
+    if not digital_human_component_ready():
+        raise HTTPException(status_code=409, detail="数字人组件尚未安装，请先在数字人页面完成安装。")
     config = normalize_digital_human_config(payload.config)
     voice_path = digital_human_local_path(payload.voice_url) or digital_human_local_path(payload.voice_path)
     result = await run_with_digital_human_resource(
@@ -1866,9 +1911,10 @@ def digital_human_task_public(task):
         if key == "raw":
             continue
         public[key] = value
-    return public
+    return redact_sensitive_value(public)
 
 def update_digital_human_queue_positions_locked():
+    prune_terminal_mapping(DIGITAL_HUMAN_TASKS, DIGITAL_HUMAN_TERMINAL_STATUSES)
     active_queue = []
     position = 1
     for task_id in list(DIGITAL_HUMAN_QUEUE):
@@ -2036,10 +2082,21 @@ async def digital_human_queue_worker():
                 pass
 
 async def digital_human_generate(payload: DigitalHumanGenerateRequest, request: Request):
+    from app.services.component_service import digital_human_component_ready
+
+    if not digital_human_component_ready():
+        raise HTTPException(status_code=409, detail="数字人组件尚未安装，请先在数字人页面完成安装。")
     task_id = payload.code or f"dh_{uuid.uuid4().hex[:12]}"
     payload_data = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
     touch_digital_human_gpu_activity("queue:generate")
     with DIGITAL_HUMAN_TASK_LOCK:
+        update_digital_human_queue_positions_locked()
+        existing = DIGITAL_HUMAN_TASKS.get(task_id)
+        if existing and existing.get("status") in {"queued", "pending", "running"}:
+            raise HTTPException(status_code=409, detail="相同任务正在执行")
+        active = sum(1 for task in DIGITAL_HUMAN_TASKS.values() if task.get("status") in {"queued", "pending", "running"})
+        if active >= DIGITAL_HUMAN_MAX_QUEUE:
+            raise HTTPException(status_code=429, detail="AI 任务队列已满，请稍后重试")
         DIGITAL_HUMAN_TASKS[task_id] = make_digital_human_task_payload(task_id, payload_data, str(request.base_url).rstrip("/"))
         DIGITAL_HUMAN_QUEUE.append(task_id)
         update_digital_human_queue_positions_locked()

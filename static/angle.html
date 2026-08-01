@@ -17,21 +17,21 @@
             } catch(e) {}
         })();
     </script>
-    <script src="/static/vendor/js/tailwindcss-cdn.js?v=2026.07.08.1"></script>
-    <script src="/static/vendor/js/lucide.js?v=2026.07.08.1"></script>
-    <script src="/static/js/theme.js?v=2026.07.08.1"></script>
-    <script src="/static/js/i18n.js?v=2026.07.08.1"></script>
-    <script src="/static/js/image-preview.js?v=2026.07.08.1"></script>
-    <script src="/static/js/history-bulk-manager.js?v=2026.07.08.1"></script>
+    <link rel="stylesheet" href="/static/vendor/css/tailwind.css?v=2026.08.01.4">
+    <script src="/static/vendor/js/lucide.js?v=2026.08.01.4"></script>
+    <script src="/static/js/theme.js?v=2026.08.01.4"></script>
+    <script src="/static/js/i18n-core.js?v=2026.08.01.4"></script><script src="/static/js/i18n/common.js?v=2026.08.01.4"></script><script src="/static/js/i18n/studio.js?v=2026.08.01.4"></script><script src="/static/js/i18n/api-settings.js?v=2026.08.01.4"></script><script src="/static/js/i18n/canvas.js?v=2026.08.01.4"></script><script src="/static/js/i18n/smart-canvas.js?v=2026.08.01.4"></script><script src="/static/js/i18n/comfyui-settings.js?v=2026.08.01.4"></script><script src="/static/js/i18n/legacy.js?v=2026.08.01.4"></script>
+    <script src="/static/js/image-preview.js?v=2026.08.01.4"></script>
+    <script src="/static/js/history-bulk-manager.js?v=2026.08.01.4"></script>
     <script type="importmap">
         {
             "imports": {
-                "three": "/static/vendor/js/three-0.160.0.module.js?v=2026.07.08.1"
+                "three": "/static/vendor/js/three-0.160.0.module.js?v=2026.08.01.4"
             }
         }
     </script>
     <style>
-        @import url('/static/vendor/css/fonts.css?v=2026.07.08.1');
+        @import url('/static/vendor/css/fonts.css?v=2026.08.01.4');
 
         :root {
             --accent: #111827;
@@ -259,7 +259,7 @@
             z-index: 1;
         }
     </style>
-    <link rel="stylesheet" href="/static/css/theme.css?v=2026.07.08.1">
+    <link rel="stylesheet" href="/static/css/theme.css?v=2026.08.01.4">
 </head>
 
 <body class="selection:bg-black selection:text-white">
@@ -1014,20 +1014,10 @@
             }
         }
 
+        try { localStorage.removeItem('modelscope_api_token'); } catch (_) {}
+
         async function runCloudTask(){
             if(!uploadedFile) throw new Error(tr('legacy.needImage'));
-            let token = localStorage.getItem('modelscope_api_token');
-            if(!token){
-                try {
-                    const res = await fetch('/api/config/token');
-                    const data = await res.json().catch(() => ({}));
-                    if(res.ok && data.token) token = data.token;
-                } catch (_) {}
-            }
-            if(!token){
-                try { window.parent?.openTokenModal?.(); } catch (_) {}
-                throw new Error("请先点击右上角设置 ModelScope Token");
-            }
             const dataUri = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = () => resolve(reader.result);
@@ -1038,7 +1028,6 @@
             try { if (window.parent && window.parent.CID) clientId = window.parent.CID; } catch (_) {}
             const payload = {
                 prompt: promptInput.value.trim(),
-                api_key: token,
                 type: 'angle',
                 model: 'Qwen/Qwen-Image-Edit-2511',
                 image_urls: [dataUri],
@@ -1065,7 +1054,7 @@
                     response = await fetch('/api/angle/poll_status', {
                         method:'POST',
                         headers:{'Content-Type':'application/json'},
-                        body:JSON.stringify({ task_id:data.task_id, api_key:token, client_id:clientId })
+                        body:JSON.stringify({ task_id:data.task_id, client_id:clientId })
                     });
                     continue;
                 }

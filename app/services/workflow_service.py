@@ -11,6 +11,8 @@ from fastapi import HTTPException
 
 from app.models.common import GenerateRequest
 from app.models.workflow import ComfyInstancesPayload, WorkflowConfig, WorkflowRunRequest, WorkflowUploadRequest
+from app.core.json_store import atomic_write_json
+from app.core.upload_limits import WORKFLOW_JSON_MAX_BYTES
 from app.services.provider_service import update_env_values
 
 
@@ -92,6 +94,15 @@ def sync_comfyui_instances(cleaned: List[str]) -> None:
         provider_service.COMFYUI_INSTANCES = list(cleaned)
         if hasattr(provider_service, "_AI_CONFIG_RESPONSE_CACHE"):
             provider_service._AI_CONFIG_RESPONSE_CACHE["expires"] = 0.0
+    except Exception:
+        pass
+
+    try:
+        from app import upstream_runtime
+
+        upstream_runtime.COMFYUI_INSTANCES = list(cleaned)
+        upstream_runtime.COMFYUI_ADDRESS = cleaned[0]
+        upstream_runtime.BACKEND_LOCAL_LOAD = next_load
     except Exception:
         pass
 
@@ -227,6 +238,8 @@ def upload_workflow(payload: WorkflowUploadRequest):
         raise HTTPException(status_code=400, detail="工作流名称不合法，请使用中文/英文/数字/_-.")
     if not isinstance(payload.workflow, dict) or not payload.workflow:
         raise HTTPException(status_code=400, detail="工作流 JSON 为空")
+    if len(payload.workflow) > 5000 or len(json.dumps(payload.workflow, ensure_ascii=False).encode("utf-8")) > WORKFLOW_JSON_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="工作流超过节点或 JSON 大小上限")
     # 简单校验：是 API 格式（节点 id 为 key，含 class_type）
     sample = next(iter(payload.workflow.values()), None)
     if not isinstance(sample, dict) or "class_type" not in sample:
@@ -235,8 +248,7 @@ def upload_workflow(payload: WorkflowUploadRequest):
     os.makedirs(custom_dir, exist_ok=True)
     stored_name = f"{CUSTOM_WORKFLOW_FOLDER}/{name}"
     path = workflow_path_from_name(stored_name)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(payload.workflow, f, ensure_ascii=False, indent=2)
+    atomic_write_json(path, payload.workflow)
     return {"name": stored_name}
 
 def save_workflow_config(name: str, payload: WorkflowConfig):
@@ -246,8 +258,7 @@ def save_workflow_config(name: str, payload: WorkflowConfig):
     if not os.path.exists(workflow_path):
         raise HTTPException(status_code=404, detail="Workflow not found")
     cfg_path = workflow_config_path(name)
-    with open(cfg_path, "w", encoding="utf-8") as f:
-        json.dump(payload.dict(), f, ensure_ascii=False, indent=2)
+    atomic_write_json(cfg_path, payload.dict())
     return {"config": payload.dict()}
 
 def delete_workflow(name: str):

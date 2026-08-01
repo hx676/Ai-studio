@@ -7,7 +7,7 @@ if not exist "%PYEXE%" set "PYEXE=python"
 echo Stopping SynCanvas services started by run.bat...
 echo.
 
-"%PYEXE%" tools\service_supervisor.py --stop
+"%PYEXE%" -B tools\service_supervisor.py --stop
 
 echo.
 echo Stop command finished.

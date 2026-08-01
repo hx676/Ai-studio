@@ -18,7 +18,9 @@ if errorlevel 1 (
 )
 
 echo Publishing SynCanvasLauncher...
-dotnet publish SynCanvasLauncher.csproj -c Release -r win-x64 --self-contained false /p:PublishSingleFile=true /p:PublishReadyToRun=false -o publish
+set "APP_VERSION=1.0.0.0"
+if exist "%~dp0..\VERSION" set /p APP_VERSION=<"%~dp0..\VERSION"
+dotnet publish SynCanvasLauncher.csproj -c Release -r win-x64 --self-contained true --artifacts-path publish-artifacts /p:PublishSingleFile=true /p:PublishReadyToRun=false /p:AssemblyVersion=%APP_VERSION% /p:FileVersion=%APP_VERSION% /p:InformationalVersion=%APP_VERSION% -o publish
 if errorlevel 1 (
   echo Publish failed.
   pause

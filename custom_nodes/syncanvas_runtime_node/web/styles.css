@@ -1,0 +1,56 @@
+.runtime-node-panel { display:flex; flex-direction:column; gap:10px; min-height:280px; color:var(--text, #e8e8e8); }
+.runtime-engine-row,.runtime-definition-head,.runtime-meta,.runtime-actions { display:flex; align-items:center; gap:8px; }
+.runtime-engine-row { color:var(--muted, #a7a7a7); font-size:12px; }
+.runtime-dot { width:8px; height:8px; border-radius:50%; background:#35b66a; box-shadow:0 0 0 3px color-mix(in srgb, #35b66a 20%, transparent); }
+.runtime-dot:not(.ready) { background:#a17a2b; box-shadow:0 0 0 3px color-mix(in srgb, #a17a2b 20%, transparent); }
+.runtime-icon-btn,.runtime-stop { width:30px; height:30px; display:grid; place-items:center; border:1px solid var(--border, #3c3c3c); background:transparent; color:inherit; padding:0; }
+.runtime-icon-btn { margin-left:auto; }
+.runtime-icon-btn svg,.runtime-stop svg,.runtime-run svg,.runtime-search svg { width:15px; height:15px; }
+.runtime-search { height:36px; display:flex; align-items:center; gap:8px; padding:0 10px; border:1px solid var(--border, #3c3c3c); background:var(--input-bg, #202020); }
+.runtime-search input { min-width:0; flex:1; border:0; outline:0; background:transparent; color:inherit; }
+.runtime-filter-row { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:6px; }
+.runtime-filter-row select,.runtime-widget select,.runtime-widget input,.runtime-widget textarea { width:100%; box-sizing:border-box; border:1px solid var(--border, #3c3c3c); background:var(--input-bg, #202020); color:inherit; padding:7px 8px; }
+.runtime-scope-toggle { min-width:0; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); border:1px solid var(--border, #3c3c3c); }
+.runtime-scope-toggle button { min-width:0; height:32px; border:0; border-right:1px solid var(--border, #3c3c3c); background:transparent; color:var(--muted, #999); padding:0 6px; white-space:nowrap; }
+.runtime-scope-toggle button:last-child { border-right:0; }
+.runtime-scope-toggle button.active { background:#2f7047; color:#fff; }
+.runtime-search-status { min-height:18px; font-size:11px; color:var(--muted, #999); }
+.runtime-search-results { display:flex; flex-direction:column; gap:4px; max-height:310px; overflow:auto; }
+.runtime-result { min-height:48px; display:flex; align-items:center; justify-content:space-between; gap:10px; text-align:left; border:1px solid transparent; background:var(--panel-2, #252525); color:inherit; padding:7px 9px; }
+.runtime-result:hover { border-color:#4f9d69; }
+.runtime-result:disabled { opacity:.45; }
+.runtime-result span { min-width:0; display:flex; flex-direction:column; gap:2px; }
+.runtime-result strong,.runtime-result small { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.runtime-result small { color:var(--muted, #999); }
+.runtime-result em,.runtime-compat { font-style:normal; font-size:10px; padding:2px 5px; border:1px solid #3f8055; color:#7fd49c; }
+.runtime-result em.limited,.runtime-compat.limited { border-color:#9a7b2e; color:#e7c55e; }
+.runtime-definition-head { align-items:flex-start; }
+.runtime-definition-head > div { min-width:0; display:flex; flex-direction:column; gap:3px; }
+.runtime-definition-head strong,.runtime-definition-head span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.runtime-definition-head span { color:var(--muted, #999); font-size:11px; }
+.runtime-meta { font-size:11px; color:var(--muted, #999); }
+.runtime-compat { margin-left:auto; }
+.runtime-warning,.runtime-error { padding:7px 8px; border-left:3px solid #b9922d; background:color-mix(in srgb, #b9922d 12%, transparent); font-size:11px; line-height:1.45; }
+.runtime-error,.runtime-run-status.error { border-color:#c65353; color:#ef8d8d; }
+.runtime-widgets { display:flex; flex-direction:column; gap:8px; max-height:285px; overflow:auto; padding-right:2px; }
+.runtime-widget { display:flex; flex-direction:column; gap:4px; font-size:11px; color:var(--muted, #aaa); }
+.runtime-widget-label { min-height:24px; display:flex; align-items:center; gap:6px; }
+.runtime-widget-label > span { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.runtime-mode-btn { width:26px; height:24px; flex:0 0 auto; display:grid; place-items:center; border:1px solid var(--border, #3c3c3c); background:transparent; color:var(--muted, #aaa); padding:0; }
+.runtime-mode-btn.active { border-color:#3f8055; color:#7fd49c; background:color-mix(in srgb, #3f8055 18%, transparent); }
+.runtime-mode-btn svg { width:14px; height:14px; }
+.runtime-widget-port small { min-height:32px; display:flex; align-items:center; padding:0 8px; border:1px dashed #3f8055; color:#7fd49c; }
+.runtime-widget-check { flex-direction:row; align-items:center; justify-content:space-between; }
+.runtime-widget-check input { width:18px; height:18px; padding:0; }
+.runtime-widget textarea { resize:vertical; min-height:64px; }
+.runtime-run { min-width:0; flex:1; height:34px; display:flex; align-items:center; justify-content:center; gap:7px; border:1px solid #3f8055; background:#2f7047; color:white; }
+.runtime-run:disabled { opacity:.6; }
+.runtime-output-images { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
+.runtime-output-images img { width:100%; aspect-ratio:1; object-fit:cover; border:1px solid var(--border, #3c3c3c); }
+.runtime-output-media { display:flex; flex-direction:column; gap:6px; }
+.runtime-output-media audio,.runtime-output-media video { width:100%; max-height:220px; }
+.runtime-run-status,.runtime-empty { min-height:18px; color:var(--muted, #999); font-size:11px; overflow-wrap:anywhere; }
+.runtime-installer { display:flex; flex-direction:column; gap:9px; padding:12px; border:1px solid var(--border, #3c3c3c); background:var(--panel-2, #252525); }
+.runtime-installer span { color:var(--muted, #999); font-size:11px; line-height:1.5; }
+.runtime-installer input { width:100%; box-sizing:border-box; border:1px solid var(--border, #3c3c3c); background:var(--input-bg, #202020); color:inherit; padding:8px; }
+.runtime-installer button { height:34px; border:1px solid #3f8055; background:#2f7047; color:white; }

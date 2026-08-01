@@ -1,0 +1,60 @@
+{
+  "$schema": "../node-extension.schema.json",
+  "schema_version": 1,
+  "id": "syncanvas.output-folder",
+  "name": "SynCanvas Folder Export",
+  "name_zh": "输出到文件夹",
+  "version": "1.0.0",
+  "description": "Write connected media files to a folder selected by the user.",
+  "description_zh": "将连接的图片、音频或视频写入用户选择的本机文件夹。",
+  "app_version": ">=2026.8",
+  "enabled_by_default": true,
+  "web_directory": "web",
+  "requirements": "requirements.txt",
+  "nodes": [
+    {
+      "id": "export",
+      "display_name": "Export to Folder",
+      "display_name_zh": "输出到文件夹",
+      "description": "Choose a local folder and export every connected media file.",
+      "description_zh": "选择本机文件夹并导出所有连接的媒体文件。",
+      "category": "Output",
+      "icon": "folder-output",
+      "version": 1,
+      "surfaces": ["classic", "smart"],
+      "legacy_types": {},
+      "inputs": [
+        {
+          "id": "files",
+          "name": "Media",
+          "name_zh": "媒体",
+          "types": ["image", "audio", "video"],
+          "required": true,
+          "multiple": true
+        }
+      ],
+      "outputs": [
+        {
+          "id": "paths",
+          "name": "Saved Files",
+          "name_zh": "已保存文件",
+          "types": ["text"]
+        }
+      ],
+      "defaults": {
+        "filenamePrefix": "",
+        "conflictMode": "increment",
+        "savedFiles": [],
+        "lastFolderName": "",
+        "lastSavedAt": 0,
+        "lastError": ""
+      },
+      "size": {
+        "classic": {"width": 390, "height": 390},
+        "smart": {"width": 390, "height": 390}
+      },
+      "execution": "frontend",
+      "frontend_key": "export"
+    }
+  ]
+}

@@ -41,6 +41,8 @@ class CanvasVideoRequest(BaseModel):
     camerafixed: bool = False
     return_last_frame: bool = False
     generate_audio: bool = False
+    multimodal: bool = False
+    trusted_asset: bool = False
 
 class CanvasLLMRequest(BaseModel):
     message: str = Field(min_length=1, max_length=LLM_MESSAGE_MAX_LENGTH)
@@ -58,6 +60,9 @@ class CanvasCreateRequest(BaseModel):
     title: str = "未命名画布"
     icon: str = "🧩"
     kind: str = "classic"
+    project: Optional[str] = None
+    board_x: Optional[float] = None
+    board_y: Optional[float] = None
 
 class CanvasSaveRequest(BaseModel):
     title: str = "未命名画布"
@@ -69,6 +74,7 @@ class CanvasSaveRequest(BaseModel):
     settings: Dict[str, Any] = {}
     client_id: str = ""
     base_updated_at: int = 0
+    deleted_node_ids: List[str] = []
 
 class CanvasAssetCheckRequest(BaseModel):
     urls: List[str] = []

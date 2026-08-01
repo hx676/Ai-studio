@@ -1,0 +1,117 @@
+:root {
+    color-scheme: light;
+    --settings-bg: #f6f7f9;
+    --settings-sidebar: #ffffff;
+    --settings-line: #e4e7eb;
+    --settings-text: #17191d;
+    --settings-muted: #727985;
+    --settings-hover: #f2f4f7;
+    --settings-active: #17191d;
+    --settings-active-text: #ffffff;
+    font-family: Inter, "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+
+html.studio-theme-dark,
+html.theme-dark {
+    color-scheme: dark;
+    --settings-bg: #10141b;
+    --settings-sidebar: #151a22;
+    --settings-line: #29313d;
+    --settings-text: #edf1f6;
+    --settings-muted: #97a1af;
+    --settings-hover: #202732;
+    --settings-active: #edf1f6;
+    --settings-active-text: #10141b;
+}
+
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body { background: var(--settings-bg); color: var(--settings-text); }
+button { font: inherit; }
+
+.settings-shell {
+    display: grid;
+    grid-template-columns: 208px minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
+    min-width: 320px;
+    background: var(--settings-bg);
+}
+
+.settings-sidebar {
+    min-width: 0;
+    padding: 20px 14px;
+    background: var(--settings-sidebar);
+    border-right: 1px solid var(--settings-line);
+    overflow: auto;
+}
+
+.settings-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    padding: 0 8px 14px;
+}
+
+.settings-heading-icon {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    border: 1px solid var(--settings-line);
+    border-radius: 7px;
+    color: var(--settings-text);
+    background: var(--settings-bg);
+}
+
+.settings-heading-icon svg { width: 17px; height: 17px; }
+.settings-heading h1 { margin: 0; font-size: 17px; line-height: 1.2; letter-spacing: 0; }
+.settings-nav { display: grid; gap: 5px; }
+
+.settings-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 42px;
+    padding: 0 12px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--settings-muted);
+    font-size: 13px;
+    font-weight: 700;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.settings-nav-item svg { width: 16px; height: 16px; flex: 0 0 auto; }
+.settings-nav-item:hover { background: var(--settings-hover); color: var(--settings-text); }
+.settings-nav-item.active { background: var(--settings-active); color: var(--settings-active-text); }
+.settings-nav-item:focus-visible { outline: 2px solid #2f7ee6; outline-offset: 2px; }
+
+.settings-content { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+.settings-frame {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+.settings-frame.active { visibility: visible; opacity: 1; pointer-events: auto; }
+
+@media (max-width: 760px) {
+    .settings-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .settings-sidebar { padding: 10px 10px 8px; border-right: 0; border-bottom: 1px solid var(--settings-line); overflow: hidden; }
+    .settings-heading { min-height: 34px; padding: 0 4px 8px; }
+    .settings-heading-icon { width: 28px; height: 28px; }
+    .settings-heading h1 { font-size: 15px; }
+    .settings-nav { display: flex; gap: 6px; overflow-x: auto; padding: 0 2px 2px; scrollbar-width: thin; }
+    .settings-nav-item { width: auto; min-width: max-content; min-height: 36px; padding: 0 10px; font-size: 12px; }
+}

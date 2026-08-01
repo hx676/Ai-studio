@@ -16,12 +16,14 @@
             } catch(e) {}
         })();
     </script>
-    <script src="/static/vendor/js/tailwindcss-cdn.js?v=2026.07.08.1"></script>
-    <script src="/static/vendor/js/lucide.js?v=2026.07.08.1"></script>
-    <script src="/static/js/theme.js?v=2026.07.08.1"></script>
-    <script src="/static/js/i18n.js?v=2026.07.08.1"></script>
+    <link rel="stylesheet" href="/static/vendor/css/tailwind.css?v=2026.08.01.4">
+    <script src="/static/vendor/js/lucide.js?v=2026.08.01.4"></script>
+    <script src="/static/js/theme.js?v=2026.08.01.4"></script>
+    <script src="/static/js/i18n-core.js?v=2026.08.01.4"></script><script src="/static/js/i18n/common.js?v=2026.08.01.4"></script><script src="/static/js/i18n/studio.js?v=2026.08.01.4"></script><script src="/static/js/i18n/api-settings.js?v=2026.08.01.4"></script><script src="/static/js/i18n/canvas.js?v=2026.08.01.4"></script><script src="/static/js/i18n/smart-canvas.js?v=2026.08.01.4"></script><script src="/static/js/i18n/comfyui-settings.js?v=2026.08.01.4"></script><script src="/static/js/i18n/legacy.js?v=2026.08.01.4"></script>
+    <script src="/static/vendor/js/marked-15.0.12.min.js"></script>
+    <script src="/static/vendor/js/dompurify-3.2.6.min.js"></script>
     <style>
-        @import url('/static/vendor/css/fonts.css?v=2026.07.08.1');
+        @import url('/static/vendor/css/fonts.css?v=2026.08.01.4');
         :root { --ease:cubic-bezier(.4,0,.2,1); --content-width:1160px; }
         * { box-sizing:border-box; }
         body { margin:0; height:100vh; overflow:hidden; background:#f8fafc; color:#111827; font-family:'Inter',-apple-system,sans-serif; -webkit-font-smoothing:antialiased; }
@@ -50,10 +52,67 @@
         .bubble.user { background:#111827; color:white; border-bottom-right-radius:8px; }
         .bubble.assistant { background:#fff; border:1px solid #edf2f7; border-bottom-left-radius:8px; }
         .bubble.assistant.streaming::after { content:""; display:inline-block; width:7px; height:1.2em; margin-left:3px; border-radius:999px; background:#111827; vertical-align:-.2em; animation:cursorBlink .9s steps(2,end) infinite; }
+        .bubble-text.markdown-body { white-space:normal; overflow-wrap:anywhere; }
+        .markdown-body > :first-child { margin-top:0; }
+        .markdown-body > :last-child { margin-bottom:0; }
+        .markdown-body p { margin:0 0 .78em; }
+        .markdown-body h1,
+        .markdown-body h2,
+        .markdown-body h3,
+        .markdown-body h4,
+        .markdown-body h5,
+        .markdown-body h6 { margin:1.15em 0 .5em; color:inherit; font-weight:800; line-height:1.35; }
+        .markdown-body h1 { font-size:1.42em; }
+        .markdown-body h2 { font-size:1.28em; }
+        .markdown-body h3 { font-size:1.14em; }
+        .markdown-body h4,
+        .markdown-body h5,
+        .markdown-body h6 { font-size:1em; }
+        .markdown-body ul,
+        .markdown-body ol { margin:.45em 0 .8em; padding-left:1.5em; }
+        .markdown-body li + li { margin-top:.24em; }
+        .markdown-body blockquote { margin:.75em 0; padding:.2em 0 .2em 1em; border-left:3px solid #3b82f6; color:#475569; }
+        .markdown-body a { color:#2563eb; text-decoration:underline; text-underline-offset:2px; }
+        .markdown-body code { border-radius:5px; background:#eef2f7; padding:.12em .38em; font-family:'SFMono-Regular',Consolas,'Liberation Mono',monospace; font-size:.9em; }
+        .markdown-body pre { max-width:100%; margin:.8em 0; overflow:auto; border:1px solid #1e293b; border-radius:8px; background:#0f172a; color:#e2e8f0; padding:13px 15px; line-height:1.6; white-space:pre; }
+        .markdown-body pre code { border-radius:0; background:transparent; color:inherit; padding:0; font-size:12.5px; }
+        .markdown-body table { display:block; width:max-content; max-width:100%; margin:.8em 0; overflow-x:auto; border-collapse:collapse; }
+        .markdown-body th,
+        .markdown-body td { border:1px solid #dbe3ec; padding:7px 10px; text-align:left; vertical-align:top; }
+        .markdown-body th { background:#f8fafc; font-weight:800; }
+        .markdown-body hr { margin:1em 0; border:0; border-top:1px solid #e2e8f0; }
+        .markdown-body img { display:block; max-width:100%; height:auto; margin:.75em 0; border:1px solid #e2e8f0; border-radius:8px; }
+        .markdown-body input[type="checkbox"] { margin-right:.45em; vertical-align:-1px; }
+        html.studio-theme-dark .markdown-body blockquote { color:#aeb8c7; border-left-color:#60a5fa; }
+        html.studio-theme-dark .markdown-body a { color:#93c5fd; }
+        html.studio-theme-dark .markdown-body code { background:#293244; color:#e5e9f0; }
+        html.studio-theme-dark .markdown-body pre { border-color:#364152; background:#0b1019; color:#e5e9f0; }
+        html.studio-theme-dark .markdown-body pre code { background:transparent; }
+        html.studio-theme-dark .markdown-body th,
+        html.studio-theme-dark .markdown-body td { border-color:#364152; }
+        html.studio-theme-dark .markdown-body th { background:#202837; }
+        html.studio-theme-dark .markdown-body hr { border-top-color:#364152; }
+        html.studio-theme-dark .markdown-body img { border-color:#364152; }
         .bubble img.generated { display:block; width:min(460px,100%); border-radius:18px; margin-top:10px; border:1px solid rgba(0,0,0,.06); cursor:zoom-in; }
+        .bubble img[role="button"] { outline:none; }
+        .bubble img[role="button"]:focus-visible { box-shadow:0 0 0 3px rgba(59,130,246,.45); }
         .thumbs { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-        .thumb { width:58px; height:58px; border-radius:14px; object-fit:cover; border:1px solid rgba(255,255,255,.28); }
+        .thumb { width:58px; height:58px; border-radius:14px; object-fit:cover; border:1px solid rgba(255,255,255,.28); cursor:zoom-in; }
         .assistant .thumb { border-color:#e5e7eb; }
+        .image-preview-modal { position:fixed; inset:0; z-index:100; display:none; grid-template-rows:auto minmax(0,1fr); background:rgba(5,8,14,.94); color:#f8fafc; }
+        .image-preview-modal.open { display:grid; animation:imagePreviewIn .16s var(--ease); }
+        .image-preview-toolbar { position:relative; z-index:2; min-height:62px; padding:10px 16px; display:flex; align-items:center; justify-content:center; gap:6px; border-bottom:1px solid rgba(255,255,255,.1); background:rgba(10,15,24,.82); backdrop-filter:blur(12px); }
+        .image-preview-tool { width:38px; height:38px; border:1px solid rgba(255,255,255,.14); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#e2e8f0; background:rgba(255,255,255,.06); transition:background .16s var(--ease),border-color .16s var(--ease); }
+        .image-preview-tool:hover { background:rgba(255,255,255,.14); border-color:rgba(255,255,255,.24); }
+        .image-preview-tool svg { width:18px; height:18px; }
+        .image-preview-zoom { min-width:54px; text-align:center; color:#cbd5e1; font-size:11px; font-weight:800; font-variant-numeric:tabular-nums; }
+        .image-preview-close { position:absolute; right:16px; top:12px; }
+        .image-preview-stage { min-width:0; min-height:0; overflow:hidden; display:flex; align-items:center; justify-content:center; padding:22px; touch-action:none; }
+        .image-preview-stage.can-pan { cursor:grab; }
+        .image-preview-stage.is-panning { cursor:grabbing; }
+        .image-preview-image { display:block; max-width:calc(100vw - 44px); max-height:calc(100vh - 106px); width:auto; height:auto; user-select:none; -webkit-user-drag:none; transform-origin:center; transition:transform .12s var(--ease); }
+        .image-preview-stage.is-panning .image-preview-image { transition:none; }
+        @keyframes imagePreviewIn { from { opacity:0; } to { opacity:1; } }
         .composer-wrap { position:absolute; left:0; right:0; bottom:0; padding:24px 42px 30px; background:linear-gradient(to top,#f8fafc 82%,rgba(248,250,252,0)); }
         .composer { width:min(var(--content-width),100%); margin:0 auto; min-height:184px; background:rgba(255,255,255,.96); border:1px solid #e8edf3; border-radius:30px; box-shadow:0 14px 38px rgba(15,23,42,.08); padding:12px; display:flex; flex-direction:column; gap:10px; }
         .mode-switch { background:#f8fafc; border:1px solid #edf2f7; border-radius:999px; padding:2px; display:flex; gap:2px; }
@@ -102,9 +161,13 @@
             .ref-strip { max-width:100%; }
             .bubble { max-width:88%; }
             .action-btn span { display:none; }
+            .image-preview-toolbar { justify-content:flex-start; }
+            .image-preview-close { right:12px; }
+            .image-preview-stage { padding:12px; }
+            .image-preview-image { max-width:calc(100vw - 24px); max-height:calc(100vh - 88px); }
         }
     </style>
-    <link rel="stylesheet" href="/static/css/theme.css?v=2026.07.08.1">
+    <link rel="stylesheet" href="/static/css/theme.css?v=2026.08.01.4">
 </head>
 <body>
     <div class="chat-shell">
@@ -159,6 +222,7 @@
                                     <div class="resolution-toggle" title="分辨率" data-i18n-title="chat.resolution">
                                         <button id="chat-res-1k" class="resolution-option active" onclick="setChatResolution('1k')">1K</button>
                                         <button id="chat-res-2k" class="resolution-option" onclick="setChatResolution('2k')">2K</button>
+                                        <button id="chat-res-4k" class="resolution-option" onclick="setChatResolution('4k')">4K</button>
                                     </div>
                                 </div>
                             </div>
@@ -167,6 +231,19 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div id="chatImagePreview" class="image-preview-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-label="图片预览">
+        <div class="image-preview-toolbar">
+            <button id="chatImageZoomOut" class="image-preview-tool" type="button" title="缩小" aria-label="缩小"><i data-lucide="zoom-out"></i></button>
+            <span id="chatImageZoomLabel" class="image-preview-zoom">100%</span>
+            <button id="chatImageZoomIn" class="image-preview-tool" type="button" title="放大" aria-label="放大"><i data-lucide="zoom-in"></i></button>
+            <button id="chatImageZoomReset" class="image-preview-tool" type="button" title="重置缩放" aria-label="重置缩放"><i data-lucide="scan"></i></button>
+            <button id="chatImagePreviewClose" class="image-preview-tool image-preview-close" type="button" title="关闭" aria-label="关闭图片预览"><i data-lucide="x"></i></button>
+        </div>
+        <div id="chatImagePreviewStage" class="image-preview-stage">
+            <img id="chatImagePreviewImage" class="image-preview-image" alt="" draggable="false">
         </div>
     </div>
 
@@ -216,13 +293,13 @@
         let config = { chat_model: 'gpt-5.5', image_model: 'gpt-image-2', ms_chat_models: [] };
 
         const SIZE_OPTIONS = {
-            square: [['1024x1024','1k'], ['1536x1536','2k']],
-            portrait: [['720x1080','1k'], ['1024x1536','2k']],
-            portrait43: [['1008x1344','1k'], ['1536x2048','2k']],
-            landscape43: [['1344x1008','1k'], ['2048x1536','2k']],
-            landscape: [['1080x720','1k'], ['1536x1024','2k']],
-            story: [['720x1280','1k'], ['1080x1920','2k']],
-            wide: [['1280x720','1k'], ['1920x1080','2k']]
+            square: [['1024x1024','1k'], ['1536x1536','2k'], ['2880x2880','4k']],
+            portrait: [['720x1080','1k'], ['1024x1536','2k'], ['2336x3504','4k']],
+            portrait43: [['1008x1344','1k'], ['1536x2048','2k'], ['2448x3264','4k']],
+            landscape43: [['1344x1008','1k'], ['2048x1536','2k'], ['3264x2448','4k']],
+            landscape: [['1080x720','1k'], ['1536x1024','2k'], ['3504x2336','4k']],
+            story: [['720x1280','1k'], ['1080x1920','2k'], ['2160x3840','4k']],
+            wide: [['1280x720','1k'], ['1920x1080','2k'], ['3840x2160','4k']]
         };
 
         const headers = () => ({'Content-Type':'application/json', 'X-User-ID':userId});
@@ -438,6 +515,7 @@
         function updateChatResolutionUI(){
             document.getElementById('chat-res-1k').classList.toggle('active', chatResolution === '1k');
             document.getElementById('chat-res-2k').classList.toggle('active', chatResolution === '2k');
+            document.getElementById('chat-res-4k').classList.toggle('active', chatResolution === '4k');
         }
 
         function currentChatSize(){
@@ -458,6 +536,97 @@
             scrollBottom();
         }
 
+        function renderAssistantMarkdown(target, content){
+            const source = String(content || '');
+            if(!window.marked || !window.DOMPurify){
+                target.textContent = source;
+                return;
+            }
+            const parsed = marked.parse(source, {gfm:true, breaks:true});
+            target.innerHTML = DOMPurify.sanitize(parsed, {
+                USE_PROFILES:{html:true},
+                FORBID_TAGS:['style','iframe','object','embed','form','input','button','textarea','select','option'],
+                FORBID_ATTR:['style']
+            });
+            target.querySelectorAll('a[href]').forEach(link => {
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+            });
+            target.querySelectorAll('img').forEach(image => {
+                image.loading = 'lazy';
+                image.referrerPolicy = 'no-referrer';
+                bindPreviewableImage(image, image.alt || tr('chat.generatedImage'));
+            });
+        }
+
+        const imagePreviewState = {zoom:1, x:0, y:0, drag:null, opener:null};
+
+        function applyImagePreviewTransform(){
+            const image = document.getElementById('chatImagePreviewImage');
+            const stage = document.getElementById('chatImagePreviewStage');
+            if(!image || !stage) return;
+            image.style.transform = `translate3d(${imagePreviewState.x}px,${imagePreviewState.y}px,0) scale(${imagePreviewState.zoom})`;
+            stage.classList.toggle('can-pan', imagePreviewState.zoom > 1);
+            document.getElementById('chatImageZoomLabel').textContent = `${Math.round(imagePreviewState.zoom * 100)}%`;
+        }
+
+        function setImagePreviewZoom(next){
+            imagePreviewState.zoom = Math.max(.5, Math.min(4, Number(next) || 1));
+            if(imagePreviewState.zoom <= 1){
+                imagePreviewState.x = 0;
+                imagePreviewState.y = 0;
+            }
+            applyImagePreviewTransform();
+        }
+
+        function openImagePreview(url, alt='', opener=null){
+            const source = String(url || '').trim();
+            if(!source) return;
+            const modal = document.getElementById('chatImagePreview');
+            const image = document.getElementById('chatImagePreviewImage');
+            imagePreviewState.zoom = 1;
+            imagePreviewState.x = 0;
+            imagePreviewState.y = 0;
+            imagePreviewState.drag = null;
+            imagePreviewState.opener = opener || document.activeElement;
+            image.src = source;
+            image.alt = alt || tr('chat.generatedImage') || '图片预览';
+            modal.classList.add('open');
+            modal.setAttribute('aria-hidden', 'false');
+            applyImagePreviewTransform();
+            document.getElementById('chatImagePreviewClose').focus();
+            lucide.createIcons();
+        }
+
+        function closeImagePreview(){
+            const modal = document.getElementById('chatImagePreview');
+            const image = document.getElementById('chatImagePreviewImage');
+            if(!modal.classList.contains('open')) return;
+            modal.classList.remove('open');
+            modal.setAttribute('aria-hidden', 'true');
+            image.removeAttribute('src');
+            imagePreviewState.drag = null;
+            document.getElementById('chatImagePreviewStage').classList.remove('is-panning');
+            const opener = imagePreviewState.opener;
+            imagePreviewState.opener = null;
+            if(opener?.isConnected) opener.focus({preventScroll:true});
+        }
+
+        function bindPreviewableImage(image, alt=''){
+            if(!image || image.dataset.previewBound === 'true') return image;
+            image.dataset.previewBound = 'true';
+            image.setAttribute('role', 'button');
+            image.tabIndex = 0;
+            image.title = tr('chat.previewImage') || '点击预览图片';
+            image.addEventListener('click', () => openImagePreview(image.currentSrc || image.src, alt || image.alt, image));
+            image.addEventListener('keydown', event => {
+                if(event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                openImagePreview(image.currentSrc || image.src, alt || image.alt, image);
+            });
+            return image;
+        }
+
         function addMessageBubble(msg){
             const box = document.getElementById('messages');
             const row = document.createElement('div');
@@ -465,14 +634,26 @@
             const bubble = document.createElement('div');
             bubble.className = `bubble ${msg.role === 'user' ? 'user' : 'assistant'}`;
             const text = document.createElement('div');
-            text.textContent = msg.type === 'image' ? tr('chat.generated') : (msg.content || '');
             text.className = 'bubble-text';
+            if(msg.role === 'assistant' && msg.type !== 'image'){
+                text.classList.add('markdown-body');
+                renderAssistantMarkdown(text, msg.content || '');
+            } else {
+                text.textContent = msg.type === 'image' ? tr('chat.generated') : (msg.content || '');
+            }
             bubble.appendChild(text);
             if(msg.attachments?.length){
                 const thumbs = document.createElement('div');
                 thumbs.className = 'thumbs';
                 let idx = 0;
-                msg.attachments.forEach(ref => thumbs.insertAdjacentHTML('beforeend', `<img class="thumb" src="${ref.url}" alt="${tr('chat.attachmentImage') || '附件图片'} ${++idx}">`));
+                msg.attachments.forEach(ref => {
+                    const thumb = document.createElement('img');
+                    thumb.className = 'thumb';
+                    thumb.src = ref.url;
+                    thumb.alt = `${tr('chat.attachmentImage') || '附件图片'} ${++idx}`;
+                    bindPreviewableImage(thumb, thumb.alt);
+                    thumbs.appendChild(thumb);
+                });
                 bubble.appendChild(thumbs);
             }
             if(msg.image_url){
@@ -480,7 +661,7 @@
                 img.className = 'generated';
                 img.src = msg.image_url;
                 img.alt = tr('chat.generatedImage') || 'AI 生成的图片';
-                img.onclick = () => window.open(msg.image_url, '_blank');
+                bindPreviewableImage(img, img.alt);
                 bubble.appendChild(img);
             }
             // Show model badge for assistant messages
@@ -628,7 +809,7 @@
                     }
                     if(event.type === 'delta'){
                         fullText += event.delta || '';
-                        assistantBubble.text.textContent = fullText;
+                        renderAssistantMarkdown(assistantBubble.text, fullText);
                         scrollBottom();
                     }
                     if(event.type === 'error') throw new Error(event.detail || tr('chat.requestFailed'));
@@ -646,6 +827,51 @@
 
         function scrollBottom(){ requestAnimationFrame(() => { const box = document.getElementById('messages'); box.scrollTop = box.scrollHeight; }); }
         function escapeHtml(str){ return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+
+        const imagePreviewModal = document.getElementById('chatImagePreview');
+        const imagePreviewStage = document.getElementById('chatImagePreviewStage');
+        const imagePreviewImage = document.getElementById('chatImagePreviewImage');
+        document.getElementById('chatImagePreviewClose').addEventListener('click', closeImagePreview);
+        document.getElementById('chatImageZoomOut').addEventListener('click', () => setImagePreviewZoom(imagePreviewState.zoom - .25));
+        document.getElementById('chatImageZoomIn').addEventListener('click', () => setImagePreviewZoom(imagePreviewState.zoom + .25));
+        document.getElementById('chatImageZoomReset').addEventListener('click', () => setImagePreviewZoom(1));
+        imagePreviewModal.addEventListener('click', event => {
+            if(event.target === imagePreviewModal || event.target === imagePreviewStage) closeImagePreview();
+        });
+        imagePreviewStage.addEventListener('wheel', event => {
+            if(!imagePreviewModal.classList.contains('open')) return;
+            event.preventDefault();
+            setImagePreviewZoom(imagePreviewState.zoom + (event.deltaY < 0 ? .2 : -.2));
+        }, {passive:false});
+        imagePreviewImage.addEventListener('dblclick', () => setImagePreviewZoom(imagePreviewState.zoom > 1 ? 1 : 2));
+        imagePreviewImage.addEventListener('pointerdown', event => {
+            if(imagePreviewState.zoom <= 1) return;
+            event.preventDefault();
+            imagePreviewState.drag = {id:event.pointerId, startX:event.clientX, startY:event.clientY, x:imagePreviewState.x, y:imagePreviewState.y};
+            imagePreviewStage.classList.add('is-panning');
+            imagePreviewImage.setPointerCapture?.(event.pointerId);
+        });
+        imagePreviewImage.addEventListener('pointermove', event => {
+            const drag = imagePreviewState.drag;
+            if(!drag || drag.id !== event.pointerId) return;
+            imagePreviewState.x = drag.x + event.clientX - drag.startX;
+            imagePreviewState.y = drag.y + event.clientY - drag.startY;
+            applyImagePreviewTransform();
+        });
+        const finishImagePreviewDrag = event => {
+            if(!imagePreviewState.drag || imagePreviewState.drag.id !== event.pointerId) return;
+            imagePreviewState.drag = null;
+            imagePreviewStage.classList.remove('is-panning');
+        };
+        imagePreviewImage.addEventListener('pointerup', finishImagePreviewDrag);
+        imagePreviewImage.addEventListener('pointercancel', finishImagePreviewDrag);
+        document.addEventListener('keydown', event => {
+            if(!imagePreviewModal.classList.contains('open')) return;
+            if(event.key === 'Escape'){
+                event.preventDefault();
+                closeImagePreview();
+            }
+        });
 
         window.onload = async () => {
             applyLanguage();

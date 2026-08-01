@@ -1,0 +1,17 @@
+@import url("./agent-skill-nodes.css");
+
+.extension-node[data-extension-package="syncanvas.agent-skill"] .extension-node-kind {
+    color: #2563eb;
+}
+
+.node[data-extension-package="syncanvas.agent-skill"] .node-body,
+.image-node[data-extension-package="syncanvas.agent-skill"] .node-body {
+    min-height: 0;
+    overflow: hidden;
+}
+
+.agent-extension-body [data-agent-json] {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+}

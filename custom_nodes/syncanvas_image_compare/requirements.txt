@@ -1,0 +1,1 @@
+# This frontend-only node has no Python dependencies.

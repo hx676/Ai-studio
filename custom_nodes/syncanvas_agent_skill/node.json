@@ -1,0 +1,67 @@
+{
+  "$schema": "../node-extension.schema.json",
+  "schema_version": 1,
+  "id": "syncanvas.agent-skill",
+  "name": "SynCanvas Agent and AI Workflow",
+  "name_zh": "智能体与 AI 工作流",
+  "version": "1.2.1",
+  "description": "Built-in editable Agent and structured AI Workflow canvas nodes.",
+  "description_zh": "提供可编辑智能体和结构化 AI 工作流画布节点。",
+  "app_version": ">=2026.7",
+  "enabled_by_default": true,
+  "web_directory": "web",
+  "requirements": "requirements.txt",
+  "nodes": [
+    {
+      "id": "agent",
+      "display_name": "Agent",
+      "display_name_zh": "智能体",
+      "description": "Run an editable Agent prompt with text and image inputs.",
+      "description_zh": "使用文本和图片输入运行可编辑的智能体提示词。",
+      "category": "AI",
+      "icon": "bot",
+      "version": 2,
+      "surfaces": ["classic", "smart"],
+      "legacy_types": {"classic": ["agent"], "smart": ["smart-agent"]},
+      "inputs": [
+        {"id": "text", "name": "Text", "name_zh": "文本", "types": ["text", "json"], "multiple": true},
+        {"id": "images", "name": "Images", "name_zh": "图片", "types": ["image"], "multiple": true}
+      ],
+      "outputs": [
+        {"id": "text", "name": "Text", "name_zh": "文本", "types": ["text"]},
+        {"id": "structured", "name": "JSON", "name_zh": "结构化数据", "types": ["json"]},
+        {"id": "images", "name": "Images", "name_zh": "图片", "types": ["image"], "multiple": true}
+      ],
+      "defaults": {"agentId": "", "providerId": "", "textModel": "", "visionModel": "", "message": "", "expectJson": false},
+      "size": {"classic": {"width": 400, "height": 520}, "smart": {"width": 400, "height": 520}},
+      "execution": "python",
+      "backend_class": "agent",
+      "frontend_key": "agent"
+    },
+    {
+      "id": "skill",
+      "display_name": "AI Workflow",
+      "display_name_zh": "AI 工作流",
+      "description": "Run a structured built-in AI workflow.",
+      "description_zh": "运行结构化的内置 AI 工作流。",
+      "category": "AI",
+      "icon": "blocks",
+      "version": 1,
+      "surfaces": ["classic", "smart"],
+      "legacy_types": {"classic": ["skill"], "smart": ["smart-skill"]},
+      "inputs": [
+        {"id": "input", "name": "Input", "name_zh": "输入", "types": ["text", "json", "image"], "multiple": true}
+      ],
+      "outputs": [
+        {"id": "text", "name": "Text", "name_zh": "文本", "types": ["text"]},
+        {"id": "structured", "name": "JSON", "name_zh": "结构化数据", "types": ["json"]},
+        {"id": "images", "name": "Images", "name_zh": "图片", "types": ["image"], "multiple": true}
+      ],
+      "defaults": {"skillId": ""},
+      "size": {"classic": {"width": 430, "height": 650}, "smart": {"width": 430, "height": 650}},
+      "execution": "python",
+      "backend_class": "skill",
+      "frontend_key": "skill"
+    }
+  ]
+}

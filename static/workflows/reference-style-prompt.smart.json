@@ -1,0 +1,120 @@
+{
+  "format": "syncanvas-smart-workflow",
+  "version": 1,
+  "canvas_type": "smart",
+  "name": "参考图提炼与提示词合成",
+  "nodes": [
+    {
+      "id": "reference-image",
+      "type": "smart-image",
+      "x": 0,
+      "y": 190,
+      "w": 260,
+      "h": 220,
+      "title": "参考图",
+      "images": []
+    },
+    {
+      "id": "user-idea",
+      "type": "smart-prompt",
+      "x": 0,
+      "y": 0,
+      "w": 316,
+      "h": 194,
+      "title": "用户想法",
+      "text": "输入你想生成的画面，例如：一张夏日饮品新品海报",
+      "llmEnabled": false
+    },
+    {
+      "id": "extract-style",
+      "type": "smart-skill",
+      "x": 400,
+      "y": 120,
+      "w": 430,
+      "h": 650,
+      "title": "AI 工作流",
+      "skillId": "extract-style",
+      "aiProvider": "",
+      "textModel": "",
+      "visionModel": "",
+      "skillInput": {
+        "images": [],
+        "name": "参考图风格",
+        "category": "illustration",
+        "requirements": ""
+      },
+      "inputBindings": {
+        "images": {
+          "mode": "connection",
+          "sourceNodeId": "reference-image",
+          "sourceField": "images"
+        }
+      },
+      "outputText": "",
+      "structuredOutput": null,
+      "runId": "",
+      "runStatus": "",
+      "running": false
+    },
+    {
+      "id": "compose-studio",
+      "type": "smart-skill",
+      "x": 920,
+      "y": 80,
+      "w": 430,
+      "h": 650,
+      "title": "AI 工作流",
+      "skillId": "compose-studio",
+      "aiProvider": "",
+      "textModel": "",
+      "visionModel": "",
+      "skillInput": {
+        "template": {},
+        "userIdea": "",
+        "aspectRatio": "1:1",
+        "targetModel": "",
+        "referenceImages": [],
+        "promptLanguage": "zh"
+      },
+      "inputBindings": {
+        "template": {
+          "mode": "connection",
+          "sourceNodeId": "extract-style",
+          "sourceField": "$json"
+        },
+        "userIdea": {
+          "mode": "connection",
+          "sourceNodeId": "user-idea",
+          "sourceField": "output_text"
+        },
+        "referenceImages": {
+          "mode": "connection",
+          "sourceNodeId": "reference-image",
+          "sourceField": "images"
+        }
+      },
+      "outputText": "",
+      "structuredOutput": null,
+      "runId": "",
+      "runStatus": "",
+      "running": false
+    },
+    {
+      "id": "generate-image",
+      "type": "smart-image",
+      "x": 1440,
+      "y": 180,
+      "w": 300,
+      "h": 300,
+      "title": "生成结果",
+      "images": []
+    }
+  ],
+  "connections": [
+    {"id": "c-reference-extract", "from": "reference-image", "to": "extract-style", "kind": "flow", "fromPort": "out", "toPort": "in", "targetField": "images", "sourceField": "images"},
+    {"id": "c-extract-compose", "from": "extract-style", "to": "compose-studio", "kind": "flow", "fromPort": "out", "toPort": "in", "targetField": "template", "sourceField": "$json"},
+    {"id": "c-idea-compose", "from": "user-idea", "to": "compose-studio", "kind": "flow", "fromPort": "out", "toPort": "in", "targetField": "userIdea", "sourceField": "output_text"},
+    {"id": "c-reference-compose", "from": "reference-image", "to": "compose-studio", "kind": "flow", "fromPort": "out", "toPort": "in", "targetField": "referenceImages", "sourceField": "images"},
+    {"id": "c-compose-generate", "from": "compose-studio", "to": "generate-image", "kind": "flow", "fromPort": "out", "toPort": "in"}
+  ]
+}

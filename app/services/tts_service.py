@@ -11,6 +11,8 @@ import time
 import httpx
 from fastapi import HTTPException
 
+from app.core.security import redact_sensitive_text
+
 from app import legacy
 from app.services.file_safety import sanitize_output_filename as safe_output_filename
 
@@ -974,12 +976,20 @@ async def list_tts_voices(config=None, auto_start=True):
         return merge_tts_voice_items(local_voices, voices), status
     except Exception as exc:
         status["connected"] = False
-        status["last_error"] = str(exc)
+        status["last_error"] = redact_sensitive_text(exc)
         return local_voices, status
 
 async def run_subprocess_capture(cmd, cwd=None, timeout=900):
     def _run():
-        return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+        return subprocess.run(
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+        )
     return await asyncio.to_thread(_run)
 
 async def generate_digital_human_tts(text, voice_path, config, voice_name="", tts_options=None):

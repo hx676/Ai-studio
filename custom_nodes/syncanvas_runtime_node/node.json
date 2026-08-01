@@ -1,0 +1,41 @@
+{
+  "$schema": "../node-extension.schema.json",
+  "schema_version": 1,
+  "id": "syncanvas.node-engine",
+  "name": "SynCanvas Node Engine",
+  "name_zh": "节点引擎",
+  "version": "2026.07.30.1",
+  "description": "在 SynCanvas 内部运行兼容的 Comfy 节点图。",
+  "description_zh": "在 SynCanvas 内部运行兼容的 Comfy 节点图。",
+  "app_version": "*",
+  "enabled_by_default": true,
+  "web_directory": "web",
+  "requirements": "requirements.txt",
+  "nodes": [
+    {
+      "id": "runtime-node",
+      "display_name": "运行时节点",
+      "display_name_zh": "运行时节点",
+      "description": "从 SynCanvas 内置节点引擎选择并运行节点。",
+      "description_zh": "从 SynCanvas 内置节点引擎选择并运行节点。",
+      "category": "runtime",
+      "icon": "cpu",
+      "version": 1,
+      "surfaces": ["classic", "smart"],
+      "inputs": [{"id": "in", "name": "输入", "types": ["any"], "required": false, "multiple": false}],
+      "outputs": [{"id": "out", "name": "输出", "types": ["any"], "required": false, "multiple": false}],
+      "defaults": {
+        "classType": "",
+        "widgets": {},
+        "inputModes": {},
+        "definitionSnapshot": null
+      },
+      "size": {
+        "classic": {"width": 400, "height": 540},
+        "smart": {"width": 400, "height": 540}
+      },
+      "execution": "frontend",
+      "frontend_key": "runtime-node"
+    }
+  ]
+}

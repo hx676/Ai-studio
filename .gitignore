@@ -1,27 +1,23 @@
 # Runtime and bundled interpreters
-python/
-packages/
+/python/
+/packages/
+/node_modules/
+/components/
 __pycache__/
 *.pyc
 
-# Heavy local model/runtime packages
-index-tts-2/
-heygem-win-fix/
+# Legacy component locations kept for upgrade compatibility
+/index-tts-2/
+/heygem-win-fix/
 
 # User data, generated media, logs, and local configuration
-assets/
-output/
-history.json
-data/*.json
-data/*.tmp
-data/*.bak
-data/service-logs/
-data/test-runs/
-data/ui-checks/
-data/conversations/
-data/canvases/
-data/*.log
-API/.env
+/assets/
+/output/
+/history.json
+/data/
+/logs/
+/_self_restart.log
+/API/.env
 
 # Launcher build outputs
 launcher/bin/
@@ -37,6 +33,7 @@ static/*.bak
 # Local OS/editor noise
 .DS_Store
 Thumbs.db
+/.pytest_cache/
 .vscode/
 .idea/
 .claude/

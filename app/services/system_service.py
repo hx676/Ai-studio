@@ -17,6 +17,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from app.models.common import DeleteHistoryRequest, OutputLocationRequest, RollbackRequest, UpdateRequest
+from app.core.json_store import atomic_write_json
 from app.services.storage_service import view_image, download_output, upload_image, upload_ai_reference, output_file_from_url
 from app import legacy
 
@@ -182,6 +183,20 @@ class ConnectionManager:
                 print(f"Broadcast canvas error: {e}")
                 self.active_connections.remove(connection)
 
+    async def broadcast_asset_library_updated(self, updated_at: int = 0):
+        data = json.dumps({
+            "type": "asset_library_updated",
+            "updated_at": int(updated_at or time.time() * 1000),
+        })
+        for connection in self.active_connections[:]:
+            try:
+                await connection.send_text(data)
+            except Exception as e:
+                print(f"Broadcast asset library error: {e}")
+                if connection in self.active_connections:
+                    self.active_connections.remove(connection)
+                self.connection_clients.pop(connection, None)
+
     async def send_personal_message(self, message: dict, client_id: str):
         ws = self.user_connections.get(client_id)
         if ws:
@@ -189,6 +204,17 @@ class ConnectionManager:
                 await ws.send_text(json.dumps(message))
             except Exception as e:
                 print(f"Personal message error for {client_id}: {e}")
+
+    async def broadcast_message(self, message: dict):
+        data = json.dumps(message)
+        for connection in self.active_connections[:]:
+            try:
+                await connection.send_text(data)
+            except Exception as e:
+                print(f"Broadcast message error: {e}")
+                if connection in self.active_connections:
+                    self.active_connections.remove(connection)
+                self.connection_clients.pop(connection, None)
 
 def friendly_validation_error(errors):
     parts = []
@@ -550,8 +576,7 @@ async def delete_history(req: DeleteHistoryRequest):
                 else:
                     new_history.append(item)
             if target_record:
-                with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
-                    json.dump(new_history, f, ensure_ascii=False, indent=4)
+                atomic_write_json(HISTORY_FILE, new_history, indent=4)
 
         if target_record:
             for img_url in target_record.get("images", []):

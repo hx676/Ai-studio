@@ -7,11 +7,21 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>SynCanvasLauncher</AssemblyName>
     <RootNamespace>SynCanvasLauncher</RootNamespace>
+    <Product>SynCanvas</Product>
+    <Company>SynCanvas</Company>
+    <Description>SynCanvas desktop launcher</Description>
     <!-- 设置生成的 app.ico 作为应用程序图标 / Set app.ico as application icon -->
     <ApplicationIcon>app.ico</ApplicationIcon>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <SelfContained>false</SelfContained>
+    <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <DefaultItemExcludes>$(DefaultItemExcludes);publish\**;publish-artifacts\**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="banner.png" />

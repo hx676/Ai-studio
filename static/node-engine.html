@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/static/images/logo.png" type="image/png">
+    <title>节点引擎</title>
+    <script>
+        (function(){
+            try {
+                var theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
+                if(theme === 'dark') document.documentElement.classList.add('studio-theme-dark');
+            } catch(e) {}
+        })();
+    </script>
+    <script src="/static/vendor/js/lucide.js?v=2026.08.01.4"></script>
+    <script src="/static/js/theme.js?v=2026.08.01.4"></script>
+    <link rel="stylesheet" href="/static/css/theme.css?v=2026.08.01.4">
+    <link rel="stylesheet" href="/static/css/node-engine.css?v=2026.08.01.4">
+</head>
+<body>
+    <main class="engine-page">
+        <header class="engine-header">
+            <div>
+                <h1>节点引擎</h1>
+                <div class="engine-state"><span id="engineDot" class="state-dot"></span><span id="engineState">正在读取状态</span><span id="engineMeta"></span></div>
+            </div>
+            <div class="header-actions">
+                <button id="engineStart" class="icon-button" type="button" title="启动引擎" aria-label="启动引擎"><i data-lucide="play"></i></button>
+                <button id="engineStop" class="icon-button" type="button" title="停止引擎" aria-label="停止引擎"><i data-lucide="square"></i></button>
+                <button id="engineRescan" class="icon-button" type="button" title="重新扫描节点" aria-label="重新扫描节点"><i data-lucide="scan-search"></i></button>
+                <button id="engineRefresh" class="icon-button" type="button" title="刷新" aria-label="刷新"><i data-lucide="refresh-cw"></i></button>
+            </div>
+        </header>
+
+        <section id="engineInstallSection" class="engine-install" hidden>
+            <div class="section-heading"><div><h2>安装节点引擎</h2><p id="engineInstallMessage"></p></div></div>
+            <div class="inline-form install-form">
+                <label class="field grow"><span>本地便携运行时目录</span><input id="engineSourceRoot" type="text" placeholder="E:\\ComfyUI_windows_portable\\ComfyUI"></label>
+                <button id="engineInstall" class="primary-button" type="button"><i data-lucide="download"></i><span>安装</span></button>
+            </div>
+            <div id="engineInstallProgress" class="progress-line"><span></span></div>
+        </section>
+
+        <div class="engine-tabs" role="tablist" aria-label="节点引擎管理">
+            <button class="engine-tab active" type="button" role="tab" aria-selected="true" data-engine-tab="nodes"><i data-lucide="workflow"></i><span>实用节点</span></button>
+            <button class="engine-tab" type="button" role="tab" aria-selected="false" data-engine-tab="extensions"><i data-lucide="blocks"></i><span>Comfy 扩展</span></button>
+            <button class="engine-tab" type="button" role="tab" aria-selected="false" data-engine-tab="models"><i data-lucide="database"></i><span>模型（高级）</span></button>
+        </div>
+
+        <section id="nodesPanel" class="engine-panel active" data-engine-panel="nodes">
+            <div class="section-heading"><div><h2>节点目录</h2><p id="nodeCount">0 个节点</p></div></div>
+            <div class="filter-bar">
+                <label class="search-field"><i data-lucide="search"></i><input id="nodeSearch" type="search" placeholder="搜索节点"></label>
+                <select id="nodeScope" aria-label="节点范围"><option value="utility">画布实用</option><option value="all">全部节点</option></select>
+                <select id="nodeCompatibility" aria-label="兼容等级"><option value="">全部兼容等级</option><option value="supported">完整兼容</option><option value="limited">有限兼容</option></select>
+                <button id="nodeRefresh" class="icon-button" type="button" title="刷新节点" aria-label="刷新节点"><i data-lucide="refresh-cw"></i></button>
+            </div>
+            <div class="data-table-wrap">
+                <table class="data-table"><thead><tr><th>名称</th><th>分类</th><th>来源</th><th>兼容</th></tr></thead><tbody id="nodeRows"></tbody></table>
+                <div id="nodeEmpty" class="empty-state" hidden>没有匹配的节点</div>
+            </div>
+        </section>
+
+        <section id="modelsPanel" class="engine-panel" data-engine-panel="models" hidden>
+            <div class="section-heading"><div><h2>模型库</h2><p id="modelCount">0 个模型</p></div></div>
+            <div class="filter-bar">
+                <label class="search-field"><i data-lucide="search"></i><input id="modelSearch" type="search" placeholder="搜索模型"></label>
+                <select id="modelCategory" aria-label="模型分类"><option value="">全部分类</option></select>
+                <button id="modelRefresh" class="icon-button" type="button" title="刷新模型" aria-label="刷新模型"><i data-lucide="refresh-cw"></i></button>
+            </div>
+            <div class="data-table-wrap">
+                <table class="data-table"><thead><tr><th>名称</th><th>分类</th><th>来源</th><th>大小</th></tr></thead><tbody id="modelRows"></tbody></table>
+                <div id="modelEmpty" class="empty-state" hidden>没有匹配的模型</div>
+            </div>
+
+            <div class="section-divider"></div>
+            <div class="section-heading"><div><h2>导入模型</h2><p id="modelImportStatus"></p></div></div>
+            <div class="inline-form model-import-form">
+                <label class="field grow"><span>文件或目录</span><input id="modelSourcePath" type="text" placeholder="选择本机模型文件或目录"></label>
+                <label class="field compact"><span>分类</span><select id="modelImportCategory"></select></label>
+                <label class="field compact"><span>同名处理</span><select id="modelConflict"><option value="skip">跳过</option><option value="rename">重命名</option><option value="replace">替换</option></select></label>
+                <label class="check-field"><input id="modelRecursive" type="checkbox" checked><span>包含子目录</span></label>
+                <button id="modelImport" class="primary-button" type="button"><i data-lucide="folder-input"></i><span>导入</span></button>
+            </div>
+            <div id="modelImportProgress" class="progress-line"><span></span></div>
+
+            <div class="section-divider"></div>
+            <div class="section-heading"><div><h2>只读模型目录</h2><p>外部目录只参与搜索，不复制文件</p></div></div>
+            <div class="inline-form source-form">
+                <label class="field"><span>来源 ID</span><input id="modelPathId" type="text" placeholder="local-models"></label>
+                <label class="field"><span>名称</span><input id="modelPathName" type="text" placeholder="本机模型库"></label>
+                <label class="field grow"><span>根目录</span><input id="modelPathBase" type="text" placeholder="E:\\Models"></label>
+                <label class="field compact"><span>分类</span><select id="modelPathCategory"></select></label>
+                <label class="field"><span>相对目录</span><input id="modelPathRelative" type="text" value="."></label>
+                <button id="modelPathAdd" class="primary-button" type="button"><i data-lucide="plus"></i><span>添加</span></button>
+            </div>
+            <div id="modelPathRows" class="source-list"></div>
+        </section>
+
+        <section id="extensionsPanel" class="engine-panel" data-engine-panel="extensions" hidden>
+            <div class="section-heading"><div><h2>Comfy 扩展</h2><p id="extensionCount">0 个扩展</p></div><button id="extensionRefresh" class="icon-button" type="button" title="刷新扩展" aria-label="刷新扩展"><i data-lucide="refresh-cw"></i></button></div>
+            <div id="extensionRows" class="extension-list"></div>
+            <div id="extensionEmpty" class="empty-state" hidden>尚未安装扩展</div>
+
+            <div class="section-divider"></div>
+            <div class="section-heading"><div><h2>安装扩展</h2><p id="extensionInstallStatus"></p></div></div>
+            <div class="inline-form extension-install-form">
+                <label class="field grow"><span>目录、ZIP 或 HTTPS Git 地址</span><input id="extensionSource" type="text" placeholder="https://github.com/... 或 E:\\custom_node"></label>
+                <label class="field"><span>扩展 ID</span><input id="extensionId" type="text" placeholder="自动识别"></label>
+                <label class="check-field"><input id="extensionDependencies" type="checkbox" checked><span>安装依赖</span></label>
+                <label class="check-field"><input id="extensionReplace" type="checkbox"><span>覆盖升级</span></label>
+                <button id="extensionInstall" class="primary-button" type="button"><i data-lucide="package-plus"></i><span>安装</span></button>
+            </div>
+            <div id="extensionInstallProgress" class="progress-line"><span></span></div>
+        </section>
+
+        <div id="engineNotice" class="engine-notice" role="status" aria-live="polite"></div>
+    </main>
+    <script src="/static/js/node-engine.js?v=2026.08.01.4"></script>
+</body>
+</html>

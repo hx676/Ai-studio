@@ -35,6 +35,9 @@
         const assetDialogCancel = document.getElementById('assetDialogCancel');
         const assetDialogOk = document.getElementById('assetDialogOk');
         const assetHoverPreview = document.getElementById('assetHoverPreview');
+        const canvasAppearanceToggle = document.getElementById('canvasAppearanceToggle');
+        const canvasAppearancePanel = document.getElementById('canvasAppearancePanel');
+        const canvasAppearanceClose = document.getElementById('canvasAppearanceClose');
         let minimapViewport = document.getElementById('minimapViewport');
         let canvas = null;
         let nodes = [];
@@ -90,13 +93,14 @@
         }
         function discardPendingUndo(){ pendingUndoSnapshot = null; }
         function snapshotForUndo(){
-            return {
-                nodes: JSON.parse(JSON.stringify(nodes)),
-                connections: JSON.parse(JSON.stringify(canvas?.connections || [])),
+            const extra = {
                 selectedId,
                 selectedIds: selectedIds.slice(),
                 selectedImage: {...selectedImage}
             };
+            return window.SynCanvasGraph
+                ? window.SynCanvasGraph.snapshot(nodes, canvas?.connections || [], extra)
+                : {nodes:JSON.parse(JSON.stringify(nodes)), connections:JSON.parse(JSON.stringify(canvas?.connections || [])), ...extra};
         }
         function pushUndo(){
             if(undoSuppressed) return;
@@ -138,6 +142,7 @@
         let imageEditZoom = 1.0;
         let imageEditBaseW = 0;
         let imageEditBaseH = 0;
+        let imageEditorOpenTimer = null;
         let previewZoom = 1.0;
         let previewPan = {x:0, y:0};
         let previewPanDrag = null;
@@ -197,8 +202,10 @@
             enhanceUpscaleRes:2048,
             editUpscale:false,
             editUpscaleRes:2048,
-            promptH:124
+            promptH:124,
+            connectionStyle:'curve'
         };
+        const CONNECTION_STYLES = new Set(['curve', 'orthogonal', 'straight', 'hidden']);
         const MS_GEN_MODELS = {
             zimage: { label:'ZImage', modelId:'Tongyi-MAI/Z-Image-Turbo', supportsImage:false, endpoint:'/generate' },
             qwen_edit: { label:'Qwen Edit', modelId:'Qwen/Qwen-Image-Edit-2511', supportsImage:true, endpoint:'/api/angle/generate' },
@@ -224,6 +231,48 @@
         function uid(prefix){ return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`; }
         function escapeHtml(str){ return String(str == null ? '' : str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
         const escapeAttr = escapeHtml;
+        function normalizeConnectionStyle(value){
+            return CONNECTION_STYLES.has(value) ? value : 'curve';
+        }
+        function normalizeCanvasAppearanceSettings(target=settings){
+            if(target) target.connectionStyle = normalizeConnectionStyle(target.connectionStyle);
+            return target;
+        }
+        function currentConnectionStyle(){
+            return normalizeConnectionStyle(settings.connectionStyle);
+        }
+        function syncConnectionStyleControls(){
+            const style = currentConnectionStyle();
+            canvasAppearancePanel?.querySelectorAll('[data-connection-style]').forEach(button => {
+                const active = button.dataset.connectionStyle === style;
+                button.classList.toggle('active', active);
+                button.setAttribute('aria-checked', active ? 'true' : 'false');
+            });
+        }
+        function toggleCanvasAppearance(open=!canvasAppearancePanel?.classList.contains('open')){
+            if(!canvasAppearancePanel || !canvasAppearanceToggle) return;
+            const active = Boolean(open);
+            canvasAppearancePanel.classList.toggle('open', active);
+            canvasAppearancePanel.setAttribute('aria-hidden', active ? 'false' : 'true');
+            canvasAppearanceToggle.setAttribute('aria-expanded', active ? 'true' : 'false');
+            if(active){
+                assetLibraryOpen = false;
+                assetPanel?.classList.remove('open');
+                ['smartPromptTemplatePanel', 'smartWorkflowPanel'].forEach(id => {
+                    const panel = document.getElementById(id);
+                    panel?.classList.remove('open');
+                    panel?.setAttribute('aria-hidden', 'true');
+                });
+                syncConnectionStyleControls();
+                refreshIcons();
+            }
+        }
+        function setConnectionStyle(value){
+            settings.connectionStyle = normalizeConnectionStyle(value);
+            syncConnectionStyleControls();
+            refreshConnectionLayer();
+            scheduleSave();
+        }
         function closeAllSmartPopovers(){
             dynamicParams?.querySelectorAll('.smart-control.pinned').forEach(ctrl => ctrl.classList.remove('pinned'));
         }
@@ -285,17 +334,24 @@
                 (node?.images || []).forEach(img => normalizeSmartSettingsEngines(img?.runSettings));
             });
         }
-        function backToCanvasList(){ savePromptDraftForCurrent(); window.location.href = '/static/canvas.html?v=2026.07.27.4'; }
+        function backToCanvasList(){
+            savePromptDraftForCurrent();
+            const projectId = String(canvas?.project || params.get('project') || '').trim();
+            window.location.href = `/static/canvas-list.html?${projectId ? `project=${encodeURIComponent(projectId)}&` : ''}v=2026.08.01.4`;
+        }
         function promptPlainText(){
             const tokens = [...promptInput.querySelectorAll('.prompt-template-token')];
+            const templatePrompts = tokens
+                .map(token => String(token.dataset.templatePrompt || '').trim())
+                .filter(Boolean);
             const inlineStyles = tokens.map(token => token.getAttribute('style'));
             tokens.forEach(token => { token.style.display = 'none'; });
-            const text = promptInput.innerText.replace(/\u00a0/g, ' ').trim();
+            const visibleText = promptInput.innerText.replace(/\u00a0/g, ' ').trim();
             tokens.forEach((token, index) => {
                 if(inlineStyles[index] == null) token.removeAttribute('style');
                 else token.setAttribute('style', inlineStyles[index]);
             });
-            return text;
+            return [...templatePrompts, visibleText].filter(Boolean).join('\n\n').trim();
         }
         function setPromptInputLocked(locked){
             promptInput.dataset.promptLocked = locked ? '1' : '0';
@@ -456,6 +512,11 @@
             if(node?.type === 'smart-skill') return {cols:1, rows:1, width:Math.round(Number(node.w) || 430), height:Math.round(Number(node.h) || 650), thumb:96, single:true};
             if(node?.type === 'smart-template-store') return {cols:1, rows:1, width:Math.round(Number(node.w) || 380), height:Math.round(Number(node.h) || 540), thumb:96, single:true};
             if(node?.type === 'smart-template-call') return {cols:1, rows:1, width:Math.round(Number(node.w) || 360), height:Math.round(Number(node.h) || 440), thumb:96, single:true};
+            const extensionDefinition = window.SynCanvasNodeExtensions?.definitionForNode(node, 'smart');
+            if(extensionDefinition || node?.extensionMissing){
+                const size = extensionDefinition ? SynCanvasNodeExtensions.sizeFor(extensionDefinition, 'smart') : {width:Number(node?.w) || 360, height:Number(node?.h) || 320};
+                return {cols:1, rows:1, width:Math.round(Number(node?.w) || size.width), height:Math.round(Number(node?.h) || size.height), thumb:96, single:true};
+            }
             const count = (images || []).length;
             const s = Number.isFinite(scale) && scale > 0 ? scale : 1;
             if(count === 0) return {cols:1, rows:1, width:Math.round(Number(node?.w) || 260*s), height:Math.round(Number(node?.h) || 180*s), thumb:Math.round(96*s), single:true};
@@ -1239,6 +1300,7 @@
         }
         function toggleAssetLibrary(open=!assetLibraryOpen){
             assetLibraryOpen = !!open;
+            if(assetLibraryOpen) toggleCanvasAppearance(false);
             assetPanel.classList.toggle('open', assetLibraryOpen);
             if(assetLibraryOpen) loadAssetLibrary();
             render();
@@ -1451,12 +1513,15 @@
                 nodes = Array.isArray(canvas.nodes) ? canvas.nodes : [];
                 nodes.forEach(n => { if(n.pending) n.pending = 0; });
                 canvas.connections = Array.isArray(canvas.connections) ? canvas.connections : [];
+                normalizeSmartTemplateOutputPorts();
                 viewport = {...viewport, ...(canvas.viewport || {})};
                 viewport.scale = safeScale(viewport.scale);
                 if(canvas.settings) settings = {...settings, ...canvas.settings};
+                normalizeCanvasAppearanceSettings(settings);
                 normalizeLegacySmartEngines();
                 updateProviderModels();
                 applyViewport();
+                syncConnectionStyleControls();
                 render();
             } catch(e) { toast(tr('smart.toastCanvasFail')); }
         }
@@ -1465,7 +1530,7 @@
             saveTimer = setTimeout(saveCanvas, 450);
         }
         function serializableSmartNode(node){
-            const copy = JSON.parse(JSON.stringify(node));
+            let copy = JSON.parse(JSON.stringify(node));
             if(copy.type === 'smart-template-call'){
                 delete copy.structuredOutput;
                 delete copy.outputText;
@@ -1475,6 +1540,7 @@
                 delete copy.templateLoadedAt;
                 copy.running = false;
             }
+            if(window.SynCanvasNodeExtensions) copy = SynCanvasNodeExtensions.serializeNode(copy, 'smart');
             return copy;
         }
         async function saveCanvas(){
@@ -1484,9 +1550,11 @@
                 node.images = (node.images || []).map(img => stripImageGenerationMeta(img));
             });
             normalizeLegacySmartEngines();
+            normalizeSmartTemplateOutputPorts();
             const serializedNodes = nodes.map(serializableSmartNode);
             canvas.nodes = serializedNodes;
-            canvas.settings = normalizeSmartSettingsEngines(settings);
+            canvas.connections = (canvas.connections || []).map(connection => ({...connection, fromPort:connection.fromPort || 'out', toPort:connection.toPort || 'in'}));
+            canvas.settings = normalizeCanvasAppearanceSettings(normalizeSmartSettingsEngines(settings));
             canvas.viewport = {...viewport};
             try {
                 const res = await fetch(`/api/canvases/${encodeURIComponent(canvasId)}`, {
@@ -1570,21 +1638,12 @@
             return node;
         }
         function createAgentNode(x, y, options={}){
-            if(!options.skipUndo) pushUndo();
-            const node = {
-                id:uid('agent'), type:'smart-agent', x, y, w:400, h:520, title:'Agent',
-                agentId:'', aiProvider:'', textModel:'', visionModel:'', userInput:'',
-                expectJson:false, inputBindings:{}, outputText:'', structuredOutput:null,
-                runId:'', runStatus:'', running:false, created_at:Date.now()
-            };
-            nodes.push(node);
-            if(options.select !== false) selectedId = node.id;
-            render(); scheduleSave(); return node;
+            return createRegisteredExtensionNode('smart-agent', x, y, options);
         }
         function createSkillNode(x, y, options={}){
             if(!options.skipUndo) pushUndo();
             const node = {
-                id:uid('skill'), type:'smart-skill', x, y, w:430, h:650, title:'Skill',
+            id:uid('skill'), type:'smart-skill', x, y, w:430, h:650, title:tr('smart.aiWorkflow'),
                 skillId:'', aiProvider:'', textModel:'', visionModel:'', skillInput:{},
                 inputBindings:{}, outputText:'', structuredOutput:null,
                 runId:'', runStatus:'', running:false, created_at:Date.now()
@@ -1623,6 +1682,196 @@
             if(node.templateId) refreshTemplateCallNode(node, {quiet:true}).catch(() => {});
             return node;
         }
+        function createRegisteredExtensionNode(type, x, y, options={}){
+            const base = window.SynCanvasNodeExtensions?.createData(type, 'smart');
+            if(!base) return null;
+            if(!options.skipUndo) pushUndo();
+            const node = {...base, id:uid('extension'), x, y, ...options};
+            delete node.skipUndo;
+            delete node.select;
+            nodes.push(node);
+            if(options.select !== false) selectedId = node.id;
+            render(); scheduleSave();
+            return node;
+        }
+        function smartExtensionInputs(node){
+            const result = {...(node?.data || {})};
+            const definition = window.SynCanvasNodeExtensions?.definitionForNode(node, 'smart');
+            const connectionInputs = (canvas?.connections || []).filter(connection => connection.to === node.id)
+                .map(connection => ({connection, source:nodes.find(item => item.id === connection.from)}))
+                .filter(item => item.source);
+            const connectedIds = new Set(connectionInputs.map(item => item.source.id));
+            (node.inputNodeIds || []).filter(id => !connectedIds.has(id)).forEach(id => {
+                const source = nodes.find(item => item.id === id);
+                if(source) connectionInputs.push({connection:{from:id, fromPort:'out', toPort:'in'}, source});
+            });
+            const values = connectionInputs.flatMap(({connection, source}) => {
+                const items = [];
+                const sourcePort = connection.fromPort || 'out';
+                const promptOnlyTemplate = ['smart-template-call','smart-template-store'].includes(source.type);
+                const exactOutputs = source.extensionOutputs?.[sourcePort];
+                if(Array.isArray(exactOutputs)) items.push(...exactOutputs);
+                else {
+                    if(source.outputText) items.push({kind:'text', value:source.outputText});
+                    else if(source.structuredOutput != null) items.push({kind:'json', value:source.structuredOutput});
+                    if(!promptOnlyTemplate) (source.images || source.referenceImages || source._templateImages || []).forEach(image => items.push({kind:'image', value:typeof image === 'string' ? image : image?.url}));
+                    (source.audio || source.audios || []).forEach(audio => items.push({kind:'audio', value:typeof audio === 'string' ? audio : audio?.url}));
+                    (source.videos || source.generatedVideos || []).forEach(video => items.push({kind:'video', value:typeof video === 'string' ? video : video?.url}));
+                    if(source.url){
+                        const clean = String(source.url).split(/[?#]/)[0].toLowerCase();
+                        const kind = source.type === 'audio' || /\.(mp3|wav|flac|m4a|aac|ogg|opus)$/.test(clean) ? 'audio' : /\.(mp4|webm|mov|m4v|mkv|avi)$/.test(clean) ? 'video' : 'image';
+                        items.push({kind, value:source.url});
+                    }
+                    if(source.text) items.push({kind:'text', value:source.text});
+                }
+                return items.filter(item => item?.value != null && item.value !== '').map(item => ({...item, toPort:connection.toPort || 'in'}));
+            });
+            (definition?.inputs || []).forEach(port => {
+                const matches = values.filter(value => {
+                    const targetsPort = value.toPort === 'in' || value.toPort === port.id;
+                    const acceptsType = (port.types || ['any']).includes('any') || (port.types || []).includes(value.kind);
+                    return targetsPort && acceptsType;
+                }).map(({toPort, ...value}) => value);
+                if(matches.length) result[port.id] = port.multiple ? matches : matches[0];
+            });
+            return result;
+        }
+        function isSmartAgentExtensionNode(node){
+            return Boolean(node && (node.type === 'smart-agent' || node.extensionType === 'syncanvas.agent-skill/agent' || window.SynCanvasNodeExtensions?.definitionForNode(node, 'smart')?.type === 'syncanvas.agent-skill/agent'));
+        }
+        function isSmartRuntimeEngineNode(node){
+            return Boolean(node?.data?.classType && (node.extensionType === 'syncanvas.node-engine/runtime-node' || node.type === 'syncanvas.node-engine/runtime-node'));
+        }
+        function smartRuntimeBoundaryValues(source, fromPort='out'){
+            const exact = source?.extensionOutputs?.[fromPort];
+            if(Array.isArray(exact) && exact.length) return exact.filter(item => item?.value != null);
+            const values = [];
+            const promptOnlyTemplate = ['smart-template-call','smart-template-store'].includes(source?.type);
+            if(source?.outputText) values.push({kind:'text', value:source.outputText});
+            else if(source?.structuredOutput != null) values.push({kind:'json', value:source.structuredOutput});
+            if(!promptOnlyTemplate) (source?.images || source?.referenceImages || source?._templateImages || []).forEach(image => values.push({kind:'image', value:typeof image === 'string' ? image : image?.url}));
+            if(source?.url){
+                const text = String(source.url).split(/[?#]/)[0].toLowerCase();
+                const kind = /\.(mp3|wav|flac|m4a|aac|ogg|opus)$/.test(text) ? 'audio' : /\.(mp4|webm|mov|mkv|avi)$/.test(text) ? 'video' : 'image';
+                values.push({kind, value:source.url});
+            }
+            if(source?.text) values.push({kind:'text', value:source.text});
+            (source?.audio || source?.audios || []).forEach(item => values.push({kind:'audio', value:typeof item === 'string' ? item : item?.url}));
+            (source?.videos || source?.generatedVideos || []).forEach(item => values.push({kind:'video', value:typeof item === 'string' ? item : item?.url}));
+            return values.filter(item => item?.value != null && item.value !== '');
+        }
+        function buildSmartRuntimeGraph(targetNode){
+            if(!isSmartRuntimeEngineNode(targetNode)) return null;
+            const allConnections = [...(canvas?.connections || [])];
+            nodes.forEach(node => (node.inputNodeIds || []).forEach(sourceId => {
+                if(!allConnections.some(connection => connection.from === sourceId && connection.to === node.id)){
+                    allConnections.push({from:sourceId,to:node.id,fromPort:'out',toPort:'in'});
+                }
+            }));
+            const islandIds = new Set();
+            const visit = node => {
+                if(!node || islandIds.has(node.id) || !isSmartRuntimeEngineNode(node)) return;
+                islandIds.add(node.id);
+                allConnections.filter(connection => connection.to === node.id).forEach(connection => {
+                    const source = nodes.find(item => item.id === connection.from);
+                    if(isSmartRuntimeEngineNode(source)) visit(source);
+                });
+            };
+            visit(targetNode);
+            const islandNodes = nodes.filter(node => islandIds.has(node.id));
+            const runtimeConnections = allConnections.filter(connection => islandIds.has(connection.from) && islandIds.has(connection.to)).map(connection => ({
+                from_node:connection.from,
+                from_port:connection.fromPort || 'out-0',
+                to_node:connection.to,
+                to_port:connection.toPort || 'in'
+            }));
+            const externalInputs = [];
+            allConnections.filter(connection => islandIds.has(connection.to) && !islandIds.has(connection.from)).forEach(connection => {
+                const source = nodes.find(item => item.id === connection.from);
+                const target = nodes.find(item => item.id === connection.to);
+                const definition = window.SynCanvasNodeExtensions?.definitionForNode(target, 'smart');
+                const targetPort = connection.toPort && connection.toPort !== 'in' ? connection.toPort : definition?.inputs?.[0]?.id;
+                if(!source || !targetPort) return;
+                smartRuntimeBoundaryValues(source, connection.fromPort || 'out').forEach(item => externalInputs.push({
+                    to_node:target.id, to_port:targetPort, kind:item.kind || 'json', value:item.value
+                }));
+            });
+            return {
+                nodes:islandNodes.map(node => ({
+                    id:node.id,
+                    class_type:node.data.classType,
+                    widgets:JSON.parse(JSON.stringify(node.data.widgets || {})),
+                    input_modes:JSON.parse(JSON.stringify(node.data.inputModes || {})),
+                    definition_fingerprint:node.data.definitionSnapshot?.fingerprint || ''
+                })),
+                connections:runtimeConnections,
+                external_inputs:externalInputs,
+                target_ids:[targetNode.id],
+                canvas_id:canvasId || '',
+                client_id:typeof CLIENT_ID === 'undefined' ? '' : CLIENT_ID
+            };
+        }
+        function applySmartRuntimeGraphProgress(record, graph){
+            const terminal = ['succeeded','failed','cancelled','interrupted'].includes(record?.status);
+            const progressByNode = record?.node_progress || {};
+            const activeId = String(record?.active_node_id || '');
+            const targetIds = new Set(graph?.target_ids || []);
+            (graph?.nodes || []).forEach(item => {
+                const runtimeNode = nodes.find(node => node.id === item.id);
+                if(!runtimeNode) return;
+                const detail = progressByNode[item.id] || null;
+                const detailStatus = String(detail?.status || '');
+                runtimeNode.runStatus = detailStatus || (terminal && targetIds.has(item.id) ? record.status : runtimeNode.runStatus || 'queued');
+                runtimeNode.runProgress = detail ? Number(detail.progress) || 0 : (terminal && targetIds.has(item.id) ? Number(record.progress) || 0 : runtimeNode.runProgress || 0);
+                runtimeNode.running = !terminal && (item.id === activeId || ['running','loading_model'].includes(detailStatus) || (!activeId && targetIds.has(item.id)));
+            });
+            render();
+        }
+        function smartExtensionContext(node){
+            return {
+                canvasId:canvasId || '',
+                collectInputs:() => smartExtensionInputs(node),
+                buildRuntimeGraph:() => buildSmartRuntimeGraph(node),
+                applyRuntimeProgress:(record, graph) => applySmartRuntimeGraphProgress(record, graph),
+                update:() => render(),
+                save:scheduleSave,
+                error:message => toast(String(message || '扩展节点运行失败').slice(0, 180))
+            };
+        }
+        function refreshSmartExtensionCreateMenu(){
+            const grid = createMenu?.querySelector('.create-menu-grid');
+            if(!grid || !window.SynCanvasNodeExtensions) return;
+            const smartLegacyTypes = {
+                agent:'smart-agent',
+                skill:'smart-skill',
+                'template-store':'smart-template-store',
+                'template-call':'smart-template-call'
+            };
+            ['agent','skill','template-store','template-call'].forEach(type => {
+                const card = grid.querySelector(`[data-create-type="${type}"]:not([data-extension-create])`);
+                if(card){
+                    const active = Boolean(SynCanvasNodeExtensions.definition(smartLegacyTypes[type], 'smart'));
+                    card.hidden = !active;
+                    card.disabled = !active;
+                }
+            });
+            grid.querySelectorAll('[data-extension-create]').forEach(element => element.remove());
+            SynCanvasNodeExtensions.definitionsFor('smart', {onlyNew:true}).forEach(definition => {
+                const button = document.createElement('button');
+                button.className = 'create-card extension-create-entry';
+                button.type = 'button';
+                button.dataset.createType = definition.type;
+                button.dataset.extensionCreate = definition.type;
+                button.innerHTML = `<span class="create-card-icon"><i data-lucide="${escapeHtml(definition.icon || 'blocks')}"></i></span><span><div class="create-card-title">${escapeHtml(definition.display_name)}</div><div class="create-card-sub">${escapeHtml(definition.description || definition.package_name)}</div></span>`;
+                grid.appendChild(button);
+            });
+            refreshIcons();
+        }
+        window.SynCanvasNodeExtensions?.onReady(() => setTimeout(() => {
+            refreshSmartExtensionCreateMenu();
+            nodes.forEach(node => SynCanvasNodeExtensions.decorateNode(node, 'smart'));
+            if(canvas) render();
+        }, 0));
         function cloneSmartNode(node, dx=0, dy=0){
             const copy = JSON.parse(JSON.stringify(node));
             const prefix = node.type === 'smart-prompt' ? 'prompt' : node.type === 'smart-loop' ? 'loop' : node.type === 'smart-agent' ? 'agent' : node.type === 'smart-skill' ? 'skill' : node.type === 'smart-template-store' ? 'template-store' : node.type === 'smart-template-call' ? 'template-call' : 'smart';
@@ -1734,26 +1983,88 @@
             const rect = shell.getBoundingClientRect();
             return {x:event.clientX - rect.left, y:event.clientY - rect.top};
         }
+        function connectionPathData(fx, fy, tx, ty, style=currentConnectionStyle(), direction=1){
+            if(style === 'straight' || style === 'hidden') return `M${fx} ${fy} L${tx} ${ty}`;
+            if(style === 'orthogonal'){
+                const midX = (fx + tx) / 2;
+                return `M${fx} ${fy} H${midX} V${ty} H${tx}`;
+            }
+            const dx = Math.max(50, Math.abs(tx - fx) * 0.45);
+            return `M${fx} ${fy} C ${fx + dx * direction} ${fy}, ${tx - dx * direction} ${ty}, ${tx} ${ty}`;
+        }
+        function smartPortDefinitions(node, direction){
+            const definition = window.SynCanvasNodeExtensions?.definitionForNode(node, 'smart');
+            const templateAlias = ['smart-template-store','smart-template-call'].includes(node?.type);
+            if(definition && (node?.type === definition.type || templateAlias)){
+                return direction === 'out' ? (definition.outputs || []) : (definition.inputs || []);
+            }
+            return [{id:direction, name:direction === 'out' ? '输出' : '输入'}];
+        }
+        function normalizeSmartTemplateOutputPorts(){
+            if(!canvas) return;
+            const templateOutputIds = new Set(nodes.filter(node => ['smart-template-store','smart-template-call'].includes(node.type)).map(node => node.id));
+            canvas.connections = (canvas.connections || []).map(connection => (
+                templateOutputIds.has(connection.from) ? {...connection, fromPort:'text'} : connection
+            ));
+        }
+        function smartDefaultPortId(node, direction){
+            return String(smartPortDefinitions(node, direction)[0]?.id || direction);
+        }
+        function smartNearestPortId(node, direction, clientY, elementRect){
+            const ports = smartPortDefinitions(node, direction);
+            if(!ports.length) return direction;
+            if(ports.length === 1 || !elementRect?.height) return String(ports[0].id || direction);
+            const ratio = Math.max(0, Math.min(1, (clientY - elementRect.top) / elementRect.height));
+            let bestIndex = 0;
+            let bestDistance = Infinity;
+            ports.forEach((port, index) => {
+                const distance = Math.abs(ratio - (index + 1) / (ports.length + 1));
+                if(distance < bestDistance){ bestDistance = distance; bestIndex = index; }
+            });
+            return String(ports[bestIndex]?.id || direction);
+        }
+        function smartPortPoint(node, direction, portId=direction){
+            const rect = nodeRect(node);
+            const ports = smartPortDefinitions(node, direction);
+            const index = ports.findIndex(port => String(port.id) === String(portId));
+            const top = ports.length && index >= 0 ? (index + 1) / (ports.length + 1) : .5;
+            return {
+                x:direction === 'out' ? rect.x + rect.width : rect.x,
+                y:rect.y + rect.height * top
+            };
+        }
+        function smartPortMarkup(node, direction){
+            const ports = smartPortDefinitions(node, direction);
+            return ports.map((port, index) => {
+                const id = String(port?.id || direction);
+                const name = String(port?.name || id).trim() || id;
+                const top = ports.length > 1 ? ((index + 1) / (ports.length + 1)) * 100 : 50;
+                const label = id !== direction || ports.length > 1 ? `<span class="node-port-label">${escapeHtml(name)}</span>` : '';
+                return `<div class="node-port port-${direction}" data-port="${escapeHtml(id)}" data-direction="${direction}" style="top:${top}%" title="${escapeHtml(name)}">${label}</div>`;
+            }).join('');
+        }
         function renderConnections(){
+            const style = currentConnectionStyle();
+            if(style === 'hidden') return '<svg class="connection-layer connection-style-hidden" width="6000" height="4000" viewBox="0 0 6000 4000" xmlns="http://www.w3.org/2000/svg"></svg>';
             const conns = (canvas?.connections || []).map((conn, index) => ({...conn, index})).filter(c => nodes.some(n => n.id === c.from) && nodes.some(n => n.id === c.to));
             const paths = conns.map(conn => {
                 const fromNode = nodes.find(n => n.id === conn.from);
                 const toNode = nodes.find(n => n.id === conn.to);
-                const fr = nodeRect(fromNode), tr = nodeRect(toNode);
+                const fromPoint = smartPortPoint(fromNode, 'out', conn.fromPort || 'out');
+                const toPoint = smartPortPoint(toNode, 'in', conn.toPort || 'in');
                 const kind = conn.kind || 'flow';
-                const fx = fr.x + fr.width;
-                const fy = fr.y + fr.height / 2;
-                const tx = tr.x;
-                const ty = tr.y + tr.height / 2;
-                const dx = Math.max(50, Math.abs(tx - fx) * 0.45);
-                const curve = `M${fx} ${fy} C ${fx+dx} ${fy}, ${tx-dx} ${ty}, ${tx} ${ty}`;
+                const fx = fromPoint.x;
+                const fy = fromPoint.y;
+                const tx = toPoint.x;
+                const ty = toPoint.y;
+                const pathData = connectionPathData(fx, fy, tx, ty, style);
                 const mx = (fx + tx) / 2, my = (fy + ty) / 2;
                 const cls = toNode.pending ? 'conn-pending' : '';
                 const color = kind === 'input' ? 'rgba(100,116,139,0.62)' : 'rgba(148,163,184,0.62)';
                 const opacity = toNode.pending ? '.82' : '1';
-                return `<path class="${cls}" d="${curve}" stroke="${color}" stroke-width="${kind === 'input' ? '1.9' : '1.6'}" fill="none" opacity="${opacity}"></path><path class="conn-hit" data-conn-index="${conn.index}" d="${curve}" stroke="transparent" stroke-width="14" fill="none"></path><circle cx="${tx}" cy="${ty}" r="3.5" fill="${color}" opacity=".66"></circle><g class="conn-cut" data-conn-index="${conn.index}" transform="translate(${mx} ${my})"><circle r="8" fill="var(--card)" stroke="${color}" stroke-width="1.4"></circle><path d="M-3 -3 L3 3 M3 -3 L-3 3" stroke="${color}" stroke-width="1.5" stroke-linecap="round"></path></g>`;
+                return `<path class="conn-visual ${cls}" d="${pathData}" stroke="${color}" stroke-width="${kind === 'input' ? '1.9' : '1.6'}" stroke-linecap="round" fill="none" opacity="${opacity}"></path><path class="conn-hit" data-conn-index="${conn.index}" d="${pathData}" stroke="transparent" stroke-width="14" fill="none"></path><circle cx="${tx}" cy="${ty}" r="3.5" fill="${color}" opacity=".66"></circle><g class="conn-cut" data-conn-index="${conn.index}" transform="translate(${mx} ${my})"><circle r="8" fill="var(--card)" stroke="${color}" stroke-width="1.4"></circle><path d="M-3 -3 L3 3 M3 -3 L-3 3" stroke="${color}" stroke-width="1.5" stroke-linecap="round"></path></g>`;
             }).join('');
-            return `<svg class="connection-layer" width="6000" height="4000" viewBox="0 0 6000 4000" xmlns="http://www.w3.org/2000/svg">${paths}</svg>`;
+            return `<svg class="connection-layer connection-style-${style}" width="6000" height="4000" viewBox="0 0 6000 4000" xmlns="http://www.w3.org/2000/svg">${paths}</svg>`;
         }
         function refreshConnectionLayer(){
             const oldSvg = world.querySelector('svg.connection-layer');
@@ -1774,6 +2085,8 @@
                     el.style.top = `${n.y || 0}px`;
                 }
             });
+            const composerNode = selectedNode();
+            if(composerNode?.type === 'smart-image') positionComposerForNode(composerNode);
             refreshConnectionLayer();
             renderMinimap();
         }
@@ -2089,8 +2402,8 @@
         function templateJsonSources(node){
             return inputNodesFor(node).map(source => {
                 let value = null;
-                if(['smart-agent','smart-skill','smart-template-call'].includes(source.type)) value = parsedTemplateObject(source.structuredOutput);
-                if(!value && ['smart-agent','smart-skill'].includes(source.type)) value = parsedTemplateObject(source.outputText);
+                if(isSmartAgentExtensionNode(source) || source.type === 'smart-skill') value = parsedTemplateObject(source.structuredOutput);
+                if(!value && (isSmartAgentExtensionNode(source) || source.type === 'smart-skill')) value = parsedTemplateObject(source.outputText);
                 return value && isDistilledTemplate(value) ? {node:source, value, label:source.templateName || source.title || source.skillId || source.agentId || source.id} : null;
             }).filter(Boolean);
         }
@@ -2147,6 +2460,9 @@
             </div>`;
         }
         function nodeBodyHtml(node, layout){
+            window.SynCanvasNodeExtensions?.decorateNode(node, 'smart');
+            const extensionDefinition = window.SynCanvasNodeExtensions?.definitionForNode(node, 'smart');
+            if(node.extensionMissing || (extensionDefinition && node.type === extensionDefinition.type)) return SynCanvasNodeExtensions.renderBody(node, 'smart', smartExtensionContext(node));
             if(node.type === 'smart-prompt') return promptNodeBodyHtml(node);
             if(node.type === 'smart-loop') return smartLoopBodyHtml(node);
             if(node.type === 'smart-agent' || node.type === 'smart-skill') return `<div class="ai-node-mount" data-ai-node-id="${escapeHtml(node.id)}"></div>`;
@@ -2160,8 +2476,8 @@
                 const rows = Math.ceil(count / cols);
                 return `<div class="loading-skeleton" style="grid-template-columns:repeat(${cols}, 1fr);grid-template-rows:repeat(${rows}, 1fr);width:${layout.width}px;height:${layout.height}px;padding:8px;box-sizing:border-box">${Array.from({length:count}).map(() => `<div class="loading-cell"></div>`).join('')}</div>`;
             }
-            if(imgs.length > 1) return `<div class="thumb-grid" style="--thumb-cols:${layout.cols}; --thumb-size:${layout.thumb}px">${imgs.map((img, i) => `<div class="thumb-item ${selectedImage.nodeId === node.id && selectedImage.index === i ? 'image-selected' : ''}" data-image-index="${i}">${thumbMediaHtml(img)}${imageResolutionBadgeHtml(img)}<button class="mini-x image-delete" type="button" data-image-index="${i}" title="${escapeHtml(tr('smart.deleteImage'))}"><i data-lucide="trash-2"></i></button></div>`).join('')}</div>`;
-            if(imgs[0]) return `<div class="image-wrap ${selectedImage.nodeId === node.id && selectedImage.index === 0 ? 'image-selected' : ''}" data-image-index="0" style="--node-img-w:${layout.width}px;--node-img-h:${layout.height}px">${singleMediaHtml(imgs[0], layout.width, layout.height)}${imageResolutionBadgeHtml(imgs[0])}<button class="mini-x image-delete" type="button" data-image-index="0" title="${escapeHtml(tr('smart.deleteImage'))}"><i data-lucide="trash-2"></i></button></div>`;
+            if(imgs.length > 1) return `<div class="thumb-grid" style="--thumb-cols:${layout.cols}; --thumb-size:${layout.thumb}px">${imgs.map((img, i) => `<div class="thumb-item ${selectedImage.nodeId === node.id && selectedImage.index === i ? 'image-selected' : ''}" data-image-index="${i}">${thumbMediaHtml(img)}${imageResolutionBadgeHtml(img)}<button class="mini-x image-edit-open" type="button" data-image-index="${i}" title="${escapeHtml(tr('canvas.editImage'))}"><i data-lucide="square-pen"></i></button><button class="mini-x image-delete" type="button" data-image-index="${i}" title="${escapeHtml(tr('smart.deleteImage'))}"><i data-lucide="trash-2"></i></button></div>`).join('')}</div>`;
+            if(imgs[0]) return `<div class="image-wrap ${selectedImage.nodeId === node.id && selectedImage.index === 0 ? 'image-selected' : ''}" data-image-index="0" style="--node-img-w:${layout.width}px;--node-img-h:${layout.height}px">${singleMediaHtml(imgs[0], layout.width, layout.height)}${imageResolutionBadgeHtml(imgs[0])}<button class="mini-x image-edit-open" type="button" data-image-index="0" title="${escapeHtml(tr('canvas.editImage'))}"><i data-lucide="square-pen"></i></button><button class="mini-x image-delete" type="button" data-image-index="0" title="${escapeHtml(tr('smart.deleteImage'))}"><i data-lucide="trash-2"></i></button></div>`;
             return `<div class="node-drop"><i data-lucide="image-plus"></i><span>${escapeHtml(tr('smart.uploadHint'))}</span></div>`;
         }
         function nowMs(){ return Date.now(); }
@@ -2207,13 +2523,16 @@
             if(composerEl) world.appendChild(composerEl);
             world.insertAdjacentHTML('beforeend', renderConnections());
             const nodesHtml = nodes.map(node => {
+                window.SynCanvasNodeExtensions?.decorateNode(node, 'smart');
+                const extensionDefinition = window.SynCanvasNodeExtensions?.definitionForNode(node, 'smart');
+                const isExtension = Boolean(extensionDefinition || node.extensionMissing);
                 const imgs = node.images || [];
-                const title = node.type === 'smart-prompt' ? 'Prompt' : node.type === 'smart-loop' ? 'Loop' : node.type === 'smart-agent' ? 'Agent' : node.type === 'smart-skill' ? 'Skill' : node.type === 'smart-template-store' ? '存模板' : node.type === 'smart-template-call' ? '调用模板' : (imgs.length > 1 ? 'Group' : 'Image');
+        const title = extensionDefinition?.display_name || (node.extensionMissing ? (node.title || node.extensionType || node.type) : node.type === 'smart-prompt' ? 'Prompt' : node.type === 'smart-loop' ? 'Loop' : node.type === 'smart-agent' ? tr('smart.agent') : node.type === 'smart-skill' ? tr('smart.aiWorkflow') : node.type === 'smart-template-store' ? '存模板' : node.type === 'smart-template-call' ? '调用模板' : (imgs.length > 1 ? 'Group' : 'Image'));
                 const scale = nodeScale(node);
                 const layout = imageLayout(imgs, scale, node);
                 const isPrompt = node.type === 'smart-prompt';
                 const isLoop = node.type === 'smart-loop';
-                const isAgent = node.type === 'smart-agent';
+                const isAgent = isSmartAgentExtensionNode(node);
                 const isSkill = node.type === 'smart-skill';
                 const isAIRuntime = isAgent || isSkill;
                 const isTemplateStore = node.type === 'smart-template-store';
@@ -2225,15 +2544,19 @@
                 const isPending = node.pending && imgs.length === 0;
                 const body = nodeBodyHtml(node, layout);
                 const deleteBtn = isNodeSelected(node.id) ? `<button class="mini-x node-delete" type="button" title="${escapeHtml(tr('smart.deleteNode'))}"><i data-lucide="trash-2"></i></button>` : '';
-                return `<div class="image-node ${isEmpty ? 'empty-node' : ''} ${isGroup ? 'group-node' : ''} ${isPrompt ? 'prompt-smart-node' : ''} ${isLoop ? 'loop-smart-node' : ''} ${isAgent ? 'agent-node smart-agent-node' : ''} ${isSkill ? 'skill-node smart-skill-node' : ''} ${isTemplateStore ? 'template-store-node' : ''} ${isTemplateCall ? 'template-call-node' : ''} ${(node.templateMissing || node.saveError || node.templateError) ? 'node-error' : ''} ${isNodeSelected(node.id) ? 'selected' : ''} ${(dragState?.groupIds?.includes(node.id) || dragState?.id === node.id) ? 'dragging' : ''} ${node.running ? 'node-running' : ''} ${isPending ? 'node-pending' : ''}" data-id="${escapeHtml(node.id)}" style="left:${node.x || 0}px;top:${node.y || 0}px;width:${layout.width}px;height:${layout.height}px">
-                    <div class="node-head"><div class="node-title">${title}</div><div class="node-actions">${deleteBtn}</div></div>
+                const safeX = Number.isFinite(Number(node.x)) ? Number(node.x) : 0;
+                const safeY = Number.isFinite(Number(node.y)) ? Number(node.y) : 0;
+                const safeWidth = Number.isFinite(Number(layout.width)) ? Number(layout.width) : 320;
+                const safeHeight = Number.isFinite(Number(layout.height)) ? Number(layout.height) : 240;
+                return `<div class="image-node ${isExtension ? 'extension-node' : ''} ${isEmpty ? 'empty-node' : ''} ${isGroup ? 'group-node' : ''} ${isPrompt ? 'prompt-smart-node' : ''} ${isLoop ? 'loop-smart-node' : ''} ${isAgent ? 'agent-node smart-agent-node' : ''} ${isSkill ? 'skill-node smart-skill-node' : ''} ${isTemplateStore ? 'template-store-node' : ''} ${isTemplateCall ? 'template-call-node' : ''} ${(node.extensionMissing || node.templateMissing || node.saveError || node.templateError) ? 'node-error' : ''} ${isNodeSelected(node.id) ? 'selected' : ''} ${(dragState?.groupIds?.includes(node.id) || dragState?.id === node.id) ? 'dragging' : ''} ${(node.running || isPending) ? 'node-running' : ''} ${isPending ? 'node-pending' : ''}" data-id="${escapeHtml(node.id)}" data-extension-package="${escapeHtml(extensionDefinition?.package_id || '')}" style="left:${safeX}px;top:${safeY}px;width:${safeWidth}px;height:${safeHeight}px">
+                    <div class="node-head"><div class="node-title">${escapeHtml(title)}</div><div class="node-actions">${deleteBtn}</div></div>
                     ${(isPrompt || isLoop || isAIRuntime || isTemplateNode) && deleteBtn ? `<div class="floating-node-actions"><button class="mini-x node-delete" type="button" title="${escapeHtml(tr('smart.deleteNode'))}"><i data-lucide="trash-2"></i></button></div>` : ''}
                     ${runTimePillHtml(node)}
                     <div class="node-body">${body}</div>
-                    <div class="node-hint">${isTemplateStore ? escapeHtml(node.outputText || '输出模板 JSON、风格提示词与参考图') : isTemplateCall ? escapeHtml(node.outputText || '纯本地数据源') : isAIRuntime ? escapeHtml(node.runError || node.outputText || '连接上游并运行') : isPending ? escapeHtml(tr('smart.hintPending')) : (imgs.length > 1 ? escapeHtml(tr('smart.hintMulti')) : imgs.length ? escapeHtml(tr('smart.hintSingle')) : escapeHtml(tr('smart.hintEmpty')))}</div>
-                    ${imgs.length || node.pending || isPrompt || isLoop || isAIRuntime || isTemplateNode ? '<div class="node-resize-handle" data-resize="1"></div>' : ''}
-                    <div class="node-port port-in" data-port="in" title="输入"></div>
-                    <div class="node-port port-out" data-port="out" title="输出"></div>
+                    <div class="node-hint">${isTemplateStore ? escapeHtml(node.outputText || '输出已保存模板的提示词') : isTemplateCall ? escapeHtml(node.outputText || '输出模板提示词') : isAIRuntime ? escapeHtml(node.runError || node.outputText || '连接上游并运行') : isPending ? escapeHtml(tr('smart.hintPending')) : (imgs.length > 1 ? escapeHtml(tr('smart.hintMulti')) : imgs.length ? escapeHtml(tr('smart.hintSingle')) : escapeHtml(tr('smart.hintEmpty')))}</div>
+                    ${imgs.length || node.pending || isPrompt || isLoop || isAIRuntime || isTemplateNode || isExtension ? '<div class="node-resize-handle" data-resize="1"></div>' : ''}
+                    ${smartPortMarkup(node, 'in')}
+                    ${smartPortMarkup(node, 'out')}
                 </div>`;
             }).join('');
             world.insertAdjacentHTML('beforeend', nodesHtml);
@@ -2589,47 +2912,51 @@
             if(!portDragState) return;
             const fromNode = nodes.find(n => n.id === portDragState.fromId);
             if(!fromNode) return;
-            const fr = nodeRect(fromNode);
-            const isOut = portDragState.fromPort === 'out';
-            const fx = isOut ? fr.x + fr.width : fr.x;
-            const fy = fr.y + fr.height / 2;
+            const isOut = portDragState.fromDirection === 'out';
+            const fromPoint = smartPortPoint(fromNode, portDragState.fromDirection || 'out', portDragState.fromPort);
+            const fx = fromPoint.x;
+            const fy = fromPoint.y;
             const tx = portDragState.currentWorld.x;
             const ty = portDragState.currentWorld.y;
-            const dx = Math.max(50, Math.abs(tx - fx) * 0.45);
             const sign = isOut ? 1 : -1;
             const path = ensurePortDragPathElement();
-            if(path) path.setAttribute('d', `M${fx} ${fy} C ${fx + dx * sign} ${fy}, ${tx - dx * sign} ${ty}, ${tx} ${ty}`);
+            const style = currentConnectionStyle() === 'hidden' ? 'straight' : currentConnectionStyle();
+            if(path) path.setAttribute('d', connectionPathData(fx, fy, tx, ty, style, sign));
             world.querySelectorAll('.node-port.is-active').forEach(el => el.classList.remove('is-active'));
             world.querySelectorAll('.image-node.port-hover').forEach(el => el.classList.remove('port-hover'));
             if(portDragState.hoverTargetId){
                 const targetNodeEl = world.querySelector(`.image-node[data-id="${portDragState.hoverTargetId}"]`);
                 targetNodeEl?.classList.add('port-hover');
-                targetNodeEl?.querySelector(`.node-port[data-port="${portDragState.hoverPort}"]`)?.classList.add('is-active');
+                targetNodeEl?.querySelector(`.node-port[data-direction="${portDragState.hoverDirection}"][data-port="${portDragState.hoverPort}"]`)?.classList.add('is-active');
             }
         }
         function handlePortDrop(drag, e){
-            const {targetId, targetPort, hit} = (() => {
+            const {targetId, targetPort, targetDirection, hit} = (() => {
                 const hitEl = document.elementFromPoint(e.clientX, e.clientY);
                 const portEl = hitEl?.closest?.('.node-port');
                 const nodeEl = portEl?.closest?.('.image-node') || hitEl?.closest?.('.image-node');
-                let id = '', port = '';
+                let id = '', port = '', direction = '';
                 if(nodeEl && nodeEl.dataset.id && nodeEl.dataset.id !== drag.fromId){
                     id = nodeEl.dataset.id;
                     if(portEl){
                         port = portEl.dataset.port;
+                        direction = portEl.dataset.direction || (portEl.classList.contains('port-out') ? 'out' : 'in');
                     } else {
                         const rect = nodeEl.getBoundingClientRect();
-                        port = (e.clientX - rect.left) < rect.width / 2 ? 'in' : 'out';
+                        direction = (e.clientX - rect.left) < rect.width / 2 ? 'in' : 'out';
+                        port = smartNearestPortId(nodes.find(node => node.id === id), direction, e.clientY, rect);
                     }
                 }
-                return {targetId:id, targetPort:port, hit:hitEl};
+                return {targetId:id, targetPort:port, targetDirection:direction, hit:hitEl};
             })();
             if(targetId){
-                const compatible = (drag.fromPort === 'out' && targetPort === 'in') || (drag.fromPort === 'in' && targetPort === 'out');
+                const compatible = (drag.fromDirection === 'out' && targetDirection === 'in') || (drag.fromDirection === 'in' && targetDirection === 'out');
                 if(!compatible){ discardPendingUndo(); render(); return; }
-                const fromId = drag.fromPort === 'out' ? drag.fromId : targetId;
-                const toId = drag.fromPort === 'out' ? targetId : drag.fromId;
-                if(connectInputNode(fromId, toId)){
+                const fromId = drag.fromDirection === 'out' ? drag.fromId : targetId;
+                const toId = drag.fromDirection === 'out' ? targetId : drag.fromId;
+                const fromPort = drag.fromDirection === 'out' ? drag.fromPort : targetPort;
+                const toPort = drag.fromDirection === 'out' ? targetPort : drag.fromPort;
+                if(connectInputNode(fromId, toId, fromPort, toPort)){
                     commitPendingUndo();
                     render();
                     scheduleSave();
@@ -2647,9 +2974,11 @@
             undoSuppressed = true;
             const newNode = createNode(p.x - 130, p.y - 90, [], {select:true, skipUndo:true});
             undoSuppressed = false;
-            const fromId = drag.fromPort === 'out' ? drag.fromId : newNode.id;
-            const toId = drag.fromPort === 'out' ? newNode.id : drag.fromId;
-            connectInputNode(fromId, toId);
+            const fromId = drag.fromDirection === 'out' ? drag.fromId : newNode.id;
+            const toId = drag.fromDirection === 'out' ? newNode.id : drag.fromId;
+            const fromPort = drag.fromDirection === 'out' ? drag.fromPort : smartDefaultPortId(newNode, 'out');
+            const toPort = drag.fromDirection === 'out' ? smartDefaultPortId(newNode, 'in') : drag.fromPort;
+            connectInputNode(fromId, toId, fromPort, toPort);
             commitPendingUndo();
             render();
             scheduleSave();
@@ -2661,6 +2990,10 @@
                 if(nodeForControls?.type === 'smart-prompt') bindPromptNodeControls(el, nodeForControls);
                 if(nodeForControls?.type === 'smart-loop') bindLoopNodeControls(el, nodeForControls);
                 if(nodeForControls?.type === 'smart-template-store' || nodeForControls?.type === 'smart-template-call') bindTemplateNodeControls(el, nodeForControls);
+                if(nodeForControls && (nodeForControls.extensionMissing || (window.SynCanvasNodeExtensions?.definitionForNode(nodeForControls, 'smart') && nodeForControls.type === nodeForControls.extensionType))){
+                    const body = el.querySelector('.node-body');
+                    if(body) SynCanvasNodeExtensions.bindNode(body, nodeForControls, 'smart', smartExtensionContext(nodeForControls));
+                }
                 el.onclick = e => {
                     e.stopPropagation();
                     if(Date.now() < suppressNodeClickUntil) return;
@@ -2691,28 +3024,40 @@
                         deleteImage(id, Number(btn.dataset.imageIndex));
                     });
                 });
+                el.querySelectorAll('.image-edit-open').forEach(btn => {
+                    btn.addEventListener('click', e => {
+                        e.preventDefault(); e.stopPropagation();
+                        if(imageEditorOpenTimer){ clearTimeout(imageEditorOpenTimer); imageEditorOpenTimer = null; }
+                        openImageEditor(id, Number(btn.dataset.imageIndex || 0));
+                    });
+                });
                 el.querySelectorAll('.thumb-item,.image-wrap').forEach(item => {
                     item.setAttribute('draggable', 'false');
                     item.addEventListener('dragstart', e => {
                         e.preventDefault();
                     });
                     item.addEventListener('click', e => {
-                        if(e.target.closest('.image-delete')) return;
+                        if(e.target.closest('.image-delete, .image-edit-open')) return;
                         e.stopPropagation();
+                        if(imageEditorOpenTimer){ clearTimeout(imageEditorOpenTimer); imageEditorOpenTimer = null; }
                         const owner = nodes.find(n => n.id === id);
                         hideRunTimerForNode(owner);
                         const isGroupOwner = (owner?.images || []).length > 1;
-                        selectedId = id;
-                        selectedIds = [];
-                        // 分组内的图片单击不再"穿透"到具体图片：保持节点级 composer
-                        selectedImage = isGroupOwner
-                            ? {nodeId:'', index:-1}
-                            : {nodeId:id, index:Number(item.dataset.imageIndex || 0)};
-                        render();
+                        imageEditorOpenTimer = setTimeout(() => {
+                            imageEditorOpenTimer = null;
+                            selectedId = id;
+                            selectedIds = [];
+                            // 分组内的图片单击不再"穿透"到具体图片：保持节点级 composer
+                            selectedImage = isGroupOwner
+                                ? {nodeId:'', index:-1}
+                                : {nodeId:id, index:Number(item.dataset.imageIndex || 0)};
+                            render();
+                        }, 180);
                     });
                 item.addEventListener('dblclick', e => {
-                    if(e.target.closest('.image-delete')) return;
+                    if(e.target.closest('.image-delete, .image-edit-open')) return;
                     e.stopPropagation();
+                    if(imageEditorOpenTimer){ clearTimeout(imageEditorOpenTimer); imageEditorOpenTimer = null; }
                     openImageEditor(id, Number(item.dataset.imageIndex || 0));
                 });
                 });
@@ -2758,13 +3103,16 @@
                         if(e.button !== 0) return;
                         e.preventDefault(); e.stopPropagation();
                         const portType = port.dataset.port;
+                        const portDirection = port.dataset.direction || (port.classList.contains('port-out') ? 'out' : 'in');
                         const p = screenToWorld(e);
                         portDragState = {
                             fromId:id,
                             fromPort:portType,
+                            fromDirection:portDirection,
                             currentWorld:p,
                             hoverTargetId:'',
                             hoverPort:'',
+                            hoverDirection:'',
                             moved:false
                         };
                         shell.classList.add('port-dragging');
@@ -2797,11 +3145,17 @@
         }
         function canAutoConnectDraggedNode(sourceNode, targetNode){
             if(!sourceNode || !targetNode || sourceNode.id === targetNode.id) return false;
+            const sourceExtension = window.SynCanvasNodeExtensions?.definitionForNode(sourceNode, 'smart');
+            const targetExtension = window.SynCanvasNodeExtensions?.definitionForNode(targetNode, 'smart');
+            if((sourceExtension && sourceNode.type === sourceExtension.type) || (targetExtension && targetNode.type === targetExtension.type) || sourceNode.extensionMissing || targetNode.extensionMissing){
+                const extensionDecision = SynCanvasNodeExtensions.canConnect(sourceNode, targetNode, 'smart');
+                if(extensionDecision !== null && extensionDecision !== undefined) return extensionDecision;
+            }
             if(sourceNode.type === 'smart-image') return ['smart-image','smart-loop','smart-agent','smart-skill','smart-template-store'].includes(targetNode.type);
             if(sourceNode.type === 'smart-prompt') return ['smart-image','smart-loop','smart-agent','smart-skill'].includes(targetNode.type);
             if(sourceNode.type === 'smart-loop') return ['smart-image','smart-agent','smart-skill'].includes(targetNode.type);
             if(sourceNode.type === 'smart-agent' || sourceNode.type === 'smart-skill') return ['smart-image','smart-prompt','smart-agent','smart-skill','smart-template-store'].includes(targetNode.type);
-            if(sourceNode.type === 'smart-template-call') return ['smart-image','smart-agent','smart-skill','smart-template-store'].includes(targetNode.type);
+            if(sourceNode.type === 'smart-template-call') return ['smart-image','smart-agent','smart-skill'].includes(targetNode.type);
             if(sourceNode.type === 'smart-template-store') return ['smart-image','smart-agent','smart-skill'].includes(targetNode.type);
             return false;
         }
@@ -3716,8 +4070,16 @@
         }
         function syncCascadeRunButton(node){
             if(!cascadeRunBtn) return;
-            const hasCascadePath = node && inputNodesFor(node).some(input => ['smart-prompt','smart-loop','smart-agent','smart-skill','smart-template-call'].includes(input.type));
+            const hasCascadePath = node && inputNodesFor(node).some(input => ['smart-prompt','smart-loop','smart-skill','smart-template-call'].includes(input.type) || isSmartAgentExtensionNode(input));
             cascadeRunBtn.style.display = hasCascadePath ? '' : 'none';
+        }
+        function positionComposerForNode(node){
+            const rect = nodeRect(node);
+            const gap = 14;
+            const cardW = 540;
+            composer.style.width = `${cardW}px`;
+            composer.style.left = `${rect.x + rect.width / 2 - cardW / 2}px`;
+            composer.style.top = `${rect.y + rect.height + gap}px`;
         }
         function updateComposer(){
             const node = selectedNode();
@@ -3749,12 +4111,7 @@
             if(hasPromptInput) setPromptText(lockedPromptText);
             setPromptInputLocked(hasPromptInput);
             syncCascadeRunButton(node);
-            const rect = nodeRect(node);
-            const gap = 14;
-            const cardW = 540;
-            composer.style.width = `${cardW}px`;
-            composer.style.left = `${rect.x + rect.width / 2 - cardW / 2}px`;
-            composer.style.top = `${rect.y + rect.height + gap}px`;
+            positionComposerForNode(node);
             const ph = Math.max(60, Math.min(380, Number(settings.promptH) || 124));
             promptInput.style.setProperty('--prompt-h', `${ph}px`);
             renderInputThumbsRow(node);
@@ -3858,17 +4215,15 @@
                 let images = [];
                 if(source.type === 'smart-prompt') text = source.text || source.promptDraftText || '';
                 if(source.type === 'smart-loop') text = smartLoopPrompt(source);
-                if(source.type === 'smart-agent' || source.type === 'smart-skill'){
+                if(isSmartAgentExtensionNode(source) || source.type === 'smart-skill'){
                     text = source.outputText || '';
                     output = source.structuredOutput || null;
                 }
                 if(source.type === 'smart-template-call' || source.type === 'smart-template-store'){
                     text = source.outputText || '';
-                    output = source.structuredOutput || null;
-                    images = (source.type === 'smart-template-call' ? source._templateImages : source.referenceImages || []).map(item => typeof item === 'string' ? item : item?.url).filter(Boolean);
                 }
                 if(source.type === 'smart-image') images = (source.images || []).map(item => item?.url).filter(Boolean);
-                return {id:source.id, label:source.title || source.agentId || source.skillId || source.type, type:source.type, skillId:source.skillId || '', text, output, images};
+                return {id:source.id, label:source.title || source.data?.agentId || source.agentId || source.skillId || source.type, type:source.type, skillId:source.skillId || '', text, output, images};
             });
         }
         function syncSmartAgentSkillBindings(node){
@@ -3905,6 +4260,9 @@
             world.querySelectorAll('[data-ai-node-id]').forEach(mount => {
                 const node = nodes.find(item => item.id === mount.dataset.aiNodeId);
                 if(!node || !window.SynCanvasAgentSkills) return;
+                const nodeEl = mount.closest('.image-node');
+                nodeEl?.classList.toggle('node-running', Boolean(node.running));
+                if(nodeEl) nodeEl.dataset.running = node.running ? 'true' : 'false';
                 mount.replaceChildren(SynCanvasAgentSkills.render(node, smartAgentSkillContext(node)));
             });
         }
@@ -3917,7 +4275,7 @@
                 scheduleSave();
             } catch(error) {
                 if(opts.cascade) throw error;
-                toast((error.message || 'Agent/Skill 运行失败').slice(0, 180));
+                toast((error.message || '智能体/AI 工作流运行失败').slice(0, 180));
             }
         }
         async function cancelSmartAgentSkillNode(nodeId){
@@ -4057,12 +4415,10 @@
         function inputImagesFor(node){
             return inputNodesFor(node).flatMap(input => {
                 const direct = (input.images || []).map((img, index) => ({...img, nodeId:input.id, imageIndex:index}));
-                const generated = (input.type === 'smart-agent' || input.type === 'smart-skill') && Array.isArray(input.structuredOutput?.images)
+                const generated = (isSmartAgentExtensionNode(input) || input.type === 'smart-skill') && Array.isArray(input.structuredOutput?.images)
                     ? input.structuredOutput.images.map((url, index) => ({url, name:`output-${index + 1}.png`, nodeId:input.id, imageIndex:index}))
                     : [];
-                const templateImages = (input.type === 'smart-template-call' ? input._templateImages : input.type === 'smart-template-store' ? input.referenceImages : []) || [];
-                const fromTemplate = templateImages.map((img, index) => ({...(typeof img === 'string' ? {url:img} : img), nodeId:input.id, imageIndex:index}));
-                return [...direct, ...generated, ...fromTemplate];
+                return [...direct, ...generated];
             }).filter(img => img?.url);
         }
         function smartLoopInputImages(node, ctx={}){
@@ -4075,7 +4431,7 @@
         function smartLoopInputPromptItems(node){
             if(!node) return [];
             return inputNodesFor(node)
-                .filter(input => ['smart-prompt','smart-agent','smart-skill'].includes(input.type))
+                .filter(input => input.type === 'smart-prompt' || input.type === 'smart-skill' || isSmartAgentExtensionNode(input))
                 .map(input => String(input.type === 'smart-prompt' ? (input.text || input.promptDraftText || input.runPrompt || '') : (input.outputText || '')).trim())
                 .filter(Boolean);
         }
@@ -4104,18 +4460,22 @@
             return base.filter(img => img?.url);
         }
         function promptInputNodesFor(node){
-            return inputNodesFor(node).filter(input => ['smart-prompt','smart-loop','smart-agent','smart-skill','smart-template-call','smart-template-store'].includes(input.type));
+            return inputNodesFor(node).filter(input => ['smart-prompt','smart-loop','smart-skill','smart-template-call','smart-template-store'].includes(input.type) || isSmartAgentExtensionNode(input));
         }
         function inputPromptTextFor(node){
             return promptInputNodesFor(node).map(input => {
                 if(input.type === 'smart-loop') return smartLoopPrompt(input);
-                if(['smart-agent','smart-skill','smart-template-call','smart-template-store'].includes(input.type)) return input.outputText || '';
+                if(isSmartAgentExtensionNode(input) || ['smart-skill','smart-template-call','smart-template-store'].includes(input.type)) return input.outputText || '';
                 return input.text || '';
             }).filter(Boolean).join('\n\n');
         }
         function visibleReferenceImagesFor(node){
             const seen = new Set();
-            return inputImagesFor(node).filter(img => {
+            const candidates = [
+                ...outputImagesForNode(node, true),
+                ...inputImagesFor(node)
+            ];
+            return candidates.filter(img => {
                 if(!img?.url || seen.has(img.url)) return false;
                 seen.add(img.url);
                 return true;
@@ -4156,16 +4516,31 @@
             node.runSettings = normalizeSmartSettingsEngines(cloneSmartSettings(meta.settings || settings));
             node.runMeta = {...meta, settings:normalizeSmartSettingsEngines(cloneSmartSettings(meta.settings || settings))};
         }
-        function addConnection(from, to, kind='flow'){
+        function addConnection(from, to, kind='flow', fromPort='out', toPort='in'){
             if(!canvas || !from || !to || from === to) return false;
             canvas.connections = canvas.connections || [];
-            if(canvas.connections.some(c => c.from === from && c.to === to && (c.kind || 'flow') === kind)) return false;
-            canvas.connections.push({from, to, kind});
+            if(window.SynCanvasGraph){
+                return window.SynCanvasGraph.appendConnection(canvas.connections, {from, to, kind, fromPort, toPort});
+            }
+            if(canvas.connections.some(c => c.from === from && c.to === to && (c.kind || 'flow') === kind && (c.fromPort || 'out') === fromPort && (c.toPort || 'in') === toPort)) return false;
+            canvas.connections.push({from, to, kind, fromPort, toPort});
             return true;
         }
-        function connectInputNode(fromId, toId){
+        function connectInputNode(fromId, toId, fromPort='out', toPort='in'){
             if(!canvas || !fromId || !toId || fromId === toId) return false;
-            addConnection(fromId, toId, 'flow');
+            const fromNode = nodes.find(node => node.id === fromId);
+            const targetNode = nodes.find(node => node.id === toId);
+            const fromExtension = window.SynCanvasNodeExtensions?.definitionForNode(fromNode, 'smart');
+            const toExtension = window.SynCanvasNodeExtensions?.definitionForNode(targetNode, 'smart');
+            const fromTemplateAlias = ['smart-template-call','smart-template-store'].includes(fromNode?.type);
+            const toTemplateAlias = ['smart-template-call','smart-template-store'].includes(targetNode?.type);
+            if((fromExtension && (fromNode?.type === fromExtension.type || fromTemplateAlias)) || (toExtension && (targetNode?.type === toExtension.type || toTemplateAlias)) || fromNode?.extensionMissing || targetNode?.extensionMissing){
+                const extensionDecision = fromPort === 'out' && toPort === 'in'
+                    ? SynCanvasNodeExtensions.canConnect(fromNode, targetNode, 'smart')
+                    : SynCanvasNodeExtensions.canConnect(fromNode, targetNode, 'smart', fromPort, toPort);
+                if(extensionDecision === false) return false;
+            }
+            if(!addConnection(fromId, toId, 'flow', fromPort, toPort)) return false;
             const toNode = nodes.find(n => n.id === toId);
             if(toNode){
                 toNode.inputNodeIds = toNode.inputNodeIds || [];
@@ -4427,10 +4802,12 @@
                 if(!node || seen.has(node.id)) return;
                 seen.add(node.id);
                 smartFlowInputsFor(node).forEach(visit);
-                if(['smart-agent','smart-skill','smart-template-call'].includes(node.type)) order.push(node);
+                const extensionDefinition = window.SynCanvasNodeExtensions?.definitionForNode(node, 'smart');
+                if(['smart-agent','smart-skill','smart-template-call'].includes(node.type) || (extensionDefinition && node.type === extensionDefinition.type)) order.push(node);
             };
             visit(nodes.find(node => node.id === targetId));
-            return order;
+            const runtimeIds = new Set(order.filter(isSmartRuntimeEngineNode).map(node => node.id));
+            return order.filter(node => !runtimeIds.has(node.id) || !(canvas?.connections || []).some(connection => connection.from === node.id && runtimeIds.has(connection.to)));
         }
         function smartImageChainTo(tailId){
             const tail = nodes.find(n => n.id === tailId);
@@ -4510,7 +4887,8 @@
                     smartLoopContext = ctx;
                     for(const aiNode of aiOrder){
                         if(aiNode.type === 'smart-template-call') await refreshTemplateCallNode(aiNode, {quiet:true});
-                        else await runSmartAgentSkillNode(aiNode.id, {cascade:true});
+                        else if(aiNode.type === 'smart-agent' || aiNode.type === 'smart-skill') await runSmartAgentSkillNode(aiNode.id, {cascade:true});
+                        else await SynCanvasNodeExtensions.runNode(aiNode, 'smart', smartExtensionContext(aiNode));
                     }
                     if(tail.type === 'smart-template-store'){
                         await runTemplateStoreNode(tail.id, {quiet:true});
@@ -4892,7 +5270,7 @@
             if(!createMenu) return;
             createMenuPoint = screenToWorld(event);
             const w = 420;
-            const h = 150;
+            const h = Math.min(480, window.innerHeight - 28);
             const left = Math.max(14, Math.min(window.innerWidth - w - 14, event.clientX + 8));
             const top = Math.max(14, Math.min(window.innerHeight - h - 14, event.clientY + 8));
             createMenu.style.left = `${left}px`;
@@ -4909,26 +5287,27 @@
             if(type === 'skill') return createSkillNode(p.x - 215, p.y - 300);
             if(type === 'template-store') return createTemplateStoreNode(p.x - 190, p.y - 270);
             if(type === 'template-call') return createTemplateCallNode(p.x - 180, p.y - 220);
+            if(window.SynCanvasNodeExtensions?.definition(type, 'smart')) return createRegisteredExtensionNode(type, p.x - 180, p.y - 160);
             return createNode(p.x - 130, p.y - 90);
         }
         shell.addEventListener('mousedown', e => {
             if(!zoomPreviewState) return;
             if(e.button !== 0) return;
-            if(e.target.closest('.composer,.smart-back,.asset-panel,.asset-toggle,.smart-log-toggle,.log-modal,.image-edit-modal,.create-menu,.smart-minimap')) return;
+            if(e.target.closest('.composer,.smart-back,.asset-panel,.asset-toggle,.canvas-appearance-toggle,.canvas-appearance-panel,.smart-log-toggle,.log-modal,.image-edit-modal,.create-menu,.smart-minimap')) return;
             e.preventDefault();
             e.stopPropagation();
         }, true);
         shell.addEventListener('click', e => {
             if(!zoomPreviewState) return;
             if(e.button !== 0) return;
-            if(e.target.closest('.composer,.smart-back,.asset-panel,.asset-toggle,.smart-log-toggle,.log-modal,.image-edit-modal,.create-menu,.smart-minimap')) return;
+            if(e.target.closest('.composer,.smart-back,.asset-panel,.asset-toggle,.canvas-appearance-toggle,.canvas-appearance-panel,.smart-log-toggle,.log-modal,.image-edit-modal,.create-menu,.smart-minimap')) return;
             e.preventDefault();
             e.stopPropagation();
             exitZoomPreview(screenToWorld(e));
         }, true);
         shell.onmousedown = e => {
-            if(zoomPreviewState && e.button === 0 && !e.target.closest('.composer,.smart-back,.asset-panel,.asset-toggle,.smart-log-toggle,.log-modal,.image-edit-modal,.create-menu,.smart-minimap')) return;
-            if(e.target.closest('.image-node,.composer,.smart-back,.smart-log-toggle,.log-modal,.create-menu,.smart-minimap')) return;
+            if(zoomPreviewState && e.button === 0 && !e.target.closest('.composer,.smart-back,.asset-panel,.asset-toggle,.canvas-appearance-toggle,.canvas-appearance-panel,.smart-log-toggle,.log-modal,.image-edit-modal,.create-menu,.smart-minimap')) return;
+            if(e.target.closest('.image-node,.composer,.smart-back,.canvas-appearance-toggle,.canvas-appearance-panel,.smart-log-toggle,.log-modal,.create-menu,.smart-minimap')) return;
             closeCreateMenu();
             if(e.button === 0 && e.ctrlKey){
                 e.preventDefault();
@@ -4943,15 +5322,17 @@
             panState = {button:e.button, startX:e.clientX, startY:e.clientY, ox:viewport.x, oy:viewport.y};
             shell.classList.add('panning');
         };
-        shell.ondblclick = e => {
-            if(didPan || e.target.closest('.image-node,.composer,.smart-back,.smart-log-toggle,.log-modal,.image-edit-modal,.create-menu')) return;
+        shell.ondblclick = null;
+        shell.oncontextmenu = e => {
+            if(didPan || e.target.closest('.image-node,.composer,.smart-back,.canvas-appearance-toggle,.canvas-appearance-panel,.smart-log-toggle,.log-modal,.image-edit-modal,.create-menu')) return;
             if(document.getElementById('imageEditModal')?.classList.contains('open')) return;
             e.preventDefault();
+            e.stopPropagation();
             openCreateMenu(e);
         };
         shell.onclick = e => {
             if(selectionJustFinished) return;
-            if(didPan || e.target.closest('.image-node,.composer,.smart-back,.smart-log-toggle,.log-modal,.image-edit-modal,.create-menu')) return;
+            if(didPan || e.target.closest('.image-node,.composer,.smart-back,.canvas-appearance-toggle,.canvas-appearance-panel,.smart-log-toggle,.log-modal,.image-edit-modal,.create-menu')) return;
             if(document.getElementById('imageEditModal')?.classList.contains('open')) return;
             closeCreateMenu();
             clearSelection();
@@ -4997,20 +5378,23 @@
                 const hitEl = document.elementFromPoint(e.clientX, e.clientY);
                 const portEl = hitEl?.closest?.('.node-port');
                 const nodeEl = portEl?.closest?.('.image-node') || hitEl?.closest?.('.image-node');
-                let targetId = '', targetPort = '';
+                let targetId = '', targetPort = '', targetDirection = '';
                 if(nodeEl && nodeEl.dataset.id && nodeEl.dataset.id !== portDragState.fromId){
                     targetId = nodeEl.dataset.id;
                     if(portEl){
                         targetPort = portEl.dataset.port;
+                        targetDirection = portEl.dataset.direction || (portEl.classList.contains('port-out') ? 'out' : 'in');
                     } else {
                         const rect = nodeEl.getBoundingClientRect();
-                        targetPort = (e.clientX - rect.left) < rect.width / 2 ? 'in' : 'out';
+                        targetDirection = (e.clientX - rect.left) < rect.width / 2 ? 'in' : 'out';
+                        targetPort = smartNearestPortId(nodes.find(node => node.id === targetId), targetDirection, e.clientY, rect);
                     }
-                    const compatible = (portDragState.fromPort === 'out' && targetPort === 'in') || (portDragState.fromPort === 'in' && targetPort === 'out');
-                    if(!compatible){ targetId = ''; targetPort = ''; }
+                    const compatible = (portDragState.fromDirection === 'out' && targetDirection === 'in') || (portDragState.fromDirection === 'in' && targetDirection === 'out');
+                    if(!compatible){ targetId = ''; targetPort = ''; targetDirection = ''; }
                 }
                 portDragState.hoverTargetId = targetId;
                 portDragState.hoverPort = targetPort;
+                portDragState.hoverDirection = targetDirection;
                 updatePortDragVisual();
                 return;
             }
@@ -5068,8 +5452,8 @@
                 if(!node) return;
                 const dx = (e.clientX - resizeState.startX) / viewport.scale;
                 const dy = (e.clientY - resizeState.startY) / viewport.scale;
-                const minW = node.type === 'smart-prompt' ? 260 : node.type === 'smart-loop' ? 252 : node.type === 'smart-agent' || node.type === 'smart-skill' ? 340 : 48;
-                const minH = node.type === 'smart-prompt' ? 170 : node.type === 'smart-loop' ? 132 : node.type === 'smart-agent' ? 420 : node.type === 'smart-skill' ? 480 : 48;
+                const minW = node.type === 'smart-prompt' ? 260 : node.type === 'smart-loop' ? 252 : isSmartAgentExtensionNode(node) || node.type === 'smart-skill' ? 340 : 48;
+                const minH = node.type === 'smart-prompt' ? 170 : node.type === 'smart-loop' ? 132 : isSmartAgentExtensionNode(node) ? 420 : node.type === 'smart-skill' ? 480 : 48;
                 node.w = Math.max(minW, Math.round(resizeState.startW + dx));
                 node.h = Math.max(minH, Math.round(resizeState.startH + dy));
                 node.scale = 1;
@@ -5408,6 +5792,28 @@
             uploadTargetId = '';
             fileInput.value = '';
         };
+        canvasAppearanceToggle?.addEventListener('pointerdown', event => event.stopPropagation());
+        canvasAppearanceToggle?.addEventListener('mousedown', event => event.stopPropagation());
+        canvasAppearanceToggle?.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleCanvasAppearance();
+        });
+        canvasAppearanceClose?.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleCanvasAppearance(false);
+        });
+        canvasAppearancePanel?.querySelectorAll('[data-connection-style]').forEach(button => {
+            button.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                setConnectionStyle(button.dataset.connectionStyle);
+            });
+        });
+        ['pointerdown', 'mousedown', 'click', 'dblclick', 'wheel'].forEach(type => {
+            canvasAppearancePanel?.addEventListener(type, event => event.stopPropagation());
+        });
         assetToggle.onclick = () => toggleAssetLibrary();
         assetCloseBtn.onclick = () => toggleAssetLibrary(false);
         assetPanel.addEventListener('pointerdown', e => e.stopPropagation());
@@ -5544,9 +5950,10 @@
         document.addEventListener('click', event => {
             if(!event.target.closest('.smart-control')) closeAllSmartPopovers();
             if(!event.target.closest('.mention-picker') && !event.target.closest('#promptInput')) closeMentionPicker();
+            if(!event.target.closest('.canvas-appearance-toggle,.canvas-appearance-panel')) toggleCanvasAppearance(false);
         });
         document.addEventListener('keydown', event => {
-            if(event.key === 'Escape') { closeAllSmartPopovers(); closeCreateMenu(); closeSmartCanvasLog(); }
+            if(event.key === 'Escape') { closeAllSmartPopovers(); closeCreateMenu(); closeSmartCanvasLog(); toggleCanvasAppearance(false); }
         });
         document.getElementById('cropBox').addEventListener('mousedown', event => beginCropDrag(event, 'move'));
         document.getElementById('cropHandle').addEventListener('mousedown', event => beginCropDrag(event, 'resize'));
@@ -5692,10 +6099,15 @@
         window.addEventListener('message', event => {
             if(event.data?.type === 'studio-theme') applyTheme(event.data.theme || 'light');
             if(event.data?.type === 'providers-changed') refreshSmartConfigFromSettings();
+            if(event.data?.type === 'asset_library_updated') loadAssetLibrary().catch(() => {});
+            if(event.data?.type === 'studio-agent-skills-updated'){
+                window.SynCanvasAgentSkills?.loadMetadata?.(true).then(() => render()).catch(() => {});
+            }
             if(event.data?.type === 'studio-lang' && window.StudioI18n) {
                 window.StudioI18n.set(event.data.lang || 'zh');
             }
         });
+        window.addEventListener('syncanvas-agent-skills-metadata', () => render());
         window.addEventListener('studio-lang-change', () => {
             renderDynamicParams();
             renderInputThumbsRow(selectedNode());
@@ -5705,14 +6117,69 @@
             }
             render();
         });
-        window.onload = async () => {
-            applyTheme(localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light');
-            if(window.StudioI18n) window.StudioI18n.apply();
-            if(window.lucide) lucide.createIcons();
-            await loadConfig();
-            await loadAssetLibrary();
-            await loadCanvas();
-            await refreshAllTemplateCallNodes();
-            syncApiKindToggleVisibility();
+
+        function smartCanvasAssistantSelectedImages(){
+            const values = [];
+            const seen = new Set();
+            const add = (item, fallback='image') => {
+                const url = String(typeof item === 'string' ? item : item?.url || '').trim();
+                if(!url || seen.has(url) || values.length >= 8) return;
+                seen.add(url);
+                values.push({url, name:String((typeof item === 'object' && item?.name) || fallback || 'image')});
+            };
+            selectedNodeIds().map(id => nodes.find(node => node.id === id)).filter(Boolean).forEach(node => {
+                if(node.type === 'smart-image') (node.images || []).forEach(item => add(item, node.title));
+            });
+            return values;
+        }
+
+        function insertSmartCanvasAssistantPrompt(content, origin={}){
+            const availableWidth = Math.max(360, window.innerWidth - 500);
+            const center = {
+                x:(availableWidth / 2 - viewport.x) / viewport.scale,
+                y:(window.innerHeight / 2 - viewport.y) / viewport.scale
+            };
+            const node = createPromptNode(center.x - 158, center.y - 97);
+            if(!node) return null;
+            node.text = String(content || '');
+            node.title = `画布精灵 · ${String(origin.sourceName || '对话')}`;
+            node.assistantOrigin = {
+                conversationId:String(origin.conversationId || ''),
+                messageId:String(origin.messageId || ''),
+                sourceKind:String(origin.sourceKind || 'general'),
+                sourceId:String(origin.sourceId || '')
+            };
+            selectedId = node.id;
+            selectedIds = [];
             render();
+            scheduleSave();
+            return node;
+        }
+
+        window.SynCanvasAssistantHost = {
+            surface:'smart',
+            getCanvasId:() => canvas?.id || '',
+            getSelectedImages:smartCanvasAssistantSelectedImages,
+            insertPrompt:insertSmartCanvasAssistantPrompt,
+            notify:message => { if(message) toast(message); }
+        };
+
+        async function finishSmartCanvasBoot(){
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            document.documentElement.classList.remove('smart-canvas-booting');
+        }
+
+        window.onload = async () => {
+            try {
+                applyTheme(localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light');
+                if(window.StudioI18n) window.StudioI18n.apply();
+                if(window.lucide) lucide.createIcons();
+                await Promise.all([loadConfig(), loadAssetLibrary()]);
+                await loadCanvas();
+                await refreshAllTemplateCallNodes();
+                syncApiKindToggleVisibility();
+                render();
+            } finally {
+                await finishSmartCanvasBoot();
+            }
         };

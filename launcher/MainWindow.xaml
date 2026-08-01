@@ -872,13 +872,13 @@
                 <StackPanel VerticalAlignment="Center" Margin="40,0,360,0">
                   <TextBlock Text="SYNCANVAS SYSTEM" FontSize="12" FontWeight="Bold" Foreground="#818CF8"/>
                   <TextBlock Text="SynCanvas 智能启动器" FontSize="28" FontWeight="Bold" Margin="0,8,0,0" Foreground="White"/>
-                  <TextBlock Text="一键拉起主应用、TTS 语音服务与 HeyGem 数字人接口，构建极速创作环境。" Foreground="#D1D5DB" FontSize="14" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                  <TextBlock Text="一键启动 SynCanvas 主应用；TTS 与 HeyGem 作为数字人组件，在使用时按需运行。" Foreground="#D1D5DB" FontSize="14" Margin="0,8,0,0" TextWrapping="Wrap"/>
                   <!-- 隐藏服务状态和动作文本，保持 Banner 整体的清爽纯净，后台赋值继续有效 / Hidden status controls to clean up banner -->
                   <StackPanel Orientation="Horizontal" Margin="0,18,0,0" Visibility="Collapsed">
                     <Ellipse Width="8" Height="8" Fill="#10B981" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <TextBlock x:Name="HeroStatusText" Text="正在读取服务状态..." Foreground="#9CA3AF" FontSize="13"/>
                   </StackPanel>
-                  <TextBlock x:Name="HomeActionText" Text="等待操作。" Foreground="#6B7280" TextWrapping="Wrap" Margin="0,6,0,0" FontSize="12" Visibility="Collapsed"/>
+                  <TextBlock x:Name="HomeActionText" Text="等待操作。" Foreground="#6B7280" TextWrapping="Wrap" Margin="0,6,0,0" FontSize="12"/>
                 </StackPanel>
                 
                 <!-- Banner 右下角核心状态（已根据用户要求隐藏，保持背景画面的纯净） / Hidden banner status info -->
@@ -966,7 +966,7 @@
                     <TextBlock Text="🎵" FontSize="20" VerticalAlignment="Center" HorizontalAlignment="Left"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,8,0">
                       <TextBlock Text="音色素材目录" FontSize="13.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                      <TextBlock Text="index-tts-2/assets/bak" Foreground="{StaticResource TextMute}" FontSize="11" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" ToolTip="index-tts-2/assets/bak"/>
+                      <TextBlock Text="数字人组件 / TTS 音色" Foreground="{StaticResource TextMute}" FontSize="11" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" ToolTip="自动定位已安装数字人组件的 TTS 音色目录"/>
                     </StackPanel>
                     <TextBlock Grid.Column="2" Text="›" FontSize="18" Foreground="{StaticResource TextMute}" VerticalAlignment="Center"/>
                   </Grid>
@@ -1000,7 +1000,7 @@
                     <TextBlock Text="👤" FontSize="20" VerticalAlignment="Center" HorizontalAlignment="Left"/>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                       <TextBlock Text="数字人素材输出" FontSize="13.5" FontWeight="SemiBold"/>
-                      <TextBlock Text="HeyGem 视频结果" Foreground="{StaticResource TextMute}" FontSize="11" Margin="0,3,0,0"/>
+                      <TextBlock Text="数字人组件 / 视频结果" Foreground="{StaticResource TextMute}" FontSize="11" Margin="0,3,0,0"/>
                     </StackPanel>
                     <TextBlock Grid.Column="2" Text="›" FontSize="18" Foreground="{StaticResource TextMute}" VerticalAlignment="Center"/>
                   </Grid>
@@ -1016,27 +1016,31 @@
                 <RowDefinition Height="Auto"/>
               </Grid.RowDefinitions>
               
-              <!-- 标题修改为系统公告 / Title renamed to System Announcement -->
-              <TextBlock Text="系统公告" FontSize="18" FontWeight="Bold" Margin="0,0,0,16"/>
+              <DockPanel Margin="0,0,0,16">
+                <TextBlock Text="系统公告" FontSize="18" FontWeight="Bold"/>
+                <Border DockPanel.Dock="Right" Background="#312E81" CornerRadius="4" Padding="7,3">
+                  <TextBlock Text="v2026.08.01.4" FontSize="11" FontWeight="SemiBold" Foreground="#C7D2FE"/>
+                </Border>
+              </DockPanel>
               
               <Border Grid.Row="1" Background="{StaticResource PanelBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="8" Padding="14">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                   <StackPanel>
-                    <TextBlock Text="启动提醒" FontSize="13" FontWeight="Bold" Foreground="#818CF8" Margin="0,0,0,6"/>
-                    <TextBlock Text="点击下方【一键启动】后，启动器会依次拉起主应用、TTS 和 HeyGem。后台预热通常需要一点时间，期间可以切到【控制台】查看实时日志。" TextWrapping="Wrap" LineHeight="18" FontSize="12" Foreground="{StaticResource TextMute}"/>
+                    <TextBlock Text="本次重点更新" FontSize="13" FontWeight="Bold" Foreground="#818CF8" Margin="0,0,0,7"/>
+                    <TextBlock Text="• 画布精灵支持多轮对话、图片附件和发送提示词到画布&#x0a;• 内置 Comfy 节点兼容引擎与扩展节点管理&#x0a;• 新增图像比对、输出到文件夹等画布节点&#x0a;• Gemini 生图路由已完成真实画布验证" TextWrapping="Wrap" LineHeight="19" FontSize="12" Foreground="#F3F4F6"/>
 
-                    <TextBlock Text="创作入口" FontSize="13" FontWeight="Bold" Foreground="#F59E0B" Margin="0,16,0,6"/>
-                    <TextBlock Text="服务就绪后，点击顶部【打开主应用】进入浏览器开始创作。TTS 和 HeyGem 页面默认不自动弹出，保持后台运行即可。" TextWrapping="Wrap" Foreground="#F3F4F6" LineHeight="18" FontSize="12"/>
+                    <TextBlock Text="数字人组件" FontSize="13" FontWeight="Bold" Foreground="#F59E0B" Margin="0,16,0,6"/>
+                    <TextBlock Text="TTS 与 HeyGem 采用独立组件包，数字人页面提供百度网盘入口与提取码；下载后由本机校验安装，启动主应用时不会自动占用显存。" TextWrapping="Wrap" Foreground="{StaticResource TextMute}" LineHeight="18" FontSize="12"/>
 
-                    <TextBlock Text="异常处理" FontSize="13" FontWeight="Bold" Foreground="#10B981" Margin="0,16,0,6"/>
-                    <TextBlock Text="如果状态长时间停在启动中或部分就绪，先看【控制台】输出；需要定位端口、路径、CUDA 等问题时，再进入【疑难解答】查看建议。" TextWrapping="Wrap" Foreground="{StaticResource TextMute}" LineHeight="18" FontSize="12"/>
+                    <TextBlock Text="启动提醒" FontSize="13" FontWeight="Bold" Foreground="#10B981" Margin="0,16,0,6"/>
+                    <TextBlock Text="首次启动或版本更新后，请等待状态显示为【运行中】。若启动异常，可在【控制台】查看日志，并进入【疑难解答】重新诊断。" TextWrapping="Wrap" Foreground="{StaticResource TextMute}" LineHeight="18" FontSize="12"/>
                   </StackPanel>
                 </ScrollViewer>
               </Border>
               
-              <!-- 首页的核心操作按钮（只保留一键启动，启动后动态切换为一键停止） -->
+              <!-- 首页核心操作只管理主应用；数字人组件保持独立生命周期 -->
               <StackPanel Grid.Row="2" Margin="0,20,0,0">
-                <Button x:Name="HomePrimaryButton" Content="▶  一键启动" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Stretch" Height="42" FontSize="14.5" Click="StartAllClicked"/>
+                <Button x:Name="HomePrimaryButton" Content="▶  启动主应用" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Stretch" Height="42" FontSize="14.5" Click="StartAllClicked"/>
               </StackPanel>
             </Grid>
           </Grid>
@@ -1062,10 +1066,10 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
                   <TextBlock x:Name="TroubleSummaryText" Text="尚未诊断" FontSize="16" FontWeight="Bold" Foreground="White"/>
-                  <TextBlock x:Name="TroubleHintText" Text="服务未启动时可以先一键启动；需要排查时再手动重新诊断。" Foreground="{StaticResource TextMute}" Margin="0,6,0,0" FontSize="12.5"/>
+                  <TextBlock x:Name="TroubleHintText" Text="主应用未启动时可以先启动核心服务；需要排查时再手动重新诊断。" Foreground="{StaticResource TextMute}" Margin="0,6,0,0" FontSize="12.5"/>
                 </StackPanel>
                 <WrapPanel Grid.Column="1" VerticalAlignment="Center">
-                  <Button x:Name="ChecksStartButton" Content="▶ 一键启动" Style="{StaticResource PrimaryButton}" Click="StartAllClicked" Margin="0,0,6,0"/>
+                  <Button x:Name="ChecksStartButton" Content="▶ 启动主应用" Style="{StaticResource PrimaryButton}" Click="StartAllClicked" Margin="0,0,6,0"/>
                   <Button Content="⟳ 重新诊断" Style="{StaticResource PlainButton}" Click="RefreshClicked" Margin="0,0,6,0"/>
                   <Button Content="▩ 控制台" Style="{StaticResource PlainButton}" Click="NavigateLogs" Margin="0,0,6,0"/>
                   <Button Content="💾 导出完整日志" Style="{StaticResource PlainButton}" Click="ExportLogsClicked"/>
@@ -1114,65 +1118,20 @@
                   </StackPanel>
                 </Border>
 
-                <!-- 分组 2：TTS 语音服务配置 -->
+                <!-- 分组 2：数字人组件说明 -->
                 <Border Style="{StaticResource DarkCard}">
                   <StackPanel>
-                    <TextBlock Text="语音服务设置 (TTS Engine)" FontSize="14.5" FontWeight="Bold" Foreground="#10B981" Margin="0,0,0,12"/>
-                    <Grid>
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="150"/>
-                        <ColumnDefinition Width="*"/>
-                      </Grid.ColumnDefinitions>
-                      <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                      </Grid.RowDefinitions>
-                      
-                      <TextBlock Grid.Row="0" Text="TTS 接口地址" VerticalAlignment="Center" Margin="0,0,12,12" FontSize="13"/>
-                      <TextBox Grid.Row="0" Grid.Column="1" x:Name="TtsBaseUrlBox" Margin="0,0,0,12"/>
-                      
-                      <TextBlock Grid.Row="1" Text="TTS 工作根目录" VerticalAlignment="Center" Margin="0,0,12,12" FontSize="13"/>
-                      <TextBox Grid.Row="1" Grid.Column="1" x:Name="TtsRootBox" Margin="0,0,0,12"/>
-                      
-                      <TextBlock Grid.Row="2" Text="TTS Python 环境" VerticalAlignment="Center" Margin="0,0,12,4" FontSize="13"/>
-                      <TextBox Grid.Row="2" Grid.Column="1" x:Name="TtsPythonBox" Margin="0,0,0,4"/>
-                    </Grid>
+                    <TextBlock Text="数字人组件 (TTS + HeyGem)" FontSize="14.5" FontWeight="Bold" Foreground="#10B981" Margin="0,0,0,12"/>
+                    <TextBlock Text="TTS 与 HeyGem 已改为可选组件，其安装目录、运行环境和服务端口由主应用的数字人组件页统一管理。" Foreground="{StaticResource TextMain}" FontSize="13" TextWrapping="Wrap" LineHeight="20"/>
+                    <TextBlock Text="启动器不会预热、停止或改写这些组件；只有进入数字人功能并发起任务时才会按需启动。" Foreground="{StaticResource TextMute}" FontSize="12" TextWrapping="Wrap" LineHeight="19" Margin="0,8,0,0"/>
                   </StackPanel>
                 </Border>
 
-                <!-- 分组 3：数字人 HeyGem 服务配置 -->
-                <Border Style="{StaticResource DarkCard}">
-                  <StackPanel>
-                    <TextBlock Text="数字人配置 (HeyGem Live)" FontSize="14.5" FontWeight="Bold" Foreground="#F59E0B" Margin="0,0,0,12"/>
-                    <Grid>
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="150"/>
-                        <ColumnDefinition Width="*"/>
-                      </Grid.ColumnDefinitions>
-                      <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                      </Grid.RowDefinitions>
-                      
-                      <TextBlock Grid.Row="0" Text="HeyGem Gradio 地址" VerticalAlignment="Center" Margin="0,0,12,12" FontSize="13"/>
-                      <TextBox Grid.Row="0" Grid.Column="1" x:Name="HeyGemBaseUrlBox" Margin="0,0,0,12"/>
-                      
-                      <TextBlock Grid.Row="1" Text="HeyGem API 端口" VerticalAlignment="Center" Margin="0,0,12,12" FontSize="13"/>
-                      <TextBox Grid.Row="1" Grid.Column="1" x:Name="HeyGemApiUrlBox" Margin="0,0,0,12"/>
-                      
-                      <TextBlock Grid.Row="2" Text="HeyGem 工作根目录" VerticalAlignment="Center" Margin="0,0,12,4" FontSize="13"/>
-                      <TextBox Grid.Row="2" Grid.Column="1" x:Name="HeyGemRootBox" Margin="0,0,0,4"/>
-                    </Grid>
-                  </StackPanel>
-                </Border>
-
-                <!-- 分组 4：启动器全局偏好 -->
+                <!-- 分组 3：启动器全局偏好 -->
                 <Border Style="{StaticResource DarkCard}">
                   <StackPanel>
                     <TextBlock Text="偏好与自动化配置" FontSize="14.5" FontWeight="Bold" Foreground="#EC4899" Margin="0,0,0,12"/>
-                    <CheckBox x:Name="OpenMainAfterReadyBox" Content="服务全部就绪后，自动在浏览器中打开主应用界面" Foreground="{StaticResource TextMain}" FontSize="13" Margin="0,0,0,4"/>
+                    <CheckBox x:Name="OpenMainAfterReadyBox" Content="主应用就绪后，自动在浏览器中打开主应用界面" Foreground="{StaticResource TextMain}" FontSize="13" Margin="0,0,0,4"/>
                   </StackPanel>
                 </Border>
 

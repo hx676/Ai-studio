@@ -1,0 +1,61 @@
+{
+  "$schema": "../node-extension.schema.json",
+  "schema_version": 1,
+  "id": "syncanvas.templates",
+  "name": "SynCanvas Templates",
+  "name_zh": "模板资产",
+  "version": "1.1.0",
+  "description": "Store distilled JSON templates and load their latest asset version.",
+  "description_zh": "保存蒸馏 JSON 模板并读取资产库中的最新版本。",
+  "app_version": ">=2026.7",
+  "enabled_by_default": true,
+  "web_directory": "web",
+  "requirements": "requirements.txt",
+  "nodes": [
+    {
+      "id": "store",
+      "display_name": "存模板",
+      "display_name_zh": "存模板",
+      "description": "将上游蒸馏 JSON 和参考图保存到模板资产库。",
+      "description_zh": "将上游蒸馏 JSON 和参考图保存到模板资产库。",
+      "category": "Assets",
+      "icon": "archive",
+      "version": 1,
+      "surfaces": ["classic", "smart"],
+      "legacy_types": {"classic": ["template-store"], "smart": ["smart-template-store"]},
+      "inputs": [
+        {"id": "template", "name": "Template", "name_zh": "模板", "types": ["json"], "required": true},
+        {"id": "images", "name": "References", "name_zh": "参考图", "types": ["image"], "multiple": true}
+      ],
+      "outputs": [
+        {"id": "text", "name": "Prompt", "name_zh": "提示词", "types": ["text"]}
+      ],
+      "defaults": {"name": "新模板", "templateId": ""},
+      "size": {"classic": {"width": 380, "height": 540}, "smart": {"width": 380, "height": 540}},
+      "execution": "python",
+      "backend_class": "store",
+      "frontend_key": "store"
+    },
+    {
+      "id": "call",
+      "display_name": "调用模板",
+      "display_name_zh": "调用模板",
+      "description": "从资产库读取模板最新版本。",
+      "description_zh": "从资产库读取模板最新版本。",
+      "category": "Assets",
+      "icon": "book-open-check",
+      "version": 1,
+      "surfaces": ["classic", "smart"],
+      "legacy_types": {"classic": ["template-call"], "smart": ["smart-template-call"]},
+      "inputs": [],
+      "outputs": [
+        {"id": "text", "name": "Prompt", "name_zh": "提示词", "types": ["text"]}
+      ],
+      "defaults": {"templateId": ""},
+      "size": {"classic": {"width": 360, "height": 440}, "smart": {"width": 360, "height": 440}},
+      "execution": "python",
+      "backend_class": "call",
+      "frontend_key": "call"
+    }
+  ]
+}

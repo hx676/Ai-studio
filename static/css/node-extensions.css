@@ -1,0 +1,56 @@
+.extension-node .node-body,
+.image-node.extension-node .node-body {
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+.extension-generic { display: grid; gap: 10px; padding: 12px; font-size: 12px; }
+.extension-node-kind { color: #2563eb; font-size: 11px; font-weight: 800; }
+.extension-generic p { margin: 0; color: #64748b; line-height: 1.5; }
+.extension-field { display: grid; gap: 5px; min-width: 0; color: #64748b; font-weight: 700; }
+.extension-field textarea {
+    width: 100%; min-height: 58px; padding: 8px; resize: vertical;
+    border: 1px solid #d7dde7; border-radius: 6px; background: #fff; color: #172033;
+    font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+.extension-check { display: flex; align-items: center; gap: 7px; color: #475569; font-weight: 700; }
+.extension-run {
+    min-height: 34px; border: 0; border-radius: 6px; padding: 0 12px;
+    background: #17191d; color: #fff; font-weight: 800; cursor: pointer;
+}
+.extension-output {
+    min-height: 40px; max-height: 160px; margin: 0; padding: 8px; overflow: auto;
+    border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc;
+    color: #334155; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.extension-missing {
+    display: grid; gap: 7px; margin: 12px; padding: 12px;
+    border: 1px solid #f59e0b; border-radius: 6px; background: #fffbeb; color: #92400e;
+}
+.extension-missing span { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+.extension-missing small { line-height: 1.5; }
+.extension-create-entry[data-extension-create] { border-left: 3px solid #2563eb; }
+.node.extension-node.node-running::after {
+    content: "";
+    position: absolute;
+    inset: -5px;
+    z-index: 8;
+    pointer-events: none;
+    border: 3px solid #16a34a;
+    border-radius: inherit;
+    box-shadow: 0 0 0 2px rgba(22, 163, 74, .22), 0 0 24px rgba(22, 163, 74, .7);
+    animation: extension-node-running 1.15s ease-in-out infinite;
+}
+@keyframes extension-node-running {
+    0%, 100% { opacity: .68; box-shadow: 0 0 0 1px rgba(22, 163, 74, .2), 0 0 16px rgba(22, 163, 74, .45); }
+    50% { opacity: 1; box-shadow: 0 0 0 4px rgba(22, 163, 74, .24), 0 0 34px rgba(22, 163, 74, .82); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .node.extension-node.node-running::after { animation: none; opacity: 1; }
+}
+.theme-dark .extension-field textarea,
+.studio-theme-dark .extension-field textarea { border-color: #3a4658; background: #151a22; color: #edf1f6; }
+.theme-dark .extension-output,
+.studio-theme-dark .extension-output { border-color: #334155; background: #111827; color: #dbeafe; }
+.theme-dark .extension-missing,
+.studio-theme-dark .extension-missing { border-color: #a16207; background: #2b2110; color: #fde68a; }

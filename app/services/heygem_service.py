@@ -14,6 +14,8 @@ import httpx
 import requests
 from fastapi import HTTPException
 
+from app.core.security import redact_sensitive_text
+
 from app import legacy
 
 
@@ -490,7 +492,7 @@ async def check_heygem_health(config):
             "connected": False,
             "gradio_connected": False,
             "api_connected": False,
-            "last_error": str(exc),
+            "last_error": redact_sensitive_text(exc),
         }
 
 def generate_heygem_video_sync(audio_path, video_path, config):

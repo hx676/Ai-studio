@@ -234,6 +234,8 @@
     if (typeof addImageNode !== 'undefined') window.addImageNode = window.addImageNode || addImageNode;
     if (typeof addAudioNode !== 'undefined') page.addAudioNode = addAudioNode;
     if (typeof addAudioNode !== 'undefined') window.addAudioNode = window.addAudioNode || addAudioNode;
+    if (typeof addVideoInputNode !== 'undefined') page.addVideoInputNode = addVideoInputNode;
+    if (typeof addVideoInputNode !== 'undefined') window.addVideoInputNode = window.addVideoInputNode || addVideoInputNode;
     if (typeof addPromptNode !== 'undefined') page.addPromptNode = addPromptNode;
     if (typeof addPromptNode !== 'undefined') window.addPromptNode = window.addPromptNode || addPromptNode;
     if (typeof addLoopNode !== 'undefined') page.addLoopNode = addLoopNode;
@@ -242,6 +244,14 @@
     if (typeof addGroupNode !== 'undefined') window.addGroupNode = window.addGroupNode || addGroupNode;
     if (typeof addLLMNode !== 'undefined') page.addLLMNode = addLLMNode;
     if (typeof addLLMNode !== 'undefined') window.addLLMNode = window.addLLMNode || addLLMNode;
+    if (typeof addAgentNode !== 'undefined') page.addAgentNode = addAgentNode;
+    if (typeof addAgentNode !== 'undefined') window.addAgentNode = window.addAgentNode || addAgentNode;
+    if (typeof addSkillNode !== 'undefined') page.addSkillNode = addSkillNode;
+    if (typeof addSkillNode !== 'undefined') window.addSkillNode = window.addSkillNode || addSkillNode;
+    if (typeof addTemplateStoreNode !== 'undefined') page.addTemplateStoreNode = addTemplateStoreNode;
+    if (typeof addTemplateStoreNode !== 'undefined') window.addTemplateStoreNode = window.addTemplateStoreNode || addTemplateStoreNode;
+    if (typeof addTemplateCallNode !== 'undefined') page.addTemplateCallNode = addTemplateCallNode;
+    if (typeof addTemplateCallNode !== 'undefined') window.addTemplateCallNode = window.addTemplateCallNode || addTemplateCallNode;
     if (typeof addGeneratorNode !== 'undefined') page.addGeneratorNode = addGeneratorNode;
     if (typeof addGeneratorNode !== 'undefined') window.addGeneratorNode = window.addGeneratorNode || addGeneratorNode;
     if (typeof addMsGenNode !== 'undefined') page.addMsGenNode = addMsGenNode;
@@ -540,6 +550,14 @@
     if (typeof callCanvasLLM !== 'undefined') window.callCanvasLLM = window.callCanvasLLM || callCanvasLLM;
     if (typeof runLLMNode !== 'undefined') page.runLLMNode = runLLMNode;
     if (typeof runLLMNode !== 'undefined') window.runLLMNode = window.runLLMNode || runLLMNode;
+    if (typeof runAgentSkillNode !== 'undefined') page.runAgentSkillNode = runAgentSkillNode;
+    if (typeof runAgentSkillNode !== 'undefined') window.runAgentSkillNode = window.runAgentSkillNode || runAgentSkillNode;
+    if (typeof runTemplateStoreNode !== 'undefined') page.runTemplateStoreNode = runTemplateStoreNode;
+    if (typeof runTemplateStoreNode !== 'undefined') window.runTemplateStoreNode = window.runTemplateStoreNode || runTemplateStoreNode;
+    if (typeof refreshTemplateCallNode !== 'undefined') page.refreshTemplateCallNode = refreshTemplateCallNode;
+    if (typeof refreshTemplateCallNode !== 'undefined') window.refreshTemplateCallNode = window.refreshTemplateCallNode || refreshTemplateCallNode;
+    if (typeof cancelAgentSkillNode !== 'undefined') page.cancelAgentSkillNode = cancelAgentSkillNode;
+    if (typeof cancelAgentSkillNode !== 'undefined') window.cancelAgentSkillNode = window.cancelAgentSkillNode || cancelAgentSkillNode;
     if (typeof isTerminalGenerator !== 'undefined') page.isTerminalGenerator = isTerminalGenerator;
     if (typeof isTerminalGenerator !== 'undefined') window.isTerminalGenerator = window.isTerminalGenerator || isTerminalGenerator;
     if (typeof findLoopCascadeTarget !== 'undefined') page.findLoopCascadeTarget = findLoopCascadeTarget;

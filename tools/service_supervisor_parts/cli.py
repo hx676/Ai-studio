@@ -53,9 +53,53 @@ LAUNCHER_PORT = 2999
 MIN_FREE_BYTES = 10 * 1024 * 1024 * 1024
 CUDA_PROBE_CACHE: Dict[str, Dict] = {}
 CUDA_PROBE_TTL_SECONDS = 300
+LOG_MAX_BYTES = 10 * 1024 * 1024
+LOG_BACKUP_COUNT = 5
+
+
+def rotate_service_log(path: Path) -> None:
+    try:
+        if not path.exists() or path.stat().st_size < LOG_MAX_BYTES:
+            return
+        oldest = path.with_name(f"{path.name}.{LOG_BACKUP_COUNT}")
+        oldest.unlink(missing_ok=True)
+        for index in range(LOG_BACKUP_COUNT - 1, 0, -1):
+            source = path.with_name(f"{path.name}.{index}")
+            if source.exists():
+                os.replace(source, path.with_name(f"{path.name}.{index + 1}"))
+        os.replace(path, path.with_name(f"{path.name}.1"))
+    except OSError:
+        # A still-running process may temporarily hold the file on Windows.
+        pass
+
+
+def digital_human_component_roots() -> Tuple[Path, Path]:
+    try:
+        from app.services.component_service import resolve_digital_human_roots
+
+        tts_path, heygem_path, _ = resolve_digital_human_roots()
+        return Path(tts_path), Path(heygem_path)
+    except Exception:
+        return BASE_DIR / "index-tts-2", BASE_DIR / "heygem-win-fix" / "heygem-win"
+
+
+def digital_human_component_status() -> Dict:
+    try:
+        from app.services.component_service import get_component_status
+
+        return get_component_status()
+    except Exception as exc:
+        return {
+            "ok": False,
+            "state": "error",
+            "ready": False,
+            "error": str(exc),
+            "artifacts": [],
+        }
 
 
 def default_launcher_config() -> Dict:
+    tts_root_path, heygem_root_path = digital_human_component_roots()
     return {
         "launcher": {
             "port": 2999,
@@ -70,18 +114,18 @@ def default_launcher_config() -> Dict:
         "tts": {
             "base_url": "http://127.0.0.1:7861/",
             "port": 7861,
-            "root_dir": str(BASE_DIR / "index-tts-2"),
-            "python_path": str(BASE_DIR / "index-tts-2" / "py312" / "python.exe"),
-            "script_path": str(BASE_DIR / "index-tts-2" / "app.py"),
+            "root_dir": str(tts_root_path),
+            "python_path": str(tts_root_path / "py312" / "python.exe"),
+            "script_path": str(tts_root_path / "app.py"),
         },
         "heygem": {
             "base_url": "http://127.0.0.1:7860/",
             "port": 7860,
             "api_base_url": "http://127.0.0.1:8383/",
             "api_port": 8383,
-            "root_dir": str(BASE_DIR / "heygem-win-fix" / "heygem-win"),
-            "python_path": str(BASE_DIR / "heygem-win-fix" / "heygem-win" / "py38" / "python.exe"),
-            "script_path": str(BASE_DIR / "heygem-win-fix" / "heygem-win" / "app.py"),
+            "root_dir": str(heygem_root_path),
+            "python_path": str(heygem_root_path / "py38" / "python.exe"),
+            "script_path": str(heygem_root_path / "app.py"),
         },
     }
 
@@ -266,6 +310,9 @@ class ServiceSpec:
     cwd: Path
     env_builder: Callable[[], Dict[str, str]]
     ready_timeout: int
+    required: bool = True
+    component_id: str = ""
+    artifact_id: str = ""
 
 
 @dataclass
@@ -439,6 +486,8 @@ def is_pid_running(pid: Optional[int]) -> bool:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                     timeout=5,
                 )
@@ -462,6 +511,8 @@ def kill_process_tree(pid: int) -> bool:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 timeout=4,
             )
@@ -655,7 +706,8 @@ def project_backend_pids() -> List[int]:
     return sorted(set(pids))
 
 
-def project_backend_process_items() -> List[Dict]:
+def project_backend_process_items(keys: Optional[Iterable[str]] = None) -> List[Dict]:
+    key_set = set(keys or [])
     items: List[Dict] = []
     current_pid = os.getpid()
     for process in query_windows_processes():
@@ -673,7 +725,7 @@ def project_backend_process_items() -> List[Dict]:
         elif is_heygem_backend_process(process) or is_heygem_rest_only_process(process):
             key = "heygem"
             label = "HeyGem"
-        if not key:
+        if not key or (key_set and key not in key_set):
             continue
         items.append(
             {
@@ -848,6 +900,7 @@ def base_env() -> Dict[str, str]:
         env[path_key] = path_value
     env.setdefault("PYTHONIOENCODING", "utf-8")
     env.setdefault("PYTHONUTF8", "1")
+    env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
     return env
 
 
@@ -1087,7 +1140,18 @@ def heygem_rest_check() -> HealthCheck:
 def specs() -> Tuple[ServiceSpec, ...]:
     return (
         ServiceSpec("main", "Main app", (main_check(),), main_command, BASE_DIR, main_env, 60),
-        ServiceSpec("tts", "TTS", (tts_check(),), tts_command, tts_root(), tts_env, 180),
+        ServiceSpec(
+            "tts",
+            "TTS",
+            (tts_check(),),
+            tts_command,
+            tts_root(),
+            tts_env,
+            180,
+            required=False,
+            component_id="digital-human",
+            artifact_id="tts",
+        ),
         ServiceSpec(
             "heygem",
             "HeyGem",
@@ -1096,6 +1160,9 @@ def specs() -> Tuple[ServiceSpec, ...]:
             heygem_root(),
             heygem_env,
             420,
+            required=False,
+            component_id="digital-human",
+            artifact_id="heygem",
         ),
     )
 
@@ -1126,6 +1193,8 @@ def start_process(spec: ServiceSpec, runtime: Dict) -> ServiceState:
     env = spec.env_builder()
     out_path = LOG_DIR / f"{spec.key}.out.log"
     err_path = LOG_DIR / f"{spec.key}.err.log"
+    rotate_service_log(out_path)
+    rotate_service_log(err_path)
     out_offset = out_path.stat().st_size if out_path.exists() else 0
     err_offset = err_path.stat().st_size if err_path.exists() else 0
     out_fh = out_path.open("a", encoding="utf-8", errors="replace")
@@ -1202,6 +1271,9 @@ def with_main_check(spec: ServiceSpec, base_url: str) -> ServiceSpec:
         spec.cwd,
         spec.env_builder,
         spec.ready_timeout,
+        spec.required,
+        spec.component_id,
+        spec.artifact_id,
     )
 
 
@@ -1306,7 +1378,7 @@ def start_services_once(keys: Optional[Iterable[str]] = None) -> Dict:
     ensure_dirs()
     runtime = load_runtime()
     current_specs = specs()
-    wanted = set(keys or [spec.key for spec in current_specs])
+    wanted = set(keys or [spec.key for spec in current_specs if spec.required])
     result = {"ok": True, "started": [], "reused": [], "errors": [], "started_at": now_text()}
     for spec in current_specs:
         if spec.key not in wanted:
@@ -1634,7 +1706,20 @@ def log_diagnostic_for_service(spec: ServiceSpec, runtime: Dict) -> Optional[Dic
     )
 
 
-def service_status_payload(spec: ServiceSpec, runtime: Dict, quick: bool = False) -> Dict:
+def service_status_payload(
+    spec: ServiceSpec,
+    runtime: Dict,
+    quick: bool = False,
+    component_status: Optional[Dict] = None,
+) -> Dict:
+    component_status = component_status or {}
+    component_artifacts = {
+        str(item.get("id")): item
+        for item in component_status.get("artifacts") or []
+        if isinstance(item, dict)
+    }
+    artifact_status = component_artifacts.get(spec.artifact_id) or {}
+    installed = True if spec.required else bool(artifact_status.get("ready"))
     tracked = (runtime.get("services") or {}).get(spec.key) or {}
     exited = (runtime.get("last_exited_services") or {}).get(spec.key) or {}
     pid = None
@@ -1673,6 +1758,8 @@ def service_status_payload(spec: ServiceSpec, runtime: Dict, quick: bool = False
         state = "ready"
     elif partial:
         state = "partial"
+    elif not spec.required and not installed and not managed and not port_open:
+        state = "not_installed"
     elif managed or (port_open and spec.key != "main"):
         state = "starting"
     else:
@@ -1683,6 +1770,11 @@ def service_status_payload(spec: ServiceSpec, runtime: Dict, quick: bool = False
         "label": spec.label,
         "state": state,
         "ready": ready,
+        "required": spec.required,
+        "optional": not spec.required,
+        "installed": installed,
+        "component_id": spec.component_id,
+        "component_state": component_status.get("state") if spec.component_id else "",
         "managed": managed,
         "pid": pid if managed else None,
         "source": "managed" if managed else ("external" if ready else ("partial" if partial else ("warming" if warming else "none"))),
@@ -1719,6 +1811,8 @@ def run_torch_cuda_probe(python_path: Path) -> Dict:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=12,
             creationflags=hidden_creationflags(),
         )
@@ -1745,12 +1839,17 @@ def build_diagnostics(
     service_statuses: Optional[List[Dict]] = None,
     current_specs: Optional[Tuple[ServiceSpec, ...]] = None,
     runtime: Optional[Dict] = None,
+    component_status: Optional[Dict] = None,
 ) -> List[Dict]:
     items: List[Dict] = []
     runtime = runtime or load_runtime()
     current_specs = current_specs or specs()
+    component_status = component_status or digital_human_component_status()
     if service_statuses is None:
-        service_statuses = [service_status_payload(spec, runtime) for spec in current_specs]
+        service_statuses = [
+            service_status_payload(spec, runtime, component_status=component_status)
+            for spec in current_specs
+        ]
     statuses_by_key = {status.get("key"): status for status in service_statuses}
     check_statuses: Dict[str, Dict] = {}
     for service in service_statuses:
@@ -1758,9 +1857,24 @@ def build_diagnostics(
             check_statuses[str(check.get("key"))] = check
 
     for spec in current_specs:
-        status = statuses_by_key.get(spec.key) or service_status_payload(spec, runtime)
+        status = statuses_by_key.get(spec.key) or service_status_payload(
+            spec,
+            runtime,
+            component_status=component_status,
+        )
         if status["ready"]:
             items.append(check_item("服务接口", spec.key, spec.label, "ok", "服务接口可访问"))
+        elif status["state"] == "not_installed":
+            items.append(
+                check_item(
+                    "服务接口",
+                    spec.key,
+                    spec.label,
+                    "idle",
+                    "可选数字人组件尚未安装",
+                    "打开主应用中的数字人页面即可下载并安装。",
+                )
+            )
         elif status["state"] == "starting":
             items.append(check_item("服务接口", spec.key, spec.label, "running", "服务已启动，仍在预热"))
         elif status["state"] == "partial":
@@ -1779,6 +1893,17 @@ def build_diagnostics(
                     "warning",
                     "；".join(detail_parts) or "部分接口可访问",
                     "部分接口可用，请检查未就绪接口或对应日志。",
+                )
+            )
+        elif not spec.required:
+            items.append(
+                check_item(
+                    "服务接口",
+                    spec.key,
+                    spec.label,
+                    "idle",
+                    "数字人组件已安装，当前按需待命",
+                    "进入主应用的数字人页面后，组件会在使用时自动启动。",
                 )
             )
         else:
@@ -1803,7 +1928,7 @@ def build_diagnostics(
                 "HeyGem 残留进程",
                 "error",
                 detail,
-                "检测到本项目 app_local.py 残留进程，可能占用显存或堵塞 HeyGem 内部队列；请先停止残留进程或点击一键停止后重试。",
+                "检测到本项目 app_local.py 残留进程，可能占用显存或堵塞 HeyGem 内部队列；请在数字人页面停止组件或手动清理残留进程后重试。",
             )
         )
     else:
@@ -1817,7 +1942,7 @@ def build_diagnostics(
         if not spec:
             continue
         status = statuses_by_key.get(key)
-        if status and status.get("ready"):
+        if status and (status.get("ready") or status.get("state") == "not_installed"):
             continue
         message = str((error_item or {}).get("message") or "启动命令失败")
         items.append(
@@ -1833,11 +1958,11 @@ def build_diagnostics(
 
     for spec in current_specs:
         status = statuses_by_key.get(spec.key) or {}
-        if status.get("ready"):
+        if status.get("ready") or status.get("state") == "not_installed":
             continue
         tracked = (runtime.get("services") or {}).get(spec.key) or {}
         exited = (runtime.get("last_exited_services") or {}).get(spec.key) or {}
-        if exited and not tracked:
+        if exited and not tracked and not exited.get("stop_reason"):
             pid = exited.get("pid") or ""
             stopped_at = exited.get("stopped_at") or "未知时间"
             items.append(
@@ -1873,6 +1998,8 @@ def build_diagnostics(
     cfg = load_launcher_config()
     port_checks = [("launcher", "Launcher", "127.0.0.1", int(cfg["launcher"].get("port") or LAUNCHER_PORT), None)]
     for spec in current_specs:
+        if (statuses_by_key.get(spec.key) or {}).get("state") == "not_installed":
+            continue
         for check in spec.checks:
             port_checks.append((check.key, check.label, check.host, check.port, check.url))
     for key, label, host, port, health_url in port_checks:
@@ -1916,32 +2043,38 @@ def build_diagnostics(
             else:
                 items.append(check_item("端口状态", f"port_{key}", f"{label} :{port}", "ok", "端口已占用"))
 
+    tts_installed = bool((statuses_by_key.get("tts") or {}).get("installed"))
+    heygem_installed = bool((statuses_by_key.get("heygem") or {}).get("installed"))
     runtime_files = [
-        ("main_python", "主应用 Python", main_python()),
-        ("main_script", "主应用入口", BASE_DIR / "main.py"),
-        ("tts_python", "TTS Python", tts_python()),
-        ("tts_script", "TTS 入口", tts_root() / "app.py"),
-        ("heygem_python", "HeyGem Python", heygem_python()),
-        ("heygem_script", "HeyGem 入口", heygem_root() / "app.py"),
+        ("main_python", "主应用 Python", main_python(), True),
+        ("main_script", "主应用入口", BASE_DIR / "main.py", True),
+        ("tts_python", "TTS Python", tts_python(), tts_installed),
+        ("tts_script", "TTS 入口", tts_root() / "app.py", tts_installed),
+        ("heygem_python", "HeyGem Python", heygem_python(), heygem_installed),
+        ("heygem_script", "HeyGem 入口", heygem_root() / "app.py", heygem_installed),
     ]
-    for key, label, path in runtime_files:
+    for key, label, path, should_check in runtime_files:
+        if not should_check:
+            continue
         if path.exists():
             items.append(check_item("运行环境", key, label, "ok", str(path)))
         else:
             items.append(check_item("运行环境", key, label, "error", f"缺失：{path}", "请确认项目包是否完整。"))
 
     required_dirs = [
-        ("data", "运行数据目录", DATA_DIR, True),
-        ("logs", "日志目录", LOG_DIR, True),
-        ("assets_output", "主输出目录", BASE_DIR / "assets" / "output", True),
-        ("tts_root", "TTS 目录", tts_root(), False),
-        ("tts_cache", "TTS 模型/缓存目录", tts_root() / "checkpoints", False),
-        ("tts_tf_cache", "TTS Transformers 缓存", tts_root() / "tf_download", False),
-        ("heygem_root", "HeyGem 目录", heygem_root(), False),
-        ("heygem_hf_cache", "HeyGem HF 缓存", heygem_root() / "hf_download", False),
-        ("heygem_tf_cache", "HeyGem Transformers 缓存", heygem_root() / "tf_download", False),
+        ("data", "运行数据目录", DATA_DIR, True, True),
+        ("logs", "日志目录", LOG_DIR, True, True),
+        ("assets_output", "主输出目录", BASE_DIR / "assets" / "output", True, True),
+        ("tts_root", "TTS 目录", tts_root(), False, tts_installed),
+        ("tts_cache", "TTS 模型/缓存目录", tts_root() / "checkpoints", False, tts_installed),
+        ("tts_tf_cache", "TTS Transformers 缓存", tts_root() / "tf_download", False, tts_installed),
+        ("heygem_root", "HeyGem 目录", heygem_root(), False, heygem_installed),
+        ("heygem_hf_cache", "HeyGem HF 缓存", heygem_root() / "hf_download", False, heygem_installed),
+        ("heygem_tf_cache", "HeyGem Transformers 缓存", heygem_root() / "tf_download", False, heygem_installed),
     ]
-    for key, label, path, writable in required_dirs:
+    for key, label, path, writable, should_check in required_dirs:
+        if not should_check:
+            continue
         if not path.exists():
             severity = "error" if key.endswith("_root") else "warning"
             items.append(check_item("关键路径", key, label, severity, f"目录不存在：{path}", "请确认项目包是否完整。"))
@@ -1954,10 +2087,12 @@ def build_diagnostics(
         items.append(check_item("关键路径", key, label, "ok", detail))
 
     media_tools = [
-        ("tts_ffmpeg", "TTS FFmpeg", tts_root() / "py312" / "ffmpeg" / "bin" / "ffmpeg.exe"),
-        ("heygem_ffmpeg", "HeyGem FFmpeg", heygem_root() / "py38" / "ffmpeg" / "bin" / "ffmpeg.exe"),
+        ("tts_ffmpeg", "TTS FFmpeg", tts_root() / "py312" / "ffmpeg" / "bin" / "ffmpeg.exe", tts_installed),
+        ("heygem_ffmpeg", "HeyGem FFmpeg", heygem_root() / "py38" / "ffmpeg" / "bin" / "ffmpeg.exe", heygem_installed),
     ]
-    for key, label, path in media_tools:
+    for key, label, path, should_check in media_tools:
+        if not should_check:
+            continue
         if path.exists():
             items.append(check_item("媒体依赖", key, label, "ok", str(path)))
         else:
@@ -1974,10 +2109,12 @@ def build_diagnostics(
 
     if include_gpu:
         probes = [
-            ("tts_cuda", "TTS CUDA", tts_python()),
-            ("heygem_cuda", "HeyGem CUDA", heygem_python()),
+            ("tts_cuda", "TTS CUDA", tts_python(), tts_installed),
+            ("heygem_cuda", "HeyGem CUDA", heygem_python(), heygem_installed),
         ]
-        for key, label, python_path in probes:
+        for key, label, python_path, should_check in probes:
+            if not should_check:
+                continue
             probe = run_torch_cuda_probe(python_path)
             if probe["ok"]:
                 items.append(check_item("GPU/CUDA", key, label, "ok", probe["message"]))
@@ -2001,12 +2138,22 @@ def build_status(include_gpu: bool = True, quick: bool = False) -> Dict:
     runtime = load_runtime()
     cfg = load_launcher_config()
     current_specs = specs()
-    services = [service_status_payload(spec, runtime, quick=quick) for spec in current_specs]
+    component_status = digital_human_component_status()
+    services = [
+        service_status_payload(
+            spec,
+            runtime,
+            quick=quick,
+            component_status=component_status,
+        )
+        for spec in current_specs
+    ]
     diagnostics = build_diagnostics(
         include_gpu=include_gpu,
         service_statuses=services,
         current_specs=current_specs,
         runtime=runtime,
+        component_status=component_status,
     )
     counts = {"ok": 0, "warning": 0, "error": 0, "running": 0, "idle": 0}
     for item in diagnostics:
@@ -2021,6 +2168,7 @@ def build_status(include_gpu: bool = True, quick: bool = False) -> Dict:
         "log_dir": str(LOG_DIR),
         "runtime_file": str(RUNTIME_FILE),
         "services": services,
+        "components": {"digital_human": component_status},
         "last_stop": runtime.get("last_stop") or {},
         "diagnostics": diagnostics,
         "counts": counts,
@@ -2157,9 +2305,10 @@ def show_status(json_output: bool = False, include_gpu: bool = True, quick: bool
     return 0
 
 
-def print_project_backend_pids() -> int:
-    processes = project_backend_process_items()
-    conflicts = project_backend_conflicts()
+def print_project_backend_pids(keys: Optional[Iterable[str]] = None) -> int:
+    key_set = set(keys or [])
+    processes = project_backend_process_items(key_set)
+    conflicts = project_backend_conflicts() if not key_set or "heygem" in key_set else []
     print(
         json.dumps(
             {
@@ -2193,7 +2342,7 @@ def start_all(open_browser: bool) -> int:
 
     states: Dict[str, ServiceState] = {}
     try:
-        current_specs = specs()
+        current_specs = tuple(spec for spec in specs() if spec.required)
         for spec in current_specs:
             states[spec.key] = ensure_service(spec, runtime)
         wait_for_services(current_specs, states, open_browser=open_browser)
@@ -2291,7 +2440,7 @@ def main() -> int:
     if args.save_config_b64 is not None:
         return save_config_from_b64(args.save_config_b64)
     if args.project_backend_pids:
-        return print_project_backend_pids()
+        return print_project_backend_pids(args.services or None)
     if args.status:
         return show_status(json_output=args.json, include_gpu=not args.no_gpu, quick=args.quick)
     return start_all(open_browser=not args.no_browser)

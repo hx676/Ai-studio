@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/static/images/logo.png" type="image/png">
+    <title>设置</title>
+    <script>
+        (function(){
+            try {
+                var theme = localStorage.getItem('studio_theme') || localStorage.getItem('canvas_theme') || 'light';
+                if(theme === 'dark') {
+                    document.documentElement.classList.add('studio-theme-dark');
+                    document.documentElement.classList.add('theme-dark');
+                }
+            } catch(e) {}
+        })();
+    </script>
+    <script src="/static/vendor/js/lucide.js?v=2026.08.01.4"></script>
+    <script src="/static/js/theme.js?v=2026.08.01.4"></script>
+    <script src="/static/js/i18n-core.js?v=2026.08.01.4"></script><script src="/static/js/i18n/common.js?v=2026.08.01.4"></script><script src="/static/js/i18n/studio.js?v=2026.08.01.4"></script><script src="/static/js/i18n/api-settings.js?v=2026.08.01.4"></script><script src="/static/js/i18n/canvas.js?v=2026.08.01.4"></script><script src="/static/js/i18n/smart-canvas.js?v=2026.08.01.4"></script><script src="/static/js/i18n/comfyui-settings.js?v=2026.08.01.4"></script><script src="/static/js/i18n/legacy.js?v=2026.08.01.4"></script>
+    <link rel="stylesheet" href="/static/css/settings.css?v=2026.08.01.4">
+</head>
+<body>
+    <div class="settings-shell">
+        <aside class="settings-sidebar" aria-label="设置导航">
+            <div class="settings-heading">
+                <span class="settings-heading-icon"><i data-lucide="settings"></i></span>
+                <h1 data-i18n="settings.title">设置</h1>
+            </div>
+            <nav class="settings-nav" role="tablist" aria-label="设置分类">
+                <button class="settings-nav-item active" type="button" data-settings-section="api" role="tab" aria-selected="true">
+                    <i data-lucide="key-round"></i>
+                    <span data-i18n="settings.api">API 设置</span>
+                </button>
+                <button class="settings-nav-item" type="button" data-settings-section="agents" role="tab" aria-selected="false">
+                    <i data-lucide="bot"></i>
+                    <span data-i18n="settings.agents">智能体与 AI 工作流</span>
+                </button>
+                <button class="settings-nav-item" type="button" data-settings-section="comfyui" role="tab" aria-selected="false">
+                    <i data-lucide="workflow"></i>
+                    <span data-i18n="settings.comfyui">ComfyUI 设置</span>
+                </button>
+                <button class="settings-nav-item" type="button" data-settings-section="extensions" role="tab" aria-selected="false">
+                    <i data-lucide="puzzle"></i>
+                    <span>扩展节点</span>
+                </button>
+                <button class="settings-nav-item" type="button" data-settings-section="node-engine" role="tab" aria-selected="false">
+                    <i data-lucide="cpu"></i>
+                    <span>节点引擎</span>
+                </button>
+            </nav>
+        </aside>
+
+        <main class="settings-content">
+            <iframe id="settings-frame-api" class="settings-frame active" data-settings-section="api" data-src="/static/api-settings.html?v=2026.08.01.4" title="API 设置" scrolling="yes"></iframe>
+            <iframe id="settings-frame-agents" class="settings-frame" data-settings-section="agents" data-src="/static/agent-skills.html?v=2026.08.01.4" title="智能体与 AI 工作流" scrolling="yes"></iframe>
+            <iframe id="settings-frame-comfyui" class="settings-frame" data-settings-section="comfyui" data-src="/static/comfyui-settings.html?v=2026.08.01.4" title="ComfyUI 设置" scrolling="yes"></iframe>
+            <iframe id="settings-frame-extensions" class="settings-frame" data-settings-section="extensions" data-src="/static/node-extensions.html?v=2026.08.01.4" title="扩展节点" scrolling="yes"></iframe>
+            <iframe id="settings-frame-node-engine" class="settings-frame" data-settings-section="node-engine" data-src="/static/node-engine.html?v=2026.08.01.4" title="节点引擎" scrolling="yes"></iframe>
+        </main>
+    </div>
+    <script src="/static/js/settings.js?v=2026.08.01.4"></script>
+</body>
+</html>

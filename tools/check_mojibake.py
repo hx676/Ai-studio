@@ -6,7 +6,20 @@ import sys
 from pathlib import Path
 
 
-DEFAULT_ROOTS = ["app", "static", "launcher", "tools"]
+DEFAULT_ROOTS = [
+    "app",
+    "static",
+    "launcher",
+    "tools",
+    "docs",
+    "custom_nodes",
+    "README.md",
+    "LICENSE",
+    "PROJECT_SELF_CHECK.md",
+    "components-manifest.json",
+    "node-engine-manifest.json",
+    "运行说明.txt",
+]
 TEXT_SUFFIXES = {
     ".bat",
     ".cs",
