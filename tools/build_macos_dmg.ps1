@@ -5,6 +5,9 @@ param(
     [string]$Version = "",
     [string]$ReleaseTimestamp = "",
     [string]$DockerImage = "syncanvas-macos-dmg-builder:2026.08.01",
+    [ValidateSet("universal-bootstrap", "arm64-offline")]
+    [string]$BuildFlavor = "universal-bootstrap",
+    [string]$CacheDir = "",
     [switch]$PullBuilderImage,
     [switch]$SkipVerify,
     [switch]$KeepStage
@@ -26,8 +29,10 @@ if ($Version -notmatch '^\d{4}\.\d{2}\.\d{2}\.\d+$') {
     throw "Version must use YYYY.MM.DD.N format"
 }
 [DateTimeOffset]::Parse($ReleaseTimestamp) | Out-Null
+$isArm64Offline = $BuildFlavor -eq "arm64-offline"
 if (-not $OutputDir) {
-    $OutputDir = Join-Path (Split-Path -Parent $SourceRoot) "SynCanvas-DMG-$Version"
+    $suffix = if ($isArm64Offline) { "-arm64" } else { "" }
+    $OutputDir = Join-Path (Split-Path -Parent $SourceRoot) "SynCanvas-DMG-$Version$suffix"
 }
 $OutputDir = [System.IO.Path]::GetFullPath($OutputDir)
 New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
@@ -60,12 +65,81 @@ function Write-Utf8NoBom([string]$PathValue, [string]$Content) {
     [System.IO.File]::WriteAllText($PathValue, $Content, $encoding)
 }
 
+function Get-VerifiedArtifact([string]$Url, [string]$Destination, [string]$ExpectedSha256) {
+    $expected = $ExpectedSha256.ToLowerInvariant()
+    if (Test-Path -LiteralPath $Destination) {
+        $existingHash = (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($existingHash -eq $expected) { return }
+        Remove-Item -LiteralPath $Destination -Force
+    }
+    New-Item -ItemType Directory -Path (Split-Path -Parent $Destination) -Force | Out-Null
+    $temporary = "$Destination.download"
+    Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+    if ($curl) {
+        & $curl.Source --fail --location --retry 5 --retry-delay 2 --output $temporary $Url
+        if ($LASTEXITCODE -ne 0) { throw "Artifact download failed: $Url" }
+    } else {
+        Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $temporary
+    }
+    $actual = (Get-FileHash -LiteralPath $temporary -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actual -ne $expected) {
+        Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+        throw "Artifact checksum mismatch for $Url`: $actual != $expected"
+    }
+    Move-Item -LiteralPath $temporary -Destination $Destination -Force
+}
+
 $preflightPython = Join-Path $SourceRoot "python\python.exe"
 if (-not (Test-Path -LiteralPath $preflightPython)) {
     $preflightPython = (Get-Command python -ErrorAction Stop).Source
 }
 & $preflightPython (Join-Path $SourceRoot "tools\release_preflight.py") --root $SourceRoot
 if ($LASTEXITCODE -ne 0) { throw "Source release preflight failed" }
+
+$runtimeManifest = $null
+$runtimeArchivePath = $null
+$wheelCache = $null
+if ($isArm64Offline) {
+    $manifestPath = Join-Path $SourceRoot "macos\runtime-arm64.json"
+    $runtimeManifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($runtimeManifest.architecture -ne "arm64" -or -not $runtimeManifest.filename -or -not $runtimeManifest.sha256 -or -not $runtimeManifest.url) {
+        throw "Invalid macOS arm64 runtime manifest"
+    }
+    if (-not $CacheDir) {
+        $CacheDir = Join-Path (Split-Path -Parent $SourceRoot) ".syncanvas-build-cache\macos-arm64"
+    }
+    $CacheDir = [System.IO.Path]::GetFullPath($CacheDir)
+    New-Item -ItemType Directory -Path $CacheDir -Force | Out-Null
+    $runtimeArchivePath = Join-Path $CacheDir ([string]$runtimeManifest.filename)
+    Get-VerifiedArtifact ([string]$runtimeManifest.url) $runtimeArchivePath ([string]$runtimeManifest.sha256)
+
+    $requirementsPath = Join-Path $SourceRoot "requirements.lock"
+    $requirementsHash = (Get-FileHash -LiteralPath $requirementsPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $wheelCacheName = "wheelhouse-cp312-macosx_11_0_arm64-{0}" -f $requirementsHash.Substring(0, 16)
+    $wheelCache = Assert-ChildPath (Join-Path $CacheDir $wheelCacheName) $CacheDir
+    $wheelMarker = Join-Path $wheelCache ".complete"
+    if (-not (Test-Path -LiteralPath $wheelMarker) -or (Get-Content -LiteralPath $wheelMarker -Raw).Trim() -ne $requirementsHash) {
+        Remove-BuildPath $wheelCache $CacheDir
+        New-Item -ItemType Directory -Path $wheelCache -Force | Out-Null
+        & $preflightPython -m pip download `
+            --disable-pip-version-check `
+            --only-binary=:all: `
+            --implementation cp `
+            --python-version 312 `
+            --abi cp312 `
+            --platform macosx_11_0_arm64 `
+            --dest $wheelCache `
+            --requirement $requirementsPath
+        if ($LASTEXITCODE -ne 0) { throw "macOS arm64 wheel download failed" }
+        $lockedCount = @(Get-Content -LiteralPath $requirementsPath | Where-Object { $_.Trim() -and -not $_.Trim().StartsWith("#") }).Count
+        $wheels = @(Get-ChildItem -LiteralPath $wheelCache -File -Filter "*.whl")
+        if ($wheels.Count -lt $lockedCount) {
+            throw "Incomplete macOS arm64 wheelhouse: $($wheels.Count) wheels for $lockedCount locked requirements"
+        }
+        $requirementsHash | Set-Content -LiteralPath $wheelMarker -Encoding ASCII
+    }
+}
 
 $buildRoot = Assert-ChildPath (Join-Path $OutputDir ".build") $OutputDir
 $dmgRoot = Assert-ChildPath (Join-Path $buildRoot "dmg-root") $buildRoot
@@ -113,9 +187,33 @@ $buildVersion = "{0}{1:D2}{2:D2}{3:D2}" -f [int]$parts[0], [int]$parts[1], [int]
 $plist = Get-Content -LiteralPath (Join-Path $SourceRoot "macos\Info.plist.in") -Raw -Encoding UTF8
 $plist = $plist.Replace("__SHORT_VERSION__", $shortVersion).Replace("__BUILD_VERSION__", $buildVersion)
 Write-Utf8NoBom (Join-Path $contentsRoot "Info.plist") $plist
-Copy-Item -LiteralPath (Join-Path $SourceRoot "macos\SynCanvas") -Destination (Join-Path $contentsRoot "MacOS\SynCanvas") -Force
 Copy-Item -LiteralPath (Join-Path $SourceRoot "macos\Stop-SynCanvas.command") -Destination (Join-Path $dmgRoot "Stop-SynCanvas.command") -Force
-Copy-Item -LiteralPath (Join-Path $SourceRoot "macos\README-macOS.txt") -Destination (Join-Path $dmgRoot "README-macOS.txt") -Force
+if ($isArm64Offline) {
+    $bootstrapRoot = Join-Path $resourcesRoot "bootstrap"
+    $bootstrapWheelhouse = Join-Path $bootstrapRoot "wheelhouse"
+    New-Item -ItemType Directory -Path $bootstrapWheelhouse -Force | Out-Null
+    Copy-Item -LiteralPath $runtimeArchivePath -Destination (Join-Path $bootstrapRoot ([string]$runtimeManifest.filename)) -Force
+    Copy-Item -LiteralPath (Join-Path $SourceRoot "macos\runtime-arm64.json") -Destination (Join-Path $bootstrapRoot "runtime-manifest.json") -Force
+    Get-ChildItem -LiteralPath $wheelCache -File -Filter "*.whl" | ForEach-Object {
+        Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $bootstrapWheelhouse $_.Name) -Force
+    }
+    $wheelChecksumLines = @(Get-ChildItem -LiteralPath $bootstrapWheelhouse -File -Filter "*.whl" | Sort-Object Name | ForEach-Object {
+        $wheelHash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+        "$wheelHash  $($_.Name)"
+    })
+    if ($wheelChecksumLines.Count -eq 0) { throw "macOS arm64 wheelhouse is empty" }
+    Write-Utf8NoBom (Join-Path $bootstrapRoot "wheelhouse.sha256") (($wheelChecksumLines -join "`n") + "`n")
+
+    $launcher = Get-Content -LiteralPath (Join-Path $SourceRoot "macos\SynCanvas-arm64") -Raw -Encoding UTF8
+    $launcher = $launcher.Replace("__PYTHON_RUNTIME_ID__", [string]$runtimeManifest.runtime_id)
+    $launcher = $launcher.Replace("__PYTHON_ARCHIVE__", [string]$runtimeManifest.filename)
+    $launcher = $launcher.Replace("__PYTHON_SHA256__", [string]$runtimeManifest.sha256)
+    Write-Utf8NoBom (Join-Path $contentsRoot "MacOS\SynCanvas") $launcher
+    Copy-Item -LiteralPath (Join-Path $SourceRoot "macos\README-macOS-arm64.txt") -Destination (Join-Path $dmgRoot "README-macOS.txt") -Force
+} else {
+    Copy-Item -LiteralPath (Join-Path $SourceRoot "macos\SynCanvas") -Destination (Join-Path $contentsRoot "MacOS\SynCanvas") -Force
+    Copy-Item -LiteralPath (Join-Path $SourceRoot "macos\README-macOS.txt") -Destination (Join-Path $dmgRoot "README-macOS.txt") -Force
+}
 
 if (-not $SkipVerify) {
     & $preflightPython (Join-Path $coreRoot "tools\release_smoke_test.py") --root $coreRoot
@@ -138,7 +236,11 @@ $dockerBuildArgs += @("-t", $DockerImage, (Join-Path $SourceRoot "tools\macos-dm
 & docker @dockerBuildArgs
 if ($LASTEXITCODE -ne 0) { throw "macOS DMG builder image failed" }
 
-$dmgName = "SynCanvas-$Version-universal-unsigned.dmg"
+$dmgName = if ($isArm64Offline) {
+    "SynCanvas-$Version-macos-arm64-offline-unsigned.dmg"
+} else {
+    "SynCanvas-$Version-universal-unsigned.dmg"
+}
 $dmgPath = Join-Path $OutputDir $dmgName
 if (Test-Path -LiteralPath $dmgPath) { Remove-Item -LiteralPath $dmgPath -Force }
 $dockerRunArgs = @(
@@ -159,19 +261,24 @@ $releaseIndex = [ordered]@{
     schema_version = 1
     version = $Version
     created_at = $ReleaseTimestamp
-    platform = "macos-universal"
-    packaging = "dmg-bootstrap"
+    platform = if ($isArm64Offline) { "macos-arm64" } else { "macos-universal" }
+    architecture = if ($isArm64Offline) { "arm64" } else { "universal-bootstrap" }
+    packaging = if ($isArm64Offline) { "dmg-offline" } else { "dmg-bootstrap" }
     filename = $dmgName
     size = [int64](Get-Item -LiteralPath $dmgPath).Length
     sha256 = $hash
     signed = $false
     notarized = $false
     minimum_macos = "11.0"
-    python_requirement = ">=3.10"
+    python_requirement = if ($isArm64Offline) { $null } else { ">=3.10" }
+    bundled_python = if ($isArm64Offline) { [string]$runtimeManifest.python_version } else { $null }
+    offline_dependencies = [bool]$isArm64Offline
+    wheel_count = if ($isArm64Offline) { @(Get-ChildItem -LiteralPath $bootstrapWheelhouse -File -Filter "*.whl").Count } else { 0 }
     limitations = @("digital-human-win-only", "node-engine-win-only")
 }
 Write-Utf8NoBom (Join-Path $OutputDir "release-index.json") ($releaseIndex | ConvertTo-Json -Depth 6)
-Copy-Item -LiteralPath (Join-Path $SourceRoot "macos\README-macOS.txt") -Destination (Join-Path $OutputDir "README-macOS.txt") -Force
+$releaseReadme = if ($isArm64Offline) { "macos\README-macOS-arm64.txt" } else { "macos\README-macOS.txt" }
+Copy-Item -LiteralPath (Join-Path $SourceRoot $releaseReadme) -Destination (Join-Path $OutputDir "README-macOS.txt") -Force
 
 if (-not $KeepStage) {
     Remove-BuildPath $buildRoot $OutputDir

@@ -1,0 +1,230 @@
+#!/bin/bash
+set -u
+
+CONTENTS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+CORE_SOURCE="$CONTENTS_DIR/Resources/core"
+BOOTSTRAP_ROOT="$CONTENTS_DIR/Resources/bootstrap"
+VERSION="$(tr -d '\r\n' < "$CORE_SOURCE/VERSION")"
+SUPPORT_ROOT="$HOME/Library/Application Support/SynCanvas"
+RUNTIME_ROOT="$SUPPORT_ROOT/runtime/$VERSION"
+SHARED_ROOT="$SUPPORT_ROOT/shared"
+PYTHON_RUNTIME_ID="__PYTHON_RUNTIME_ID__"
+PYTHON_RUNTIME_ROOT="$SUPPORT_ROOT/python/$PYTHON_RUNTIME_ID"
+PYTHON_BIN="$PYTHON_RUNTIME_ROOT/bin/python3"
+PYTHON_ARCHIVE="$BOOTSTRAP_ROOT/__PYTHON_ARCHIVE__"
+PYTHON_ARCHIVE_SHA256="__PYTHON_SHA256__"
+WHEELHOUSE="$BOOTSTRAP_ROOT/wheelhouse"
+WHEELHOUSE_CHECKSUMS="$BOOTSTRAP_ROOT/wheelhouse.sha256"
+DEPS_ROOT="$SUPPORT_ROOT/deps/$VERSION-$PYTHON_RUNTIME_ID"
+LOG_ROOT="$SUPPORT_ROOT/logs"
+LOG_FILE="$LOG_ROOT/launcher.log"
+SERVICE_LOG="$LOG_ROOT/service.log"
+PID_FILE="$SUPPORT_ROOT/service.pid"
+APP_URL="http://127.0.0.1:3000/"
+
+mkdir -p "$SUPPORT_ROOT/runtime" "$SUPPORT_ROOT/python" "$SUPPORT_ROOT/deps" "$SHARED_ROOT" "$LOG_ROOT"
+touch "$LOG_FILE"
+
+log() {
+    printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$LOG_FILE"
+}
+
+notify() {
+    /usr/bin/osascript - "$1" <<'APPLESCRIPT' >/dev/null 2>&1 || true
+on run argv
+    display notification (item 1 of argv) with title "SynCanvas"
+end run
+APPLESCRIPT
+}
+
+show_error() {
+    log "ERROR: $1"
+    /usr/bin/osascript - "$1" "$LOG_FILE" <<'APPLESCRIPT' >/dev/null 2>&1 || true
+on run argv
+    set choice to button returned of (display dialog (item 1 of argv) with title "SynCanvas 启动失败" buttons {"退出", "查看日志"} default button "查看日志")
+    if choice is "查看日志" then
+        do shell script "open -R " & quoted form of (item 2 of argv)
+    end if
+end run
+APPLESCRIPT
+    exit 1
+}
+
+safe_remove_support_path() {
+    case "$1" in
+        "$SUPPORT_ROOT"/runtime/*|"$SUPPORT_ROOT"/python/*|"$SUPPORT_ROOT"/deps/*) rm -rf "$1" ;;
+        *) show_error "拒绝清理不安全的运行目录：$1" ;;
+    esac
+}
+
+verify_sha256() {
+    local file_path="$1"
+    local expected="$2"
+    local actual
+    actual="$(/usr/bin/shasum -a 256 "$file_path" | /usr/bin/awk '{print $1}')" || return 1
+    [ "$actual" = "$expected" ]
+}
+
+require_apple_silicon() {
+    local machine
+    machine="$(/usr/bin/uname -m)"
+    if [ "$machine" != "arm64" ]; then
+        show_error "此安装包仅支持 Apple Silicon（M1 或更新机型），当前架构为 $machine。"
+    fi
+}
+
+prepare_runtime() {
+    if [ -f "$RUNTIME_ROOT/.syncanvas-runtime-ready" ]; then
+        return
+    fi
+    local staging="$SUPPORT_ROOT/runtime/.${VERSION}.staging"
+    safe_remove_support_path "$staging"
+    mkdir -p "$staging"
+    log "Copying application runtime to $RUNTIME_ROOT"
+    /usr/bin/ditto "$CORE_SOURCE" "$staging" || show_error "复制 SynCanvas 核心文件失败。"
+    safe_remove_support_path "$RUNTIME_ROOT"
+    /bin/mv "$staging" "$RUNTIME_ROOT" || show_error "启用 SynCanvas 核心目录失败。"
+    touch "$RUNTIME_ROOT/.syncanvas-runtime-ready"
+}
+
+prepare_python_runtime() {
+    local marker="$PYTHON_RUNTIME_ROOT/.syncanvas-python-$PYTHON_ARCHIVE_SHA256"
+    if [ -x "$PYTHON_BIN" ] && [ -f "$marker" ]; then
+        return
+    fi
+    [ -f "$PYTHON_ARCHIVE" ] || show_error "安装包缺少内置 Python 运行时。"
+    verify_sha256 "$PYTHON_ARCHIVE" "$PYTHON_ARCHIVE_SHA256" || show_error "内置 Python 运行时校验失败，安装包可能已损坏。"
+
+    notify "首次启动正在解压 Apple Silicon Python 运行时，请稍候。"
+    local staging="$SUPPORT_ROOT/python/.${PYTHON_RUNTIME_ID}.staging"
+    safe_remove_support_path "$staging"
+    mkdir -p "$staging"
+    log "Extracting bundled Python runtime"
+    /usr/bin/tar -xzf "$PYTHON_ARCHIVE" -C "$staging" >> "$LOG_FILE" 2>&1 || show_error "解压内置 Python 运行时失败。"
+    [ -x "$staging/python/bin/python3" ] || show_error "内置 Python 运行时结构无效。"
+    /usr/bin/file "$staging/python/bin/python3" | /usr/bin/grep -q 'arm64' || show_error "内置 Python 运行时不是 arm64 架构。"
+    safe_remove_support_path "$PYTHON_RUNTIME_ROOT"
+    /bin/mv "$staging/python" "$PYTHON_RUNTIME_ROOT" || show_error "启用内置 Python 运行时失败。"
+    safe_remove_support_path "$staging"
+    touch "$marker"
+}
+
+verify_wheelhouse() {
+    [ -d "$WHEELHOUSE" ] || show_error "安装包缺少离线依赖目录。"
+    [ -f "$WHEELHOUSE_CHECKSUMS" ] || show_error "安装包缺少离线依赖校验文件。"
+    log "Verifying offline Python dependencies"
+    (cd "$WHEELHOUSE" && /usr/bin/shasum -a 256 -c "$WHEELHOUSE_CHECKSUMS") >> "$LOG_FILE" 2>&1 || show_error "离线 Python 依赖校验失败，安装包可能已损坏。"
+}
+
+ensure_offline_dependencies() {
+    local requirements_hash
+    local wheelhouse_hash
+    local fingerprint
+    requirements_hash="$(/usr/bin/shasum -a 256 "$RUNTIME_ROOT/requirements.lock" | /usr/bin/awk '{print $1}')"
+    wheelhouse_hash="$(/usr/bin/shasum -a 256 "$WHEELHOUSE_CHECKSUMS" | /usr/bin/awk '{print $1}')"
+    fingerprint="$(printf '%s:%s' "$requirements_hash" "$wheelhouse_hash" | /usr/bin/shasum -a 256 | /usr/bin/awk '{print $1}')"
+    local marker="$DEPS_ROOT/.syncanvas-deps-$fingerprint"
+    if [ -d "$DEPS_ROOT" ] && [ -f "$marker" ]; then
+        return
+    fi
+
+    verify_wheelhouse
+    notify "首次启动正在安装内置 Python 依赖，无需联网，请稍候。"
+    local staging="$SUPPORT_ROOT/deps/.${VERSION}-${PYTHON_RUNTIME_ID}.staging"
+    safe_remove_support_path "$staging"
+    mkdir -p "$staging"
+    log "Installing bundled dependencies into $DEPS_ROOT"
+    PIP_CONFIG_FILE=/dev/null PIP_NO_INDEX=1 "$PYTHON_BIN" -m pip install \
+        --disable-pip-version-check \
+        --no-index \
+        --no-cache-dir \
+        --no-compile \
+        --only-binary=:all: \
+        --find-links "$WHEELHOUSE" \
+        --target "$staging" \
+        --requirement "$RUNTIME_ROOT/requirements.lock" >> "$LOG_FILE" 2>&1 || show_error "安装内置 Python 依赖失败，请查看日志。"
+    safe_remove_support_path "$DEPS_ROOT"
+    /bin/mv "$staging" "$DEPS_ROOT" || show_error "启用 Python 依赖目录失败。"
+    touch "$marker"
+}
+
+link_shared_dir() {
+    local relative="$1"
+    local shared="$SHARED_ROOT/$relative"
+    local target="$RUNTIME_ROOT/$relative"
+    mkdir -p "$shared" "$(dirname "$target")"
+    if [ -L "$target" ]; then
+        return
+    fi
+    if [ -e "$target" ]; then
+        rm -rf "$target"
+    fi
+    ln -s "$shared" "$target" || show_error "创建共享数据目录失败：$relative"
+}
+
+service_ready() {
+    /usr/bin/curl --silent --fail --max-time 2 "http://127.0.0.1:3000/api/app-info" 2>/dev/null | /usr/bin/grep -q "$VERSION"
+}
+
+stop_stale_service() {
+    [ -f "$PID_FILE" ] || return
+    local old_pid
+    old_pid="$(cat "$PID_FILE" 2>/dev/null || true)"
+    if [ -n "$old_pid" ] && /bin/kill -0 "$old_pid" 2>/dev/null; then
+        if service_ready; then
+            return
+        fi
+        log "Stopping stale SynCanvas service $old_pid"
+        /bin/kill "$old_pid" 2>/dev/null || true
+        local attempt=0
+        while [ "$attempt" -lt 30 ] && /bin/kill -0 "$old_pid" 2>/dev/null; do
+            attempt=$((attempt + 1))
+            sleep 0.2
+        done
+    fi
+    rm -f "$PID_FILE"
+}
+
+start_service() {
+    if service_ready; then
+        /usr/bin/open "$APP_URL"
+        exit 0
+    fi
+    stop_stale_service
+    log "Starting SynCanvas $VERSION with bundled arm64 Python"
+    cd "$RUNTIME_ROOT" || show_error "无法进入 SynCanvas 运行目录。"
+    nohup /usr/bin/env \
+        SYNCANVAS_MAIN_HOST=127.0.0.1 \
+        SYNCANVAS_MAIN_PORT=3000 \
+        SYNCANVAS_MACOS_APP=1 \
+        PYTHONUTF8=1 \
+        PYTHONIOENCODING=utf-8 \
+        PYTHONDONTWRITEBYTECODE=1 \
+        PYTHONPATH="$DEPS_ROOT" \
+        PIP_CONFIG_FILE=/dev/null \
+        PIP_NO_INDEX=1 \
+        "$PYTHON_BIN" "$RUNTIME_ROOT/main.py" >> "$SERVICE_LOG" 2>&1 < /dev/null &
+    echo $! > "$PID_FILE"
+
+    local attempt=0
+    while [ "$attempt" -lt 120 ]; do
+        if service_ready; then
+            notify "SynCanvas 已启动。"
+            /usr/bin/open "$APP_URL"
+            exit 0
+        fi
+        attempt=$((attempt + 1))
+        sleep 0.5
+    done
+    rm -f "$PID_FILE"
+    show_error "SynCanvas 服务未能在 60 秒内启动，请查看日志。"
+}
+
+require_apple_silicon
+prepare_runtime
+prepare_python_runtime
+for relative in API data components output packages/components workflows assets/input assets/output; do
+    link_shared_dir "$relative"
+done
+ensure_offline_dependencies
+start_service

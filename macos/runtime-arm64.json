@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "architecture": "arm64",
+  "minimum_macos": "11.0",
+  "python_version": "3.12.13",
+  "python_abi": "cp312",
+  "runtime_id": "python-3.12.13-arm64-20260728",
+  "release": "20260728",
+  "filename": "cpython-3.12.13+20260728-aarch64-apple-darwin-install_only_stripped.tar.gz",
+  "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260728/cpython-3.12.13%2B20260728-aarch64-apple-darwin-install_only_stripped.tar.gz",
+  "sha256": "2f18cdef4125ca1440dd1ba00ebcb267526efb532138c0860438f755ea4eebac",
+  "source_url": "https://github.com/astral-sh/python-build-standalone",
+  "license_url": "https://github.com/astral-sh/python-build-standalone/blob/main/LICENSE"
+}
