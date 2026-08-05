@@ -18,6 +18,9 @@ REQUIRED_PATHS = (
     "components-manifest.json",
     "node-engine-manifest.json",
     "custom_nodes/syncanvas_agent_skill/node.json",
+    "custom_nodes/syncanvas_3d_director/node.json",
+    "custom_nodes/syncanvas_3d_director/THREE-LICENSE.txt",
+    "custom_nodes/syncanvas_3d_director/web/director-features.js",
     "custom_nodes/syncanvas_image_compare/node.json",
     "custom_nodes/syncanvas_output_folder/node.json",
     "custom_nodes/syncanvas_runtime_node/node.json",
@@ -29,6 +32,9 @@ REQUIRED_PATHS = (
     "static/css/canvas-assistant.css",
     "static/js/canvas-assistant.js",
     "static/vendor/css/tailwind.css",
+    "static/vendor/js/three-transform-controls-0.160.0.js",
+    "static/vendor/js/three-gltf-loader-0.160.0.js",
+    "static/vendor/js/three-buffer-geometry-utils-0.160.0.js",
     "static/workflows/reference-style-prompt.classic.json",
     "static/workflows/reference-style-prompt.smart.json",
 )
@@ -98,6 +104,8 @@ def main() -> int:
                 extension_types = {item.get("type") for item in extensions.get("nodes", [])}
                 if "syncanvas.output-folder/export" not in extension_types:
                     raise RuntimeError("output-to-folder native node is missing")
+                if "syncanvas.3d-director/director-stage" not in extension_types:
+                    raise RuntimeError("3D director native node is missing")
                 if "syncanvas.templates/call" not in extension_types or "syncanvas.templates/store" not in extension_types:
                     raise RuntimeError("template native nodes are missing")
                 canvas_page = get_text(base + "/static/canvas.html")

@@ -1304,7 +1304,7 @@
         }
         function openSmartCanvasPage(id){
             if(!id) return;
-            window.location.href = `/static/smart-canvas.html?id=${encodeURIComponent(id)}&v=2026.08.01.4`;
+            window.location.href = `/static/smart-canvas.html?id=${encodeURIComponent(id)}&v=2026.08.04.1`;
         }
         function toggleEmojiPicker(id, event){
             event?.preventDefault();
@@ -1579,7 +1579,7 @@
         }
         function projectWorkspaceUrl(){
             const projectId = String(canvas?.project || new URLSearchParams(window.location.search).get('project') || '').trim();
-            return `/static/canvas-list.html?${projectId ? `project=${encodeURIComponent(projectId)}&` : ''}v=2026.08.01.4`;
+            return `/static/canvas-list.html?${projectId ? `project=${encodeURIComponent(projectId)}&` : ''}v=2026.08.04.1`;
         }
         async function returnToCanvasManager(){
             clearTimeout(saveTimer);
@@ -1860,7 +1860,8 @@
                 const sourcePort = connection.fromPort || 'out';
                 const promptOnlyTemplate = ['template-call','template-store'].includes(source.type);
                 const exactOutputs = source.extensionOutputs?.[sourcePort];
-                if(Array.isArray(exactOutputs)) items.push(...exactOutputs);
+                if(source.type === 'output') items.push(...outputDisplayItems(source).map(item => ({kind:mediaKind(item), value:outputRawValue(item)})));
+                else if(Array.isArray(exactOutputs)) items.push(...exactOutputs);
                 else {
                     if(source.outputText) items.push({kind:'text', value:source.outputText});
                     else if(source.structuredOutput != null) items.push({kind:'json', value:source.structuredOutput});
@@ -1892,6 +1893,7 @@
             return Boolean(node?.data?.classType && (node.extensionType === 'syncanvas.node-engine/runtime-node' || node.type === 'syncanvas.node-engine/runtime-node'));
         }
         function runtimeBoundaryValues(source, fromPort='out'){
+            if(source?.type === 'output') return outputDisplayItems(source).map(item => ({kind:mediaKind(item), value:outputRawValue(item)}));
             const exact = source?.extensionOutputs?.[fromPort];
             if(Array.isArray(exact) && exact.length) return exact.filter(item => item?.value != null);
             const values = [];
@@ -1976,7 +1978,7 @@
                 collectInputs:() => extensionNodeInputs(node),
                 buildRuntimeGraph:() => buildRuntimeGraph(node),
                 applyRuntimeProgress:(record, graph) => applyRuntimeGraphProgress(record, graph),
-                update:() => { refreshNodes([node.id]); },
+                update:() => { refreshNodes([node.id]); refreshConnectedDependents([node.id]); },
                 save:scheduleSave,
                 error:message => showErrorModal(message, '扩展节点运行失败')
             };
@@ -2120,6 +2122,7 @@
         }
         function canvasTemplateObjectFromNode(source){
             const queue = [source?.structuredOutput, source?.outputText];
+            if(source?.type === 'output') outputDisplayItems(source).forEach(item => queue.push(outputRawValue(item)));
             const seen = new Set();
             while(queue.length){
                 const candidate = queue.shift();
@@ -3046,7 +3049,7 @@
             const node = nodes.find(n => n.id === nodeId);
             if(!node || node.type !== 'output') return;
             closeCreateMenu();
-            const imageCount = (node.images || []).filter(item => outputUrlValue(item) && mediaKind(item) === 'image').length;
+            const imageCount = outputImageUrls(node).length;
             const downloadableCount = outputDownloadableImageUrls(node).length;
             imageNodeMenu.classList.add('output-node-menu');
             imageNodeMenu.innerHTML = `
@@ -3090,7 +3093,7 @@
             imageNodeMenu.innerHTML = '';
         }
         function outputImageUrls(node){
-            return (node?.images || []).filter(item => outputUrlValue(item) && mediaKind(item) === 'image').map(outputUrlValue);
+            return outputDisplayItems(node).filter(item => outputUrlValue(item) && mediaKind(item) === 'image').map(outputUrlValue);
         }
         function outputDownloadableImageUrls(node){
             return outputImageUrls(node).filter(url => !isMissingAssetUrl(url) && (url.startsWith('/output/') || url.startsWith('/assets/')));
@@ -4725,6 +4728,7 @@
                     scheduleSave();
                     syncGeneratorInputs();
                     refreshGeneratorInputViews();
+                    refreshConnectedDependents([node.id]);
                 };
             }
             if(node.type === 'loop') body.appendChild(renderLoopBody(node));
@@ -4798,6 +4802,8 @@
             const video = wrap.querySelector('video');
             const audio = wrap.querySelector('audio');
             const audioCard = wrap.querySelector('.output-audio-card');
+            const copyValue = wrap.querySelector('[data-output-copy-value]');
+            const fileLink = wrap.querySelector('.output-file-link');
             const del = wrap.querySelector('.output-del');
             if(img){
                 img.draggable = true;
@@ -4833,6 +4839,22 @@
                     openOutputLightbox(audioCard.dataset.url, node);
                 };
             }
+            if(fileLink){
+                fileLink.onclick = e => e.stopPropagation();
+                fileLink.onmousedown = e => e.stopPropagation();
+            }
+            if(copyValue){
+                copyValue.onmousedown = e => e.stopPropagation();
+                copyValue.onclick = async e => {
+                    e.stopPropagation();
+                    const key = wrap.dataset.outputKey || '';
+                    const item = outputDisplayItems(node).find(value => outputDomKeyForItem(value) === key);
+                    if(!item) return;
+                    await copyTextToClipboard(outputValueText(item));
+                    copyValue.classList.add('copied');
+                    setTimeout(() => copyValue.classList.remove('copied'), 900);
+                };
+            }
             if(del){
                 del.onmousedown = e => e.stopPropagation();
                 del.onclick = e => {
@@ -4843,8 +4865,12 @@
                     } else {
                         const url = img?.dataset.url || video?.dataset.url || audioCard?.dataset.url || wrap.dataset.outputUrl || wrap.dataset.missingUrl || '';
                         const connectedFrom = wrap.dataset.connectedFrom || '';
-                        if(connectedFrom){
-                            connections = connections.filter(c => !(c.from === connectedFrom && c.to === node.id));
+                        const connectionId = wrap.dataset.connectionId || '';
+                        const connectedPort = wrap.dataset.connectedPort || '';
+                        if(connectionId){
+                            connections = connections.filter(c => c.id !== connectionId);
+                        } else if(connectedFrom){
+                            connections = connections.filter(c => !(c.from === connectedFrom && c.to === node.id && (!connectedPort || (c.fromPort || 'out') === connectedPort)));
                         } else {
                             node.images = (node.images || []).filter(item => outputUrlValue(item) !== url);
                             if(node.imageComparisons) delete node.imageComparisons[url];
@@ -4856,8 +4882,17 @@
                 };
             }
         }
+        function outputKeyHash(value){
+            const text = String(value || '');
+            let hash = 0x811c9dc5;
+            for(let index = 0; index < text.length; index += 1) hash = Math.imul(hash ^ text.charCodeAt(index), 0x01000193);
+            return (hash >>> 0).toString(36);
+        }
         function outputDomKeyForItem(item){
-            return `url:${outputUrlValue(item)}`;
+            if(item?.connectionId) return `connection:${item.connectionId}:${Number(item.valueIndex || 0)}:${outputKeyHash(outputItemSignature(item))}`;
+            const url = outputUrlValue(item);
+            if(url) return `url:${url}`;
+            return `value:${mediaKind(item)}:${outputKeyHash(outputValueText(item, false))}`;
         }
         function outputDomKeyForPending(pending){
             return `pending:${pending?.id || ''}`;
@@ -4882,9 +4917,10 @@
                     html:`<div class="output-img-wrap loading-wrap" data-pending-id="${escapeAttr(p.id)}"><span class="output-time-pill running">${formatRunDuration(nowMs() - Number(p.startedAt || nowMs()))}</span><div class="output-spinner"></div><button class="output-del" title="${tr('common.delete')}">×</button></div>`
                 }))
             ];
+            if(!items.length) items.push({key:'empty', html:outputEmptyHtml()});
             const wanted = new Set(items.map(item => item.key));
             [...grid.children].forEach(child => {
-                const key = child.dataset.pendingId ? outputDomKeyForPending({id:child.dataset.pendingId}) : `url:${child.dataset.outputUrl || child.dataset.missingUrl || child.querySelector('img,video,audio')?.dataset.url || ''}`;
+                const key = child.dataset.outputKey || (child.dataset.pendingId ? outputDomKeyForPending({id:child.dataset.pendingId}) : `url:${child.dataset.outputUrl || child.dataset.missingUrl || child.querySelector('img,video,audio')?.dataset.url || ''}`);
                 if(!wanted.has(key)) child.remove();
                 else child.dataset.outputKey = key;
             });
@@ -4960,6 +4996,7 @@
                         }
                         else if(n.type === 'loop') text = renderLoopPrompt(n);
                         else if(n.type === 'llm') text = n.outputText || '';
+                        else if(n.type === 'output') text = outputTextValue(n);
                         if(String(text || '').trim()) items.push(String(text || '').trim());
                     });
                 return items;
@@ -5001,7 +5038,7 @@
                     .map(img => ({url:img.url, name:img.name || 'image', role:img.role || ''}));
             }
             if(node.type === 'output'){
-                return (node.images || [])
+                return outputDisplayItems(node)
                     .filter(item => outputUrlValue(item) && mediaKind(item) === 'image')
                     .map((item, i) => {
                         const url = outputUrlValue(item);
@@ -5352,7 +5389,7 @@
                 autoSizeLoopNode(node, opening);
                 autoSizeLoopForPanels(node);
                 if(!opening){
-                    connections = connections.filter(c => c.to !== node.id || canConnect(c.from, node.id));
+                    connections = connections.filter(c => c.to !== node.id || canConnect(c.from, node.id, c.fromPort || 'out', c.toPort || 'in'));
                 }
                 render();
                 scheduleSave();
@@ -5402,7 +5439,7 @@
                         node.loopStart = Math.max(1, Number(node.loopStart) || 1);
                         node.imageBatchSize = Math.max(1, Math.min(100, Number(node.imageBatchSize) || 1));
                     } else {
-                        connections = connections.filter(c => c.to !== node.id || canConnect(c.from, node.id));
+                        connections = connections.filter(c => c.to !== node.id || canConnect(c.from, node.id, c.fromPort || 'out', c.toPort || 'in'));
                     }
                     autoSizeLoopForPanels(node);
                     render();
@@ -5419,7 +5456,7 @@
                         node.loopStart = Math.max(1, Number(node.loopStart) || 1);
                         node.videoBatchSize = Math.max(1, Math.min(100, Number(node.videoBatchSize) || 1));
                     } else {
-                        connections = connections.filter(c => c.to !== node.id || canConnect(c.from, node.id));
+                        connections = connections.filter(c => c.to !== node.id || canConnect(c.from, node.id, c.fromPort || 'out', c.toPort || 'in'));
                     }
                     autoSizeLoopForPanels(node);
                     render();
@@ -5696,6 +5733,7 @@
                 if(n.type === 'llm') return n.outputText || '';
                 if(isAgentExtensionNode(n) || n.type === 'skill') return n.outputText || '';
                 if(n.type === 'template-call' || n.type === 'template-store') return n.outputText || canvasTemplateStylePrompt(n.structuredOutput);
+                if(n.type === 'output') return outputTextValue(n);
                 return '';
             }).filter(Boolean).join('\n\n');
         }
@@ -5703,9 +5741,9 @@
             const urls = [];
             connections.filter(c => c.to === node.id).map(c => nodes.find(n => n.id === c.from)).filter(Boolean).forEach(n => {
                 if(n.type === 'image' && n.url) urls.push(n.url);
-                if(n.type === 'output' && (n.images||[]).length){
-                    const last = [...n.images].reverse().find(x => typeof x === 'string');
-                    if(last) urls.push(last);
+                if(n.type === 'output'){
+                    const last = [...outputDisplayItems(n)].reverse().find(item => mediaKind(item) === 'image' && outputUrlValue(item));
+                    if(last) urls.push(outputUrlValue(last));
                 }
                 if(n.type === 'group'){
                     (n.items || []).map(id => nodes.find(x => x.id === id)).filter(x => x?.type === 'image' && x?.url).forEach(img => urls.push(img.url));
@@ -5730,7 +5768,12 @@
                     text = source.outputText || canvasTemplateStylePrompt(source.structuredOutput);
                 }
                 if(source.type === 'image' && source.url) images = [source.url];
-                if(source.type === 'output') images = (source.images || []).map(outputUrlValue).filter(Boolean);
+                if(source.type === 'output'){
+                    const items = outputDisplayItems(source);
+                    images = items.filter(item => mediaKind(item) === 'image').map(outputUrlValue).filter(Boolean);
+                    text = outputTextValue(source);
+                    output = outputJsonValue(source);
+                }
                 if(source.type === 'group') images = (source.items || []).map(id => nodes.find(item => item.id === id)).filter(item => item?.type === 'image' && item.url).map(item => item.url);
                 return {id:source.id, label:source.name || source.data?.agentId || source.agentId || source.skillId || source.type, type:source.type, skillId:source.skillId || '', text, output, images, connection};
             }).filter(Boolean);
@@ -6383,7 +6426,8 @@
                     const lastImage = outputUrlValue(lastImageItem);
                     const audioRefs = gen.type === 'video' ? audioRefsFromNode(n) : [];
                     const videoRefs = gen.type === 'video' ? videoRefsFromNode(n) : [];
-                    if(lastImage || videoRefs.length || audioRefs.length) return {id:n.id, type:'outputMedia', label:tr('canvas.upstreamOutput'), preview:lastImage || videoRefs[0]?.url || audioRefs[0]?.url || '', refs:lastImage ? [{url:lastImage, name:'output.png'}] : [], videoRefs, audioRefs, prompt:''};
+                    const prompt = outputTextValue(n);
+                    if(lastImage || videoRefs.length || audioRefs.length || prompt) return {id:n.id, type:'outputMedia', label:tr('canvas.upstreamOutput'), preview:lastImage || videoRefs[0]?.url || audioRefs[0]?.url || '', refs:lastImage ? [{url:lastImage, name:'output.png'}] : [], videoRefs, audioRefs, prompt};
                 }
                 if(n.type === 'output') return null;
                 if(n.type === 'output' && (n.images||[]).length){
@@ -7267,11 +7311,27 @@
             return /\.(wav|mp3|m4a|ogg)$/.test(clean) || /^data:audio\//i.test(url || '');
         }
         function mediaKind(item){
+            const explicit = typeof item === 'object' ? String(item?.kind || item?.type || '').toLowerCase() : '';
+            const value = outputRawValue(item);
             const url = outputUrlValue(item);
-            const explicit = typeof item === 'object' ? String(item?.kind || '').toLowerCase() : '';
-            if(explicit === 'audio' || isAudioUrl(url)) return 'audio';
-            if(explicit === 'video' || isVideoUrl(url)) return 'video';
-            return 'image';
+            const mime = typeof item === 'object' ? String(item?.mime || item?.mime_type || '').toLowerCase() : '';
+            if(['image','audio','video','file','text','json','number','boolean','null'].includes(explicit)) return explicit;
+            if(['string','markdown'].includes(explicit)) return 'text';
+            if(['object','array','dictionary'].includes(explicit)) return 'json';
+            if(['int','integer','float','double'].includes(explicit)) return 'number';
+            if(['bool'].includes(explicit)) return 'boolean';
+            if(mime.startsWith('image/')) return 'image';
+            if(mime.startsWith('audio/')) return 'audio';
+            if(mime.startsWith('video/')) return 'video';
+            if(explicit === 'binary' || mime) return 'file';
+            if(isAudioUrl(url)) return 'audio';
+            if(isVideoUrl(url)) return 'video';
+            if(safeOutputResourceUrl(url)) return 'image';
+            if(value === null) return 'null';
+            if(typeof value === 'boolean') return 'boolean';
+            if(typeof value === 'number') return 'number';
+            if(value && typeof value === 'object') return 'json';
+            return 'text';
         }
         function mediaDisplayName(url, fallback='media'){
             return outputImageName(url) || fallback;
@@ -7283,8 +7343,109 @@
             return m ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`;
         }
         function nowMs(){ return Date.now(); }
+        function outputRawValue(item){
+            if(item && typeof item === 'object' && Object.prototype.hasOwnProperty.call(item, 'value')) return item.value;
+            if(item && typeof item === 'object' && Object.prototype.hasOwnProperty.call(item, 'url')) return item.url;
+            return item;
+        }
         function outputUrlValue(item){
-            return typeof item === 'string' ? item : item?.url || '';
+            if(typeof item === 'string') return item;
+            if(!item || typeof item !== 'object') return '';
+            if(item.url) return String(item.url);
+            const kind = String(item.kind || item.type || '').toLowerCase();
+            if(['image','audio','video','file','binary'].includes(kind) && typeof item.value === 'string') return item.value;
+            return '';
+        }
+        function safeOutputResourceUrl(value){
+            const url = String(value || '').trim();
+            if(!url) return '';
+            return /^(?:https?:|blob:|data:(?:image|audio|video)\/|\/)/i.test(url) ? url : '';
+        }
+        function outputValueText(item, pretty=true){
+            const value = outputRawValue(item);
+            if(value === null) return 'null';
+            if(value === undefined) return '';
+            if(typeof value === 'string') return value;
+            if(typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+            try { return JSON.stringify(value, null, pretty ? 2 : 0); }
+            catch(_) { return String(value); }
+        }
+        function normalizeConnectedOutputItem(item, meta={}){
+            const source = item && typeof item === 'object' && !Array.isArray(item) ? item : {value:item};
+            const value = Object.prototype.hasOwnProperty.call(source, 'value') ? source.value : (source.url ?? item);
+            const provisional = {...source, value};
+            const kind = mediaKind(provisional);
+            const url = ['image','audio','video','file'].includes(kind) ? safeOutputResourceUrl(outputUrlValue(provisional)) : '';
+            return {
+                ...source,
+                kind,
+                value,
+                ...(url ? {url} : {}),
+                name:String(source.name || meta.sourceName || kind).slice(0, 180),
+                connectedFrom:meta.connectedFrom || '',
+                connectedPort:meta.connectedPort || 'out',
+                connectionId:meta.connectionId || '',
+                valueIndex:Number(meta.valueIndex || 0),
+            };
+        }
+        function sourceOutputItems(source, connection){
+            if(!source || source.type === 'output') return [];
+            const port = connection?.fromPort || 'out';
+            const sourceName = source.title || source.name || source.data?.name || source.type || 'Output';
+            let values = [];
+            const exact = source.extensionOutputs?.[port];
+            if(Array.isArray(exact)) values = exact;
+            else if(exact !== undefined && exact !== null) values = [exact];
+            else {
+                const direct = source?.[port] ?? source?.data?.[port];
+                if(port !== 'out' && direct !== undefined && direct !== null && direct !== '') values.push(direct);
+                if(!values.length){
+                    if(source.type === 'image' && source.url) values.push({kind:'image', value:source.url, name:source.name});
+                    else if(source.type === 'audio' && source.url) values.push({kind:'audio', value:source.url, name:source.name, mime:source.mime});
+                    else if(source.type === 'videoInput' && source.url) values.push({kind:'video', value:source.url, name:source.name, mime:source.mime});
+                    else if(source.type === 'prompt') values.push({kind:'text', value:source.text || '', name:source.name || 'Prompt'});
+                    else if(source.type === 'loop') values.push({kind:'text', value:renderLoopPrompt(source), name:sourceName});
+                    else if(source.type === 'group' || source.type === 'promptGroup'){
+                        (source.items || []).map(id => nodes.find(node => node.id === id)).filter(Boolean).forEach(member => {
+                            sourceOutputItems(member, {fromPort:'out', id:`${connection?.id || source.id}:${member.id}`}).forEach(item => {
+                                values.push({kind:item.kind, value:item.value, ...(item.url ? {url:item.url} : {}), name:item.name, mime:item.mime || ''});
+                            });
+                        });
+                    }
+                    else {
+                        if(source.outputText !== undefined && source.outputText !== '') values.push({kind:'text', value:source.outputText, name:sourceName});
+                        if(source.structuredOutput !== undefined && source.structuredOutput !== null) values.push({kind:'json', value:source.structuredOutput, name:sourceName});
+                        const media = source.generatedOutputs || source.images || source.referenceImages || [];
+                        (Array.isArray(media) ? media : [media]).filter(Boolean).forEach(value => {
+                            if(typeof value === 'string'){
+                                const kind = isAudioUrl(value) ? 'audio' : isVideoUrl(value) ? 'video' : 'image';
+                                values.push({kind, value});
+                            } else {
+                                values.push(value);
+                            }
+                        });
+                        (source.audio || source.audios || []).forEach(value => values.push(typeof value === 'string' ? {kind:'audio', value} : {...value, kind:value.kind || 'audio'}));
+                        (source.videos || source.generatedVideos || []).forEach(value => values.push(typeof value === 'string' ? {kind:'video', value} : {...value, kind:value.kind || 'video'}));
+                        if(!values.length && source.url) values.push({value:source.url, name:source.name});
+                        if(!values.length && source.text !== undefined) values.push({kind:'text', value:source.text, name:sourceName});
+                    }
+                }
+            }
+            return values
+                .filter(value => value !== undefined && value !== '')
+                .map((value, valueIndex) => normalizeConnectedOutputItem(value, {
+                    sourceName,
+                    connectedFrom:source.id,
+                    connectedPort:port,
+                    connectionId:connection?.id || `${source.id}:${port}`,
+                    valueIndex,
+                }));
+        }
+        function outputItemSignature(item){
+            const kind = mediaKind(item);
+            const url = safeOutputResourceUrl(outputUrlValue(item));
+            if(url) return `${kind}:url:${url}`;
+            return `${kind}:value:${outputValueText(item, false).slice(0, 20000)}`;
         }
         function isMissingAssetUrl(url){
             return Boolean(url && missingAssetUrls.has(url));
@@ -7296,33 +7457,39 @@
             const item = outputDisplayItems(out).find(x => outputUrlValue(x) === url);
             return item && typeof item === 'object' ? item : {};
         }
-        function outputConnectedMedia(out){
+        function outputConnectedValues(out){
             if(!out?.id) return [];
             return connections
                 .filter(c => c.to === out.id)
-                .flatMap(c => {
-                    const source = nodes.find(n => n.id === c.from);
-                    if(!source?.url || !['audio','videoInput'].includes(source.type)) return [];
-                    const kind = source.type === 'videoInput' ? 'video' : 'audio';
-                    return [{
-                        url:source.url,
-                        name:source.name || mediaDisplayName(source.url, kind),
-                        mime:source.mime || '',
-                        kind,
-                        connectedFrom:source.id,
-                    }];
-                });
+                .flatMap(connection => sourceOutputItems(nodes.find(node => node.id === connection.from), connection));
+        }
+        function outputConnectedMedia(out){
+            return outputConnectedValues(out).filter(item => ['image','audio','video','file'].includes(mediaKind(item)) && outputUrlValue(item));
         }
         function outputDisplayItems(out){
             const stored = out?.images || [];
-            const seen = new Set(stored.map(outputUrlValue).filter(Boolean));
-            const connected = outputConnectedMedia(out).filter(item => {
-                const url = outputUrlValue(item);
-                if(!url || seen.has(url)) return false;
-                seen.add(url);
+            const seen = new Set(stored.map(outputItemSignature));
+            const connected = outputConnectedValues(out).filter(item => {
+                const signature = outputItemSignature(item);
+                if(seen.has(signature)) return false;
+                seen.add(signature);
                 return true;
             });
             return [...connected, ...stored];
+        }
+        function outputTextValue(out){
+            return outputDisplayItems(out)
+                .filter(item => ['text','number','boolean','json','null'].includes(mediaKind(item)))
+                .map(item => outputValueText(item))
+                .filter(Boolean)
+                .join('\n\n');
+        }
+        function outputJsonValue(out){
+            const values = outputDisplayItems(out)
+                .filter(item => mediaKind(item) === 'json')
+                .map(outputRawValue);
+            if(!values.length) return null;
+            return values.length === 1 ? values[0] : values;
         }
         function runSnapshot(node, prompt, refs=[], audios=[], videos=[]){
             const clone = JSON.parse(JSON.stringify(node || {}));
@@ -7606,33 +7773,53 @@
                 });
             });
         }
+        function outputKindLabel(kind){
+            return ({image:'IMAGE',video:'VIDEO',audio:'AUDIO',file:'FILE',text:'TEXT',json:'JSON',number:'NUMBER',boolean:'BOOLEAN',null:'NULL'})[kind] || String(kind || 'VALUE').toUpperCase();
+        }
+        function outputConnectedAttributes(item){
+            const source = item && typeof item === 'object' ? item : {};
+            return `${source.connectedFrom ? ` data-connected-from="${escapeAttr(source.connectedFrom)}"` : ''}${source.connectedPort ? ` data-connected-port="${escapeAttr(source.connectedPort)}"` : ''}${source.connectionId ? ` data-connection-id="${escapeAttr(source.connectionId)}"` : ''}`;
+        }
         function renderOutputMedia(item, useGridLayout=false){
-            const url = outputUrlValue(item);
+            const url = safeOutputResourceUrl(outputUrlValue(item));
             const safe = escapeAttr(url);
             const meta = item && typeof item === 'object' ? item : {};
             const kind = mediaKind(item);
+            const outputKey = escapeAttr(outputDomKeyForItem(item));
+            const connected = outputConnectedAttributes(item);
             const grid = useGridLayout ? (meta.grid || null) : null;
             const gridStyle = grid ? ` style="grid-row:${Number(grid.row || 0) + 1};grid-column:${Number(grid.col || 0) + 1};aspect-ratio:${Math.max(1, Number(grid.w || 1))}/${Math.max(1, Number(grid.h || 1))}"` : '';
             const timePill = meta.runMs && !meta.viewed ? `<span class="output-time-pill">${formatRunDuration(meta.runMs)}</span>` : '';
             if(isMissingAssetUrl(url)){
-                return `<div class="output-img-wrap" data-output-url="${safe}" data-missing-url="${safe}"${gridStyle}>${missingAssetHtml(url, true)}${timePill}<button class="output-del" title="${tr('common.delete')}">×</button></div>`;
+                return `<div class="output-img-wrap" data-output-key="${outputKey}" data-output-url="${safe}" data-missing-url="${safe}"${connected}${gridStyle}>${missingAssetHtml(url, true)}${timePill}<button class="output-del" title="${tr('common.delete')}">×</button></div>`;
             }
             if(kind === 'video'){
                 const hasAudio = meta.audioUrl || meta.audio_url;
-                return `<div class="output-img-wrap" data-output-url="${safe}"${gridStyle}><video src="${safe}" data-url="${safe}" preload="metadata" muted playsinline></video>${timePill}<div class="output-video-badge"><i data-lucide="${hasAudio ? 'volume-2' : 'play'}" class="w-3 h-3"></i>${hasAudio ? 'A/V' : 'VIDEO'}</div><button class="output-del" title="${tr('common.delete')}">×</button></div>`;
+                return `<div class="output-img-wrap" data-output-key="${outputKey}" data-output-url="${safe}"${connected}${gridStyle}><video src="${safe}" data-url="${safe}" preload="metadata" muted playsinline></video>${timePill}<div class="output-video-badge"><i data-lucide="${hasAudio ? 'volume-2' : 'play'}" class="w-3 h-3"></i>${hasAudio ? 'A/V' : 'VIDEO'}</div><button class="output-del" title="${tr('common.delete')}">×</button></div>`;
             }
             if(kind === 'audio'){
-                const connected = meta.connectedFrom ? ` data-connected-from="${escapeAttr(meta.connectedFrom)}"` : '';
-                return `<div class="output-img-wrap output-audio-wrap" data-output-url="${safe}"${connected}${gridStyle}><div class="output-audio-card" data-url="${safe}"><i data-lucide="audio-lines" class="w-6 h-6"></i><span title="${escapeAttr(meta.name || mediaDisplayName(url, 'audio'))}">${escapeHtml(meta.name || mediaDisplayName(url, 'audio'))}</span><audio src="${safe}" controls preload="metadata"></audio></div>${timePill}<button class="output-del" title="${tr('common.delete')}">×</button></div>`;
+                return `<div class="output-img-wrap output-audio-wrap" data-output-key="${outputKey}" data-output-url="${safe}"${connected}${gridStyle}><div class="output-audio-card" data-url="${safe}"><i data-lucide="audio-lines" class="w-6 h-6"></i><span title="${escapeAttr(meta.name || mediaDisplayName(url, 'audio'))}">${escapeHtml(meta.name || mediaDisplayName(url, 'audio'))}</span><audio src="${safe}" controls preload="metadata"></audio></div>${timePill}<button class="output-del" title="${tr('common.delete')}">×</button></div>`;
             }
-            return `<div class="output-img-wrap" data-output-url="${safe}"${gridStyle}><img src="${safe}" data-url="${safe}" alt="generated output">${timePill}<button class="output-del" title="${tr('common.delete')}">×</button></div>`;
+            if(kind === 'image' && url){
+                return `<div class="output-img-wrap" data-output-key="${outputKey}" data-output-url="${safe}"${connected}${gridStyle}><img src="${safe}" data-url="${safe}" alt="generated output">${timePill}<button class="output-del" title="${tr('common.delete')}">×</button></div>`;
+            }
+            if(kind === 'file' && url){
+                const name = escapeHtml(meta.name || mediaDisplayName(url, 'file'));
+                return `<div class="output-img-wrap output-value-wrap output-file-wrap" data-output-key="${outputKey}" data-output-url="${safe}"${connected}${gridStyle}><div class="output-value-card"><div class="output-value-head"><span>${outputKindLabel(kind)}</span><strong>${name}</strong></div><a class="output-file-link" href="${safe}" download><i data-lucide="download" class="w-5 h-5"></i><span>下载文件</span></a></div><button class="output-del" title="${tr('common.delete')}">×</button></div>`;
+            }
+            const fullText = outputValueText(item);
+            const maxPreview = 16000;
+            const truncated = fullText.length > maxPreview;
+            const preview = truncated ? `${fullText.slice(0, maxPreview)}\n${langIsEn() ? '… (preview truncated)' : '…（内容过长，已截断显示）'}` : fullText;
+            const name = escapeHtml(meta.name || outputKindLabel(kind));
+            return `<div class="output-img-wrap output-value-wrap output-${escapeAttr(kind)}-wrap" data-output-key="${outputKey}"${connected}${gridStyle}><div class="output-value-card"><div class="output-value-head"><span>${outputKindLabel(kind)}</span><strong title="${name}">${name}</strong><button type="button" data-output-copy-value title="${langIsEn() ? 'Copy' : '复制'}"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button></div><pre>${escapeHtml(preview)}</pre></div><button class="output-del" title="${tr('common.delete')}">×</button></div>`;
         }
         function outputGridLayout(node){
             const images = node?.images || [];
             if(!images.length || node?._pending?.length) return null;
             const layout = node.outputLayout;
             if(!layout || layout.type !== 'grid-split' || !layout.groupId) return null;
-            if(outputConnectedMedia(node).length) return null;
+            if(outputConnectedValues(node).length) return null;
             const allMatch = images.every(item => item && typeof item === 'object' && item.grid?.groupId === layout.groupId);
             return allMatch ? layout : null;
         }
@@ -7640,7 +7827,12 @@
             const layout = outputGridLayout(node);
             const gridClass = layout ? 'output-grid grid-layout' : 'output-grid';
             const style = layout ? ` style="--grid-cols:${Math.max(1, Number(layout.cols || 1))}"` : '';
-            return `<div class="${gridClass}"${style}>${outputDisplayItems(node).map(item => renderOutputMedia(item, !!layout)).join('')}${pendingHtml}</div>`;
+            const items = outputDisplayItems(node);
+            const empty = !items.length && !pendingHtml ? outputEmptyHtml() : '';
+            return `<div class="${gridClass}"${style}>${items.map(item => renderOutputMedia(item, !!layout)).join('')}${pendingHtml}${empty}</div>`;
+        }
+        function outputEmptyHtml(){
+            return `<div class="output-empty" data-output-key="empty"><i data-lucide="plug-zap" class="w-5 h-5"></i><span>${langIsEn() ? 'Connect images, video, audio, text, numbers, JSON, or files' : '可连接图片、视频、音频、文本、数字、JSON 或文件'}</span></div>`;
         }
         function outputImageName(url){
             const clean = (url || '').split('?')[0];
@@ -8519,6 +8711,9 @@
                     : SynCanvasNodeExtensions.canConnect(from, to, 'classic', fromPort, toPort);
                 if(extensionDecision !== null && extensionDecision !== undefined) return extensionDecision;
             }
+            // Output accepts every serializable canvas value. Runtime-only
+            // comfy:* objects are rejected by the extension validator above.
+            if(to.type === 'output') return from.type !== 'output';
             if(from.type === 'audio') return ['video','output'].includes(to.type);
             if(from.type === 'videoInput') return ['video','output'].includes(to.type) || (to.type === 'loop' && Boolean(to.videoInput));
             if(CANVAS_GENERATOR_TYPES.includes(from.type)){
@@ -8546,7 +8741,7 @@
             const templateOutputIds = new Set(nodes.filter(node => ['template-call','template-store'].includes(node.type)).map(node => node.id));
             connections = (connections || [])
                 .map(connection => templateOutputIds.has(connection.from) ? {...connection, fromPort:'text'} : connection)
-                .filter(c => canConnect(c.from, c.to));
+                .filter(c => canConnect(c.from, c.to, c.fromPort || 'out', c.toPort || 'in'));
         }
         function removeHiddenNodesFromCanvas(){
             const ids = new Set((nodes || []).filter(n => HIDDEN_CANVAS_NODE_TYPES.has(n?.type)).map(n => n.id));
@@ -9234,7 +9429,7 @@
             const visit = node => {
                 if(!node || values.length >= 8) return;
                 if(node.type === 'image' && node.url) add(node.url, node.name);
-                if(node.type === 'output') (node.images || []).forEach(item => add(item, outputImageName(outputUrlValue(item))));
+                if(node.type === 'output') outputDisplayItems(node).filter(item => mediaKind(item) === 'image').forEach(item => add(item, outputImageName(outputUrlValue(item))));
                 if(node.type === 'group') (node.items || []).map(id => nodes.find(item => item.id === id)).forEach(visit);
             };
             [...selected].map(id => nodes.find(item => item.id === id)).forEach(visit);

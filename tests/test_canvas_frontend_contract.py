@@ -136,6 +136,29 @@ class CanvasFrontendContractTests(unittest.TestCase):
         self.assertIn("refreshConnectedDependents([node.id])", llm_chat_block)
         self.assertIn("refreshConnectedDependents([node.id])", output_bind_block)
 
+    def test_output_node_accepts_and_renders_serializable_values(self):
+        connect_block = self.function_block("function canConnect(fromId, toId)", "function sanitizeConnections()")
+        display_block = self.function_block("function outputDisplayItems(out)", "function outputTextValue(out)")
+        render_block = self.function_block("function renderOutputMedia(item, useGridLayout=false)", "function outputGridLayout(node)")
+        self.assertIn("if(to.type === 'output') return from.type !== 'output'", connect_block)
+        self.assertIn("source.extensionOutputs?.[port]", self.source)
+        self.assertIn("sourceOutputItems", self.source)
+        self.assertIn("outputConnectedValues", display_block)
+        for kind in ("text", "json", "number", "boolean", "file"):
+            self.assertIn(f"{kind}:'{kind.upper()}'", self.source)
+        self.assertIn("output-${escapeAttr(kind)}-wrap", render_block)
+        self.assertIn("data-output-copy-value", render_block)
+        self.assertIn("outputEmptyHtml", self.source)
+        self.assertIn(".output-value-card", self.style_source)
+
+    def test_output_node_preserves_port_identity_and_rejects_runtime_objects(self):
+        self.assertIn("connectedPort:meta.connectedPort", self.source)
+        self.assertIn("connectionId:meta.connectionId", self.source)
+        self.assertIn("source.extensionOutputs?.[port]", self.source)
+        self.assertIn("comfy:* objects are rejected", self.source)
+        extension_runtime = (ROOT / "static" / "js" / "node-extensions.js").read_text(encoding="utf-8")
+        self.assertIn("String(type).startsWith('comfy:')", extension_runtime)
+
     def test_project_workspace_is_the_single_canvas_entry(self):
         self.assertNotIn('data-route="canvas"', self.index_source)
         self.assertNotIn('id="frame-canvas"', self.index_source)

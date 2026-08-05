@@ -16,14 +16,14 @@
             } catch(e) {}
         })();
     </script>
-    <link rel="stylesheet" href="/static/vendor/css/tailwind.css?v=2026.08.01.4">
-    <script src="/static/vendor/js/lucide.js?v=2026.08.01.4"></script>
-    <script src="/static/js/theme.js?v=2026.08.01.4"></script>
-    <script src="/static/js/i18n-core.js?v=2026.08.01.4"></script><script src="/static/js/i18n/common.js?v=2026.08.01.4"></script><script src="/static/js/i18n/studio.js?v=2026.08.01.4"></script><script src="/static/js/i18n/api-settings.js?v=2026.08.01.4"></script><script src="/static/js/i18n/canvas.js?v=2026.08.01.4"></script><script src="/static/js/i18n/smart-canvas.js?v=2026.08.01.4"></script><script src="/static/js/i18n/comfyui-settings.js?v=2026.08.01.4"></script><script src="/static/js/i18n/legacy.js?v=2026.08.01.4"></script>
+    <link rel="stylesheet" href="/static/vendor/css/tailwind.css?v=2026.08.04.1">
+    <script src="/static/vendor/js/lucide.js?v=2026.08.04.1"></script>
+    <script src="/static/js/theme.js?v=2026.08.04.1"></script>
+    <script src="/static/js/i18n-core.js?v=2026.08.04.1"></script><script src="/static/js/i18n/common.js?v=2026.08.04.1"></script><script src="/static/js/i18n/studio.js?v=2026.08.04.1"></script><script src="/static/js/i18n/api-settings.js?v=2026.08.04.1"></script><script src="/static/js/i18n/canvas.js?v=2026.08.04.1"></script><script src="/static/js/i18n/smart-canvas.js?v=2026.08.04.1"></script><script src="/static/js/i18n/comfyui-settings.js?v=2026.08.04.1"></script><script src="/static/js/i18n/legacy.js?v=2026.08.04.1"></script>
     <script src="/static/vendor/js/marked-15.0.12.min.js"></script>
     <script src="/static/vendor/js/dompurify-3.2.6.min.js"></script>
     <style>
-        @import url('/static/vendor/css/fonts.css?v=2026.08.01.4');
+        @import url('/static/vendor/css/fonts.css?v=2026.08.04.1');
         :root { --ease:cubic-bezier(.4,0,.2,1); --content-width:1160px; }
         * { box-sizing:border-box; }
         body { margin:0; height:100vh; overflow:hidden; background:#f8fafc; color:#111827; font-family:'Inter',-apple-system,sans-serif; -webkit-font-smoothing:antialiased; }
@@ -131,6 +131,10 @@
         .resolution-toggle { flex:0 0 auto; background:#f8fafc; border:1px solid #edf2f7; border-radius:999px; padding:2px; display:flex; gap:2px; }
         .resolution-option { height:28px; min-width:40px; border-radius:999px; display:flex; align-items:center; justify-content:center; color:#64748b; font-size:10px; font-weight:600; transition:all .2s var(--ease); }
         .resolution-option.active { background:#fff; color:#111827; box-shadow:0 1px 3px rgba(15,23,42,.08); }
+        .image-status { display:flex; align-items:center; gap:8px; color:#64748b; font-size:12px; font-weight:700; }
+        .image-status-spinner { width:14px; height:14px; border:2px solid #e2e8f0; border-top-color:#111827; border-radius:50%; animation:spin .8s linear infinite; }
+        .image-error { color:#b91c1c; font-size:12px; line-height:1.55; }
+        .image-retry-btn { margin-top:10px; height:30px; padding:0 13px; border-radius:999px; background:#dc2626; color:#fff; font-size:10px; font-weight:800; }
         .composer-body { min-height:148px; border:1px solid #f1f5f9; background:#fbfdff; border-radius:22px; padding:14px; display:flex; flex-direction:column; gap:10px; }
         .composer-body.drag-over { border-color:#cbd5e1; background:#f8fafc; box-shadow:inset 0 0 0 1px #e2e8f0; }
         textarea { width:100%; flex:1; min-height:82px; max-height:168px; resize:none; outline:none; border:0; padding:2px; font-size:14px; line-height:1.65; background:transparent; }
@@ -167,7 +171,7 @@
             .image-preview-image { max-width:calc(100vw - 24px); max-height:calc(100vh - 88px); }
         }
     </style>
-    <link rel="stylesheet" href="/static/css/theme.css?v=2026.08.01.4">
+    <link rel="stylesheet" href="/static/css/theme.css?v=2026.08.04.1">
 </head>
 <body>
     <div class="chat-shell">
@@ -223,6 +227,12 @@
                                         <button id="chat-res-1k" class="resolution-option active" onclick="setChatResolution('1k')">1K</button>
                                         <button id="chat-res-2k" class="resolution-option" onclick="setChatResolution('2k')">2K</button>
                                         <button id="chat-res-4k" class="resolution-option" onclick="setChatResolution('4k')">4K</button>
+                                    </div>
+                                    <div class="resolution-toggle" title="生成张数" data-i18n-title="chat.batchCount">
+                                        <button id="chat-count-1" class="resolution-option active" onclick="setChatImageCount(1)">1</button>
+                                        <button id="chat-count-2" class="resolution-option" onclick="setChatImageCount(2)">2</button>
+                                        <button id="chat-count-3" class="resolution-option" onclick="setChatImageCount(3)">3</button>
+                                        <button id="chat-count-4" class="resolution-option" onclick="setChatImageCount(4)">4</button>
                                     </div>
                                 </div>
                             </div>
@@ -289,6 +299,8 @@
         let chatProviderModels = {};
         let chatRatio = 'square';
         let chatResolution = '1k';
+        let chatImageCount = Math.max(1, Math.min(4, Number(localStorage.getItem('gpt_chat_image_count') || 1)));
+        let activeChatImageBatchId = '';
         let refs = [];
         let config = { chat_model: 'gpt-5.5', image_model: 'gpt-image-2', ms_chat_models: [] };
 
@@ -484,6 +496,7 @@
             document.getElementById('chatModeBtn').classList.toggle('active', next === 'chat');
             document.getElementById('imageModeBtn').classList.toggle('active', next === 'image');
             document.getElementById('imageControls').classList.toggle('hidden', next !== 'image');
+            updateChatImageCountUI();
             renderProviderControls();
             updateModelLabel();
         }
@@ -512,10 +525,18 @@
         }
 
         function setChatResolution(next){ chatResolution = next; updateChatResolutionUI(); }
+        function setChatImageCount(next){
+            chatImageCount = Math.max(1, Math.min(4, Number(next) || 1));
+            localStorage.setItem('gpt_chat_image_count', String(chatImageCount));
+            updateChatImageCountUI();
+        }
         function updateChatResolutionUI(){
             document.getElementById('chat-res-1k').classList.toggle('active', chatResolution === '1k');
             document.getElementById('chat-res-2k').classList.toggle('active', chatResolution === '2k');
             document.getElementById('chat-res-4k').classList.toggle('active', chatResolution === '4k');
+        }
+        function updateChatImageCountUI(){
+            [1,2,3,4].forEach(count => document.getElementById(`chat-count-${count}`)?.classList.toggle('active', count === chatImageCount));
         }
 
         function currentChatSize(){
@@ -631,6 +652,7 @@
             const box = document.getElementById('messages');
             const row = document.createElement('div');
             row.className = `bubble-row ${msg.role === 'user' ? 'user' : 'assistant'}`;
+            if(msg.id) row.dataset.messageId = msg.id;
             const bubble = document.createElement('div');
             bubble.className = `bubble ${msg.role === 'user' ? 'user' : 'assistant'}`;
             const text = document.createElement('div');
@@ -638,8 +660,23 @@
             if(msg.role === 'assistant' && msg.type !== 'image'){
                 text.classList.add('markdown-body');
                 renderAssistantMarkdown(text, msg.content || '');
+            } else if(msg.type === 'image'){
+                const imageStatus = String(msg.image_status || (msg.image_url ? 'succeeded' : '')).toLowerCase();
+                if(imageStatus === 'pending' || imageStatus === 'running'){
+                    text.className = 'image-status';
+                    const spinner = document.createElement('span');
+                    spinner.className = 'image-status-spinner';
+                    const label = document.createElement('span');
+                    label.textContent = tr('chat.generatingImage');
+                    text.append(spinner, label);
+                } else if(imageStatus === 'failed' || imageStatus === 'interrupted'){
+                    text.className = 'image-error';
+                    text.textContent = msg.error || tr(imageStatus === 'interrupted' ? 'chat.imageInterrupted' : 'chat.imageFailed');
+                } else {
+                    text.textContent = tr('chat.generated');
+                }
             } else {
-                text.textContent = msg.type === 'image' ? tr('chat.generated') : (msg.content || '');
+                text.textContent = msg.content || '';
             }
             bubble.appendChild(text);
             if(msg.attachments?.length){
@@ -664,6 +701,15 @@
                 bindPreviewableImage(img, img.alt);
                 bubble.appendChild(img);
             }
+            const imageStatus = String(msg.image_status || '').toLowerCase();
+            if(msg.type === 'image' && msg.id && (imageStatus === 'failed' || imageStatus === 'interrupted')){
+                const retry = document.createElement('button');
+                retry.type = 'button';
+                retry.className = 'image-retry-btn';
+                retry.textContent = tr('chat.retryImage');
+                retry.onclick = () => retryChatImage(msg.id);
+                bubble.appendChild(retry);
+            }
             // Show model badge for assistant messages
             if(msg.role === 'assistant' && msg.model){
                 const badge = document.createElement('div');
@@ -676,6 +722,89 @@
             row.appendChild(bubble);
             box.appendChild(row);
             return {row, bubble, text};
+        }
+
+        function mergeChatBatchItems(batch, conversationId){
+            if(!batch || currentConversation?.id !== conversationId) return;
+            const messages = currentConversation.messages || [];
+            let changed = false;
+            (batch.items || []).forEach(item => {
+                const message = messages.find(entry => entry.id === item.message_id);
+                if(!message) return;
+                const nextStatus = item.status || message.image_status || 'pending';
+                const nextUrl = item.image_url || '';
+                const nextError = item.error || '';
+                if(message.image_status !== nextStatus || (message.image_url || '') !== nextUrl || (message.error || '') !== nextError){
+                    message.image_status = nextStatus;
+                    message.image_url = nextUrl;
+                    message.error = nextError;
+                    changed = true;
+                }
+            });
+            if(changed) renderMessages(messages);
+        }
+
+        async function refreshActiveConversation(conversationId){
+            const response = await fetch(`/api/conversations/${conversationId}`, {headers:{'X-User-ID':userId}});
+            if(!response.ok) return;
+            const data = await response.json();
+            if(currentConversation?.id !== conversationId) return;
+            currentConversation = data.conversation;
+            setChatTitle(currentConversation.title);
+            renderMessages(currentConversation.messages || []);
+        }
+
+        async function pollChatImageBatch(batchId, conversationId){
+            activeChatImageBatchId = batchId;
+            let consecutiveFailures = 0;
+            while(true){
+                try {
+                    const response = await fetch(`/api/image-batches/${batchId}`, {headers:{'X-User-ID':userId}});
+                    if(!response.ok){
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.detail || tr('chat.requestFailed'));
+                    }
+                    const batch = await response.json();
+                    consecutiveFailures = 0;
+                    mergeChatBatchItems(batch, conversationId);
+                    if(['succeeded','partial','failed'].includes(batch.status)){
+                        await refreshActiveConversation(conversationId);
+                        return batch;
+                    }
+                } catch(error) {
+                    consecutiveFailures += 1;
+                    if(consecutiveFailures >= 6) throw error;
+                }
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+
+        async function retryChatImage(messageId){
+            const btn = document.getElementById('sendBtn');
+            if(btn.disabled || !currentConversation?.id || !messageId) return;
+            const conversationId = currentConversation.id;
+            btn.disabled = true;
+            try {
+                const response = await fetch(`/api/conversations/${conversationId}/messages/${messageId}/retry-image`, {
+                    method:'POST',
+                    headers:headers()
+                });
+                const data = await response.json().catch(() => ({}));
+                if(!response.ok) throw new Error(data.detail || tr('chat.requestFailed'));
+                if(currentConversation?.id === conversationId){
+                    currentConversation = data.conversation;
+                    renderMessages(currentConversation.messages || []);
+                }
+                await pollChatImageBatch(data.batch.batch_id, conversationId);
+                await loadConversations();
+            } catch(error) {
+                console.error('retry image failed', error);
+                await refreshActiveConversation(conversationId);
+            } finally {
+                activeChatImageBatchId = '';
+                btn.disabled = false;
+                scrollBottom();
+            }
         }
 
         async function uploadFiles(files){
@@ -725,7 +854,10 @@
             const message = input.value.trim();
             if(!message) return;
             const btn = document.getElementById('sendBtn');
+            if(btn.disabled) return;
             btn.disabled = true;
+            const submissionMode = mode;
+            let acceptedImageConversationId = '';
             const pendingRefs = refs.slice();
             refs = [];
             renderRefs();
@@ -736,35 +868,65 @@
                 document.getElementById('messages').innerHTML = '';
             }
             addMessageBubble({role:'user', content:message, attachments:pendingRefs});
-            const assistantBubble = addMessageBubble({role:'assistant', content: mode === 'image' ? tr('chat.generatingImage') : ''});
-            if(mode === 'chat') assistantBubble.bubble.classList.add('streaming');
+            let assistantBubble = null;
+            if(submissionMode === 'chat'){
+                assistantBubble = addMessageBubble({role:'assistant', content:''});
+                assistantBubble.bubble.classList.add('streaming');
+            } else {
+                for(let index = 0; index < chatImageCount; index += 1){
+                    addMessageBubble({
+                        id:`pending-${Date.now()}-${index}`,
+                        role:'assistant',
+                        type:'image',
+                        image_status:'pending',
+                        batch_index:index
+                    });
+                }
+            }
             scrollBottom();
             try {
-                if(mode === 'chat') {
+                if(submissionMode === 'chat') {
                     await streamChatMessage(message, pendingRefs, assistantBubble);
                 } else {
-                    const data = await fetch('/api/chat', {
+                    const response = await fetch('/api/chat/image-batches', {
                         method:'POST',
                         headers:headers(),
                         body:JSON.stringify({
                             conversation_id: currentConversation.id || '',
                             message,
-                            mode,
                             size: currentChatSize(),
-                            model: activeChatModel || config.chat_model,
                             image_model: activeImageModel || config.image_model,
+                            quality:'auto',
                             reference_images: pendingRefs,
                             provider: activeImageProvider,
+                            count:chatImageCount
                         })
-                    }).then(async r => { if(!r.ok) throw new Error((await r.json()).detail || tr('chat.requestFailed')); return r.json(); });
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if(!response.ok) throw new Error(data.detail || tr('chat.requestFailed'));
                     currentConversation = data.conversation;
+                    acceptedImageConversationId = currentConversation.id;
                     setChatTitle(currentConversation.title);
                     renderMessages(currentConversation.messages || []);
+                    await pollChatImageBatch(data.batch.batch_id, currentConversation.id);
                     await loadConversations();
                 }
             } catch(err) {
-                renderMessages([...(currentConversation.messages || []), {role:'assistant', content:err.message || tr('chat.requestFailed')}]);
+                if(submissionMode === 'image'){
+                    if(acceptedImageConversationId){
+                        console.error('image batch polling failed', err);
+                        await refreshActiveConversation(acceptedImageConversationId);
+                    } else {
+                        refs = [...pendingRefs, ...refs].slice(0, 4);
+                        renderRefs();
+                        renderMessages(currentConversation.messages || []);
+                        addMessageBubble({role:'assistant', type:'image', image_status:'failed', error:err.message || tr('chat.requestFailed')});
+                    }
+                } else {
+                    renderMessages([...(currentConversation.messages || []), {role:'assistant', content:err.message || tr('chat.requestFailed')}]);
+                }
             } finally {
+                activeChatImageBatchId = '';
                 btn.disabled = false;
                 scrollBottom();
             }
@@ -877,6 +1039,7 @@
             applyLanguage();
             setChatRatio('square');
             setChatResolution('1k');
+            updateChatImageCountUI();
             await loadConfig();
             await loadConversations();
         };

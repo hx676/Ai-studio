@@ -8,8 +8,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app import legacy
-from app.api import agent_skill, canvas, canvas_assistant, components, digital_human, generation, node_extensions, providers, runtime_nodes, system, template_assets, workflows
-from app.services import component_service, digital_human_service, node_engine_component_service, node_engine_service, node_extension_service, skill_runtime, skill_service
+from app.api import agent_skill, canvas, canvas_assistant, components, digital_human, generation, image_batches, node_extension_assets, node_extensions, providers, runtime_nodes, system, template_assets, workflows
+from app.services import component_service, digital_human_service, image_batch_service, node_engine_component_service, node_engine_service, node_extension_service, skill_runtime, skill_service
 from app import upstream_bridge
 from app.core.security import browser_write_allowed, configured_origins, install_log_redaction, redact_sensitive_value, request_host_allowed
 
@@ -27,6 +27,7 @@ async def lifespan(_: FastAPI):
     digital_human_service.start_digital_human_gpu_idle_reaper()
     skill_service.migrate_custom_skills_to_agents()
     skill_runtime.run_manager.recover()
+    image_batch_service.recover_interrupted_chat_image_messages()
     node_extension_service.initialize_node_extensions()
     node_engine_service.initialize()
     try:
@@ -116,10 +117,12 @@ app.include_router(components.router)
 app.include_router(digital_human.router)
 app.include_router(providers.router)
 app.include_router(generation.router)
+app.include_router(image_batches.router)
 app.include_router(canvas.router)
 app.include_router(canvas_assistant.router)
 app.include_router(workflows.router)
 app.include_router(template_assets.router)
+app.include_router(node_extension_assets.router)
 app.include_router(node_extensions.router)
 app.include_router(runtime_nodes.router)
 

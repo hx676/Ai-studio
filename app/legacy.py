@@ -600,6 +600,20 @@ def save_conversation(user_id, conversation):
         path = conversation_path(user_id, conversation["id"])
         atomic_write_json(path, conversation)
 
+def mutate_conversation(user_id, conversation_id, mutator):
+    """Atomically reload, mutate, and replace one conversation JSON file."""
+    with CONVERSATION_LOCK:
+        path = conversation_path(user_id, conversation_id)
+        if not os.path.exists(path):
+            raise HTTPException(status_code=404, detail="对话不存在")
+        conversation = read_json_resilient(path, {})
+        if not isinstance(conversation, dict) or not conversation:
+            raise HTTPException(status_code=500, detail="Conversation data is damaged; a backup was preserved")
+        mutator(conversation)
+        conversation["updated_at"] = now_ms()
+        atomic_write_json(path, conversation)
+        return conversation
+
 def new_conversation(user_id, title="新对话"):
     timestamp = now_ms()
     conversation = {
@@ -2907,7 +2921,7 @@ async def build_online_image_result(payload: OnlineImageRequest):
 async def online_image(payload: OnlineImageRequest):
     return await build_online_image_result(payload)
 
-async def zimage_api_image(payload: OnlineImageRequest):
+async def build_zimage_image_result(payload: OnlineImageRequest, batch_meta=None):
     provider = get_api_provider(payload.provider_id)
     default_model = (provider.get("image_models") or [IMAGE_MODEL])[0]
     model = selected_model(payload.model, default_model)
@@ -2926,7 +2940,9 @@ async def zimage_api_image(payload: OnlineImageRequest):
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"请求 API 生图接口失败：{exc}") from exc
 
+    batch_meta = batch_meta if isinstance(batch_meta, dict) else {}
     result = {
+        "record_id": str(batch_meta.get("record_id") or f"zimage_{uuid.uuid4().hex}"),
         "prompt": payload.prompt,
         "images": [local_url],
         "timestamp": time.time(),
@@ -2950,6 +2966,10 @@ async def zimage_api_image(payload: OnlineImageRequest):
         },
         "raw_usage": raw.get("usage") if isinstance(raw, dict) else None,
     }
+    if batch_meta.get("batch_id"):
+        result["batch_id"] = str(batch_meta["batch_id"])
+        result["batch_index"] = int(batch_meta.get("batch_index") or 0)
+        result["batch_count"] = int(batch_meta.get("batch_count") or 1)
     banana_debug = raw.get("_banana_request_debug") if isinstance(raw, dict) else None
     save_to_history(result)
     if banana_debug:
@@ -2957,6 +2977,9 @@ async def zimage_api_image(payload: OnlineImageRequest):
     if GLOBAL_LOOP:
         asyncio.run_coroutine_threadsafe(manager.broadcast_new_image(result), GLOBAL_LOOP)
     return result
+
+async def zimage_api_image(payload: OnlineImageRequest):
+    return await build_zimage_image_result(payload)
 
 def canvas_image_provider_limiter(provider_id: str):
     loop = asyncio.get_running_loop()

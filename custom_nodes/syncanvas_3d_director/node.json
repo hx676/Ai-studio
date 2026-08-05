@@ -1,0 +1,91 @@
+{
+  "$schema": "../node-extension.schema.json",
+  "schema_version": 1,
+  "id": "syncanvas.3d-director",
+  "name": "SynCanvas 3D Director",
+  "name_zh": "3D 导演台",
+  "version": "2.1.0",
+  "description": "Block rigged characters and imported glTF models, animate cameras, and render the active camera image with optional depth and character-mask passes.",
+  "description_zh": "在交互式 3D 场景中编排骨骼角色与 glTF 模型、制作机位关键帧，并将当前激活摄像机看到的画面作为主图像输出。",
+  "app_version": ">=2026.8",
+  "enabled_by_default": true,
+  "web_directory": "web",
+  "requirements": "requirements.txt",
+  "nodes": [
+    {
+      "id": "director-stage",
+      "display_name": "3D Director Stage",
+      "display_name_zh": "3D 导演台",
+      "description": "Open a full-screen 3D stage for rigged posing, glTF layout, camera keyframes and multi-pass output.",
+      "description_zh": "打开全屏 3D 导演台，完成骨骼姿态、glTF 模型布局、机位关键帧和多通道输出。",
+      "category": "3D",
+      "icon": "scan-line",
+      "version": 3,
+      "surfaces": ["classic", "smart"],
+      "legacy_types": {},
+      "inputs": [
+        {"id": "background", "name": "Background", "name_zh": "场景背景", "types": ["image"], "required": false},
+        {"id": "scene_in", "name": "Scene", "name_zh": "3D 场景", "types": ["json"], "required": false},
+        {"id": "director_note", "name": "Director Note", "name_zh": "导演要求", "types": ["text"], "required": false}
+      ],
+      "outputs": [
+        {"id": "preview", "name": "Camera Image", "name_zh": "摄像机画面", "types": ["image"]},
+        {"id": "depth", "name": "Depth", "name_zh": "深度图", "types": ["image"]},
+        {"id": "character_mask", "name": "Character Mask", "name_zh": "角色 ID 蒙版", "types": ["image"]},
+        {"id": "scene", "name": "Scene", "name_zh": "3D 场景数据", "types": ["json"]},
+        {"id": "shot_prompt", "name": "Shot Prompt", "name_zh": "镜头描述", "types": ["text"]}
+      ],
+      "defaults": {
+        "schemaVersion": 2,
+        "previewUrl": "",
+        "depthUrl": "",
+        "characterMaskUrl": "",
+        "cameraOutputFingerprint": "",
+        "scene": {
+          "schemaVersion": 2,
+          "activeCameraId": "camera-1",
+          "objects": [],
+          "cameras": [
+            {
+              "id": "camera-1",
+              "name": "机位01",
+              "position": [0, 2.2, 7.5],
+              "rotation": [-0.08, 0, 0, 0.9968],
+              "focalLength": 50,
+              "aspect": "16:9"
+            }
+          ],
+          "environment": {
+            "backgroundUrl": "",
+            "backgroundMode": "flat",
+            "skyColor": "#d8dde5",
+            "groundColor": "#9098a3",
+            "groundOpacity": 0.42,
+            "groundVisible": true,
+            "gridVisible": true,
+            "labelsVisible": true
+          },
+          "settings": {
+            "transformSpace": "world",
+            "snapEnabled": true,
+            "translationSnap": 0.1,
+            "rotationSnap": 5,
+            "scaleSnap": 0.05
+          },
+          "timeline": {
+            "duration": 5,
+            "fps": 24,
+            "currentTime": 0,
+            "tracks": []
+          }
+        }
+      },
+      "size": {
+        "classic": {"width": 440, "height": 350},
+        "smart": {"width": 440, "height": 350}
+      },
+      "execution": "frontend",
+      "frontend_key": "director-stage"
+    }
+  ]
+}

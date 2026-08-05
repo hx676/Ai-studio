@@ -1,7 +1,7 @@
 (function(){
     const state = {
         revision:'', packages:[], nodes:[], aliases:{classic:{}, smart:{}},
-        rawPackages:[], rawNodes:[], definitions:new Map(), knownDefinitions:new Map(), knownAliases:{classic:{}, smart:{}}, adapters:new Map(), cleanup:new WeakMap(), error:''
+        rawPackages:[], rawNodes:[], definitions:new Map(), knownDefinitions:new Map(), knownAliases:{classic:{}, smart:{}}, adapters:new Map(), cleanup:new WeakMap(), activeEditor:null, error:''
     };
     const listeners = new Set();
 
@@ -209,7 +209,7 @@
         const adapter = adapterFor(node, surface);
         if(adapter?.render){
             try {
-                const rendered = adapter.render({node, definition:def, surface:surfaceName(surface), escapeHtml, context});
+                const rendered = adapter.render({node, definition:def, surface:surfaceName(surface), escapeHtml, context:publicContext(context)});
                 if(typeof rendered === 'string' && rendered.trim()) return rendered;
             } catch(error) {
                 console.error('Extension renderer failed', def.type, error);
@@ -242,13 +242,120 @@
         }
         return data;
     }
+    async function uploadAsset(blob, options={}){
+        if(!(blob instanceof Blob)) throw new Error('Asset upload requires a Blob or File');
+        const filename = String(options.filename || (blob.type === 'image/jpeg' ? 'node-output.jpg' : 'node-output.png')).replace(/[\\/:*?"<>|]+/g, '-');
+        const file = blob instanceof File ? blob : new File([blob], filename, {type:blob.type || 'application/octet-stream'});
+        const form = new FormData();
+        const kind = String(options.kind || 'image');
+        let payload;
+        let uploaded;
+        if(kind === 'model'){
+            form.append('file', file, file.name || filename);
+            form.append('kind', 'model');
+            form.append('extension_id', String(options.extensionId || '3d-director'));
+            payload = await fetch('/api/node-extension-assets', {method:'POST', body:form}).then(responseJson);
+            uploaded = payload;
+        }else{
+            form.append('files', file, file.name || filename);
+            payload = await fetch('/api/ai/upload', {method:'POST', body:form}).then(responseJson);
+            uploaded = payload?.files?.[0];
+        }
+        if(!uploaded?.url) throw new Error('Uploaded asset did not return a local URL');
+        return {url:String(uploaded.url), name:String(uploaded.name || file.name || filename), kind:String(uploaded.kind || kind), size:Number(uploaded.size || file.size || 0)};
+    }
+    function closeEditor(reason='close'){
+        const active = state.activeEditor;
+        if(!active) return;
+        state.activeEditor = null;
+        document.removeEventListener('keydown', active.keydown, true);
+        try { active.cleanup?.(); } catch(error) { console.error('Extension editor cleanup failed', error); }
+        try { active.options?.onClose?.({reason}); } catch(error) { console.error('Extension editor close handler failed', error); }
+        active.backdrop.remove();
+        document.documentElement.classList.remove('extension-editor-open');
+        document.body.classList.remove('extension-editor-open');
+        if(active.restoreFocus?.isConnected) active.restoreFocus.focus({preventScroll:true});
+    }
+    function openEditor(options={}){
+        if(typeof options.mount !== 'function') throw new Error('Extension editor requires a mount(container) function');
+        closeEditor('replace');
+        const restoreFocus = document.activeElement;
+        const backdrop = document.createElement('div');
+        backdrop.className = `extension-editor-backdrop ${String(options.className || '').trim()}`.trim();
+        backdrop.setAttribute('role', 'presentation');
+        const shell = document.createElement('section');
+        shell.className = 'extension-editor-shell';
+        shell.setAttribute('role', 'dialog');
+        shell.setAttribute('aria-modal', 'true');
+        shell.setAttribute('aria-label', String(options.title || 'Extension editor'));
+        const header = document.createElement('header');
+        header.className = 'extension-editor-header';
+        const title = document.createElement('strong');
+        title.className = 'extension-editor-title';
+        title.textContent = String(options.title || 'Extension editor');
+        const actions = document.createElement('div');
+        actions.className = 'extension-editor-actions';
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'extension-editor-close';
+        closeButton.setAttribute('aria-label', languageIsChinese() ? '关闭编辑器' : 'Close editor');
+        closeButton.title = languageIsChinese() ? '关闭' : 'Close';
+        closeButton.innerHTML = '<span aria-hidden="true">&times;</span>';
+        actions.appendChild(closeButton);
+        header.append(title, actions);
+        const content = document.createElement('div');
+        content.className = 'extension-editor-content';
+        shell.append(header, content);
+        backdrop.appendChild(shell);
+        document.body.appendChild(backdrop);
+        document.documentElement.classList.add('extension-editor-open');
+        document.body.classList.add('extension-editor-open');
+        const keydown = event => {
+            if(event.key === 'Escape' && options.closeOnEscape !== false){
+                event.preventDefault(); event.stopPropagation(); closeEditor('escape');
+            }
+        };
+        document.addEventListener('keydown', keydown, true);
+        closeButton.addEventListener('click', () => closeEditor('button'));
+        if(options.closeOnBackdrop){
+            backdrop.addEventListener('mousedown', event => { if(event.target === backdrop) closeEditor('backdrop'); });
+        }
+        const editorApi = {
+            close:reason => closeEditor(reason || 'extension'),
+            setTitle:value => { title.textContent = String(value || options.title || 'Extension editor'); },
+            actions,
+            uploadAsset,
+        };
+        const active = {backdrop, shell, content, keydown, options, cleanup:null, restoreFocus};
+        state.activeEditor = active;
+        try {
+            const mounted = options.mount(content, editorApi);
+            if(mounted && typeof mounted.then === 'function'){
+                mounted.then(cleanup => {
+                    if(state.activeEditor === active && typeof cleanup === 'function') active.cleanup = cleanup;
+                    else if(typeof cleanup === 'function') cleanup();
+                }).catch(error => {
+                    console.error('Extension editor failed to mount', error);
+                    content.innerHTML = `<div class="extension-editor-error">${escapeHtml(error.message || String(error))}</div>`;
+                });
+            } else if(typeof mounted === 'function') active.cleanup = mounted;
+        } catch(error) {
+            console.error('Extension editor failed to mount', error);
+            content.innerHTML = `<div class="extension-editor-error">${escapeHtml(error.message || String(error))}</div>`;
+        }
+        requestAnimationFrame(() => closeButton.focus({preventScroll:true}));
+        return editorApi;
+    }
+    function publicContext(context={}){
+        return {...context, openEditor, closeEditor, uploadAsset};
+    }
     async function runNode(node, surface, context={}){
         const def = definitionForNode(node, surface);
         if(!def) throw new Error('扩展节点不可用');
         if(def.execution !== 'python'){
             const adapter = adapterFor(node, surface);
             if(!adapter?.run) throw new Error('此节点没有可执行的后端');
-            return adapter.run({node, definition:def, context});
+            return adapter.run({node, definition:def, context:publicContext(context)});
         }
         if(node.running) return null;
         node.running = true;
@@ -329,7 +436,8 @@
         const adapter = adapterFor(node, surface);
         if(adapter?.bind){
             try {
-                const cleanup = adapter.bind({root, node, definition:definitionForNode(node, surface), surface:surfaceName(surface), update:context.update, save:context.save, run:() => runNode(node, surface, context), cancel:() => cancelNode(node), escapeHtml, context});
+                const extensionContext = publicContext(context);
+                const cleanup = adapter.bind({root, node, definition:definitionForNode(node, surface), surface:surfaceName(surface), update:context.update, save:context.save, run:() => runNode(node, surface, context), cancel:() => cancelNode(node), escapeHtml, context:extensionContext});
                 if(typeof cleanup === 'function') cleanups.push(cleanup);
             } catch(error) {
                 console.error('Extension binder failed', node.extensionType || node.type, error);
@@ -393,7 +501,7 @@
     const api = {
         state, escapeHtml, ready:null, load, onReady, resolveType, definition, definitionForNode,
         definitionsFor, decorateNode, serializeNode, createData, sizeFor, canConnect,
-        renderBody, bindNode, runNode, cancelNode
+        renderBody, bindNode, runNode, cancelNode, openEditor, closeEditor, uploadAsset
     };
     window.SynCanvasNodeExtensions = api;
     window.addEventListener('studio-lang-change', () => {

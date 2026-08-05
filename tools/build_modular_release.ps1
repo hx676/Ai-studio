@@ -429,12 +429,18 @@ if (-not $SkipCore) {
         "components-manifest.json",
         "node-engine-manifest.json",
         "custom_nodes\syncanvas_agent_skill\node.json",
+        "custom_nodes\syncanvas_3d_director\node.json",
+        "custom_nodes\syncanvas_3d_director\THREE-LICENSE.txt",
+        "custom_nodes\syncanvas_3d_director\web\director-features.js",
         "custom_nodes\syncanvas_image_compare\node.json",
         "custom_nodes\syncanvas_output_folder\node.json",
         "custom_nodes\syncanvas_runtime_node\node.json",
         "custom_nodes\syncanvas_templates\node.json",
         "CLI\windows\jimeng",
         "static\vendor\css\tailwind.css",
+        "static\vendor\js\three-transform-controls-0.160.0.js",
+        "static\vendor\js\three-gltf-loader-0.160.0.js",
+        "static\vendor\js\three-buffer-geometry-utils-0.160.0.js",
         "static\workflows\reference-style-prompt.classic.json",
         "static\workflows\reference-style-prompt.smart.json"
     )

@@ -337,7 +337,7 @@
         function backToCanvasList(){
             savePromptDraftForCurrent();
             const projectId = String(canvas?.project || params.get('project') || '').trim();
-            window.location.href = `/static/canvas-list.html?${projectId ? `project=${encodeURIComponent(projectId)}&` : ''}v=2026.08.01.4`;
+            window.location.href = `/static/canvas-list.html?${projectId ? `project=${encodeURIComponent(projectId)}&` : ''}v=2026.08.04.1`;
         }
         function promptPlainText(){
             const tokens = [...promptInput.querySelectorAll('.prompt-template-token')];

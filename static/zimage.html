@@ -17,12 +17,12 @@
             } catch(e) {}
         })();
     </script>
-    <link rel="stylesheet" href="/static/vendor/css/tailwind.css?v=2026.08.01.4">
-    <script src="/static/vendor/js/lucide.js?v=2026.08.01.4"></script>
-    <script src="/static/js/theme.js?v=2026.08.01.4"></script>
-    <script src="/static/js/i18n-core.js?v=2026.08.01.4"></script><script src="/static/js/i18n/common.js?v=2026.08.01.4"></script><script src="/static/js/i18n/studio.js?v=2026.08.01.4"></script><script src="/static/js/i18n/api-settings.js?v=2026.08.01.4"></script><script src="/static/js/i18n/canvas.js?v=2026.08.01.4"></script><script src="/static/js/i18n/smart-canvas.js?v=2026.08.01.4"></script><script src="/static/js/i18n/comfyui-settings.js?v=2026.08.01.4"></script><script src="/static/js/i18n/legacy.js?v=2026.08.01.4"></script>
-    <script src="/static/js/image-preview.js?v=2026.08.01.4"></script>
-    <script src="/static/js/history-bulk-manager.js?v=2026.08.01.4"></script>
+    <link rel="stylesheet" href="/static/vendor/css/tailwind.css?v=2026.08.04.1">
+    <script src="/static/vendor/js/lucide.js?v=2026.08.04.1"></script>
+    <script src="/static/js/theme.js?v=2026.08.04.1"></script>
+    <script src="/static/js/i18n-core.js?v=2026.08.04.1"></script><script src="/static/js/i18n/common.js?v=2026.08.04.1"></script><script src="/static/js/i18n/studio.js?v=2026.08.04.1"></script><script src="/static/js/i18n/api-settings.js?v=2026.08.04.1"></script><script src="/static/js/i18n/canvas.js?v=2026.08.04.1"></script><script src="/static/js/i18n/smart-canvas.js?v=2026.08.04.1"></script><script src="/static/js/i18n/comfyui-settings.js?v=2026.08.04.1"></script><script src="/static/js/i18n/legacy.js?v=2026.08.04.1"></script>
+    <script src="/static/js/image-preview.js?v=2026.08.04.1"></script>
+    <script src="/static/js/history-bulk-manager.js?v=2026.08.04.1"></script>
     <style>
         :root {
             --bg-base: #f8f8f8;
@@ -527,7 +527,7 @@
             display: none;
         }
     </style>
-    <link rel="stylesheet" href="/static/css/theme.css?v=2026.08.01.4">
+    <link rel="stylesheet" href="/static/css/theme.css?v=2026.08.04.1">
 </head>
 
 <body class="antialiased">
@@ -610,6 +610,10 @@
                             <div class="flex flex-col gap-1">
                                 <span class="text-[9px] font-bold text-gray-400 uppercase" data-i18n="studio.resolution">Resolution</span>
                                 <div id="resolutionOptions" class="size-chip-row resolution-row"></div>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <span class="text-[9px] font-bold text-gray-400 uppercase" data-i18n="studio.batchCount">Images</span>
+                                <div id="batchCountOptions" class="size-chip-row resolution-row"></div>
                             </div>
                         </div>
                     </div>
@@ -712,7 +716,7 @@
             try {
                 const msg = JSON.parse(e.data);
                 if (msg.type === 'new_image' && msg.data?.type === 'zimage') {
-                    if (!document.getElementById(`history-${msg.data.timestamp}`)) {
+                    if (!document.getElementById(historyCardId(msg.data))) {
                         allHistory.unshift(msg.data);
                         renderImageCard(msg.data, true);
                         currentIndex++;
@@ -728,6 +732,9 @@
         let apiProvidersRefreshPromise = null;
         let selectedRatio = '1:1';
         let selectedResolution = '1k';
+        let selectedBatchCount = Math.max(1, Math.min(4, Number(localStorage.getItem('zimage_batch_count') || 1)));
+        let activeBatchId = '';
+        const zimageRetryPayloads = new Map();
         const referenceImages = {1:null, 2:null, 3:null};
         const referenceUploadPromises = {1:null, 2:null, 3:null};
         const referenceUploadErrors = {1:null, 2:null, 3:null};
@@ -834,6 +841,7 @@
         function renderSizeControls(){
             const ratioWrap = document.getElementById('ratioOptions');
             const resolutionWrap = document.getElementById('resolutionOptions');
+            const batchCountWrap = document.getElementById('batchCountOptions');
             if(ratioWrap){
                 ratioWrap.innerHTML = RATIO_OPTIONS.map(ratio => `
                     <button type="button" class="size-chip ${ratio === selectedRatio ? 'active' : ''}" onclick="setRatio('${escapeAttr(ratio)}')">${escapeHtml(ratio)}</button>
@@ -842,6 +850,11 @@
             if(resolutionWrap){
                 resolutionWrap.innerHTML = RESOLUTION_OPTIONS.map(item => `
                     <button type="button" class="size-chip ${item.value === selectedResolution ? 'active' : ''}" onclick="setResolution('${escapeAttr(item.value)}')">${escapeHtml(item.label)}</button>
+                `).join('');
+            }
+            if(batchCountWrap){
+                batchCountWrap.innerHTML = [1,2,3,4].map(count => `
+                    <button type="button" class="size-chip ${count === selectedBatchCount ? 'active' : ''}" onclick="setBatchCount(${count})">${count}</button>
                 `).join('');
             }
         }
@@ -853,6 +866,12 @@
         function setResolution(next){
             if(!RESOLUTION_OPTIONS.some(item => item.value === next)) return;
             selectedResolution = next;
+            renderSizeControls();
+        }
+        function setBatchCount(next){
+            const count = Math.max(1, Math.min(4, Number(next) || 1));
+            selectedBatchCount = count;
+            localStorage.setItem('zimage_batch_count', String(count));
             renderSizeControls();
         }
         function uniqueModels(list){
@@ -1107,24 +1126,23 @@
         async function runApiTask(prompt) {
             if(!await ensureCurrentProviderAvailable()) return StudioDialog.alert(tr('studio.noApiImageProviders'));
             setLoading(true);
-
-            const placeholder = createPlaceholder("API Rendering");
-            document.getElementById('masonry').prepend(placeholder);
-
+            let placeholders = [];
+            let payload = null;
             try {
                 await waitForReferenceUploads();
                 const refs = selectedReferenceImages();
                 if(isBananaModel(selectedModel) && refs.length && refs.some(ref => !ref.data_url)){
                     throw new Error('Banana 图生图需要重新上传参考图，请刷新页面后重新上传。');
                 }
-                const payload = {
+                payload = {
                     prompt: prompt,
                     provider_id: selectedProviderId,
                     model: selectedModel,
                     aspect_ratio: selectedRatio,
                     resolution: currentResolutionLabel(),
                     quality: 'auto',
-                    reference_images: refs
+                    reference_images: refs,
+                    count: selectedBatchCount
                 };
                 if(!isBananaModel(selectedModel)){
                     payload.size = currentSize();
@@ -1141,25 +1159,106 @@
                         has_size: Object.prototype.hasOwnProperty.call(payload, 'size')
                     });
                 }
-                const res = await fetch('/api/zimage-api-image', {
+                placeholders = createBatchPlaceholders(selectedBatchCount, payload);
+                const res = await fetch('/api/zimage-batches', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
                 const data = await res.json();
-                placeholder.remove();
-                if (res.ok && data.images?.length) {
-                    renderImageCard(data, true);
-                } else {
-                    if(res.status === 404) {
-                        throw new Error("服务未加载最新接口，请重启后端服务后再试。");
-                    }
+                if (!res.ok || !data.batch_id) {
+                    if(res.status === 404) throw new Error("服务未加载最新接口，请重启后端服务后再试。");
                     throw new Error(data.detail?.errors?.message || data.detail || "API Error");
                 }
+                activeBatchId = data.batch_id;
+                await pollZimageBatch(data.batch_id, placeholders, payload);
             } catch (e) {
-                if(placeholder.isConnected) placeholder.remove();
-                StudioDialog.alert(e.message);
+                placeholders.forEach((placeholder, index) => {
+                    if(placeholder?.isConnected) renderFailedPlaceholder(placeholder, e.message || tr('studio.batchFailed'), payload, index);
+                });
+                if(!placeholders.length) StudioDialog.alert(e.message);
             } finally {
+                activeBatchId = '';
+                setLoading(false);
+            }
+        }
+
+        function createBatchPlaceholders(count, payload) {
+            const masonry = document.getElementById('masonry');
+            const placeholders = [];
+            for(let index = count - 1; index >= 0; index--){
+                const placeholder = createPlaceholder(`${tr('studio.processing')} ${index + 1}/${count}`, index);
+                zimageRetryPayloads.set(placeholder.id, {payload: structuredClone(payload), index});
+                masonry.prepend(placeholder);
+                placeholders[index] = placeholder;
+            }
+            return placeholders;
+        }
+
+        async function pollZimageBatch(batchId, placeholders, payload) {
+            let terminal = false;
+            while(!terminal){
+                const res = await fetch(`/api/image-batches/${encodeURIComponent(batchId)}`, {cache:'no-store'});
+                const batch = await res.json();
+                if(!res.ok) throw new Error(batch.detail || tr('studio.batchRequestFailed'));
+                (batch.items || []).forEach(item => {
+                    const placeholder = placeholders[item.index];
+                    if(!placeholder?.isConnected) return;
+                    if(item.status === 'succeeded' && item.result){
+                        renderImageCard(item.result, true);
+                        zimageRetryPayloads.delete(placeholder.id);
+                        placeholder.remove();
+                    } else if(item.status === 'failed') {
+                        renderFailedPlaceholder(placeholder, item.error || tr('studio.batchFailed'), payload, item.index);
+                    } else {
+                        renderPendingPlaceholder(placeholder, item.index, batch.requested_count, item.status);
+                    }
+                });
+                terminal = ['succeeded','partial','failed'].includes(batch.status);
+                if(!terminal) await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+
+        function renderPendingPlaceholder(placeholder, index, count, status='running') {
+            placeholder.className = 'masonry-item bg-gray-50 flex flex-col items-center justify-center border-dashed border-2 border-gray-200';
+            placeholder.innerHTML = `<div class="w-6 h-6 border-2 border-gray-100 border-t-black rounded-full animate-spin mb-3"></div><span class="text-[9px] font-bold text-gray-400">${escapeHtml(tr('studio.processing'))} ${index + 1}/${count}</span>`;
+            placeholder.dataset.status = status;
+        }
+
+        function renderFailedPlaceholder(placeholder, error, payload, index) {
+            zimageRetryPayloads.set(placeholder.id, {payload: structuredClone(payload), index});
+            placeholder.className = 'masonry-item bg-red-50 flex flex-col items-center justify-center border-dashed border-2 border-red-200 p-5 text-center';
+            placeholder.dataset.status = 'failed';
+            placeholder.innerHTML = `
+                <i data-lucide="circle-alert" class="w-6 h-6 text-red-500 mb-3"></i>
+                <strong class="text-[10px] text-red-700 mb-2">${escapeHtml(tr('studio.batchFailed'))}</strong>
+                <span class="text-[9px] leading-relaxed text-red-500 line-clamp-4 mb-4">${escapeHtml(error)}</span>
+                <button type="button" class="px-4 py-2 rounded-full bg-red-600 text-white text-[9px] font-bold" onclick="retryZimageFailed('${escapeAttr(placeholder.id)}')">${escapeHtml(tr('studio.retryImage'))}</button>
+            `;
+            lucide.createIcons();
+        }
+
+        async function retryZimageFailed(placeholderId) {
+            const retry = zimageRetryPayloads.get(placeholderId);
+            const placeholder = document.getElementById(placeholderId);
+            if(!retry || !placeholder || activeBatchId) return;
+            const payload = {...structuredClone(retry.payload), count:1};
+            setLoading(true);
+            renderPendingPlaceholder(placeholder, 0, 1);
+            try {
+                const res = await fetch('/api/zimage-batches', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if(!res.ok || !data.batch_id) throw new Error(data.detail || tr('studio.batchRequestFailed'));
+                activeBatchId = data.batch_id;
+                await pollZimageBatch(data.batch_id, [placeholder], payload);
+            } catch(error) {
+                renderFailedPlaceholder(placeholder, error.message || tr('studio.batchFailed'), payload, 0);
+            } finally {
+                activeBatchId = '';
                 setLoading(false);
             }
         }
@@ -1181,8 +1280,9 @@
             lucide.createIcons();
         }
 
-        function createPlaceholder(text) {
+        function createPlaceholder(text, index=0) {
             const div = document.createElement('div');
+            div.id = `zimage-batch-placeholder-${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`;
             div.className = 'masonry-item bg-gray-50 flex flex-col items-center justify-center border-dashed border-2 border-gray-200';
             div.innerHTML = `<div class="w-6 h-6 border-2 border-gray-100 border-t-black rounded-full animate-spin mb-3"></div><span class="text-[8px] font-bold text-gray-400 uppercase tracking-tighter">${text}</span>`;
             return div;
@@ -1201,12 +1301,17 @@
             return '';
         }
 
+        function historyCardId(data){
+            return `history-${String(data?.record_id || data?.timestamp || '').replace(/[^a-zA-Z0-9_.-]/g, '-')}`;
+        }
+
         function renderImageCard(data, isNew = false) {
-            if (document.getElementById(`history-${data.timestamp}`)) return;
+            const cardId = historyCardId(data);
+            if (document.getElementById(cardId)) return;
             const masonry = document.getElementById('masonry');
             const card = document.createElement('div');
             const timestamp = Number(data.timestamp) || 0;
-            card.id = `history-${data.timestamp}`;
+            card.id = cardId;
             card.dataset.historyTs = data.timestamp;
             card.className = 'masonry-item group cursor-zoom-in animate-in fade-in duration-700';
             card.onclick = () => { if(document.body.classList.contains('history-bulk-selecting')) return; openLightbox(data); };

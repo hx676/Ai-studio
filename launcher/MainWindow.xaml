@@ -1019,7 +1019,7 @@
               <DockPanel Margin="0,0,0,16">
                 <TextBlock Text="系统公告" FontSize="18" FontWeight="Bold"/>
                 <Border DockPanel.Dock="Right" Background="#312E81" CornerRadius="4" Padding="7,3">
-                  <TextBlock Text="v2026.08.01.4" FontSize="11" FontWeight="SemiBold" Foreground="#C7D2FE"/>
+                  <TextBlock Text="v2026.08.04.1" FontSize="11" FontWeight="SemiBold" Foreground="#C7D2FE"/>
                 </Border>
               </DockPanel>
               
@@ -1027,7 +1027,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                   <StackPanel>
                     <TextBlock Text="本次重点更新" FontSize="13" FontWeight="Bold" Foreground="#818CF8" Margin="0,0,0,7"/>
-                    <TextBlock Text="• 画布精灵支持多轮对话、图片附件和发送提示词到画布&#x0a;• 内置 Comfy 节点兼容引擎与扩展节点管理&#x0a;• 新增图像比对、输出到文件夹等画布节点&#x0a;• Gemini 生图路由已完成真实画布验证" TextWrapping="Wrap" LineHeight="19" FontSize="12" Foreground="#F3F4F6"/>
+                    <TextBlock Text="• AI图像与AI对话支持单次并发生成 1～4 张图片&#x0a;• 参考图批量生成同步支持并发，成功结果逐张即时显示&#x0a;• 单张失败不影响同批其他图片，可保留错误并原位重试&#x0a;• AI对话按固定顺序保存独立图片气泡，刷新后仍可恢复" TextWrapping="Wrap" LineHeight="19" FontSize="12" Foreground="#F3F4F6"/>
 
                     <TextBlock Text="数字人组件" FontSize="13" FontWeight="Bold" Foreground="#F59E0B" Margin="0,16,0,6"/>
                     <TextBlock Text="TTS 与 HeyGem 采用独立组件包，数字人页面提供百度网盘入口与提取码；下载后由本机校验安装，启动主应用时不会自动占用显存。" TextWrapping="Wrap" Foreground="{StaticResource TextMute}" LineHeight="18" FontSize="12"/>
