@@ -9,7 +9,6 @@ import subprocess
 import time
 import urllib.parse
 import wave
-from pathlib import Path
 from typing import Any, Dict, Optional, Sequence
 
 import httpx

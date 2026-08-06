@@ -90,12 +90,6 @@ def custom_skill_map() -> Dict[str, Dict[str, Any]]:
     return {item["id"]: item for item in load_custom_skills()}
 
 
-def get_custom_skill(skill_id: str) -> Dict[str, Any]:
-    skill = custom_skill_map().get(skill_id)
-    if not skill:
-        raise HTTPException(status_code=404, detail=f"自定义 Skill 不存在：{skill_id}")
-    return deepcopy(skill)
-
 
 def _validate_target_agent(agent_id: str) -> None:
     from app.services import agent_service
@@ -150,8 +144,6 @@ def delete_skill(skill_id: str) -> None:
     _atomic_write(CUSTOM_SKILLS_FILE, skills)
 
 
-def export_custom_skills() -> List[Dict[str, Any]]:
-    return [{key: deepcopy(item[key]) for key in SKILL_FIELDS} for item in load_custom_skills()]
 
 
 def _migration_state() -> Dict[str, Any]:

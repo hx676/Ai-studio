@@ -11,7 +11,6 @@ import urllib.parse
 import uuid
 
 import httpx
-import requests
 from fastapi import HTTPException
 
 from app.core.security import redact_sensitive_text
@@ -80,9 +79,9 @@ def gradio_handle_file(path):
 
 
 def local_requests_session():
-    session = requests.Session()
-    session.trust_env = False
-    return session
+    from app.services.tts_service import local_requests_session as _local_requests_session
+
+    return _local_requests_session()
 
 
 def get_heygem_gradio_client(config):

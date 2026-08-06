@@ -1151,21 +1151,6 @@ def load_static_runninghub_provider():
         print(f"加载 static RunningHub 配置失败: {e}")
     return None
 
-def merge_runninghub_provider_with_static(provider):
-    static_provider = load_static_runninghub_provider()
-    if not static_provider:
-        return provider
-    if not isinstance(provider, dict):
-        return static_provider
-    merged = {**static_provider, **provider}
-    merged["protocol"] = "runninghub"
-    merged["image_models"] = model_list_from_values(provider.get("image_models") or [])
-    merged["chat_models"] = model_list_from_values(provider.get("chat_models") or [])
-    merged["video_models"] = model_list_from_values(provider.get("video_models") or [])
-    merged["rh_apps"] = merge_runninghub_system_entries(static_provider.get("rh_apps") or [], provider.get("rh_apps") or [], "app")
-    merged["rh_workflows"] = merge_runninghub_system_entries(static_provider.get("rh_workflows") or [], provider.get("rh_workflows") or [], "workflow")
-    return normalize_provider(merged)
-
 def preserve_runninghub_hidden_overrides(provider):
     if not isinstance(provider, dict) or provider.get("id") != "runninghub":
         return provider
@@ -5176,16 +5161,6 @@ def gemini_cli_models_payload(raw=None):
         "raw": raw or {},
     }
 
-def gemini_cli_reference_note(reference_images=None):
-    refs = []
-    temp_paths = []
-    for ref in (reference_images or [])[:ONLINE_IMAGE_REFERENCE_MAX]:
-        url = ref.get("url") if isinstance(ref, dict) else getattr(ref, "url", "")
-        if not url:
-            continue
-        refs.append(url)
-    return refs, temp_paths
-
 async def gemini_cli_reference_paths(reference_images=None):
     return await codex_reference_paths(reference_images)
 
@@ -5277,8 +5252,6 @@ def gemini_cli_chat_prompt(payload, history_messages=None):
         image_values.extend([{"url": item} for item in (getattr(payload, "images", None) or []) if item])
     if hasattr(payload, "reference_images"):
         image_values.extend([ref.dict() for ref in (getattr(payload, "reference_images", None) or []) if getattr(ref, "url", "")])
-    refs = []
-    temp_paths = []
     return "\n\n".join(part for part in parts if part).strip(), image_values
 
 async def gemini_cli_chat_text(payload, history_messages=None):
@@ -5334,9 +5307,6 @@ def avatar_platform_for_provider(provider) -> str:
     if is_volcengine_provider(provider):
         return "volcengine"
     return ""
-
-def provider_supports_avatar(provider) -> bool:
-    return avatar_platform_for_provider(provider) in AVATAR_SUPPORTED_PLATFORMS
 
 def jimeng_env_value(key):
     return os.getenv(key, "") or read_api_env_value(key)
@@ -5647,10 +5617,6 @@ def jimeng_login_fields_from_text(text):
         "expires_at": expires_at,
         "expired": expired,
     }
-
-def jimeng_login_qr_from_text(text):
-    """Return the URL that must be encoded in a QR code, not an image URL."""
-    return jimeng_login_fields_from_text(text)["verification_url"]
 
 def jimeng_login_response_fields(text):
     fields = jimeng_login_fields_from_text(text)
@@ -7236,7 +7202,6 @@ def make_asset_library_item(src: str, name: str = "", subdir: str = "") -> Tuple
         "created_at": now_ms(),
     }
     return dest_name, item
-    return lib
 
 ASSET_CLASSIFICATION_PROMPT = """请识别这张图片，输出严格 JSON，不要 Markdown，不要解释。
 目标是给素材库做非常全面的筛选分类。所有字段都用中文短标签数组，尽量具体但不要虚构。
@@ -7488,31 +7453,6 @@ def asset_library_workflow_category(lib, library_id="", category_id=""):
         categories.append(cat)
     lib["active_library_id"] = library.get("id") or lib.get("active_library_id")
     return library, cat
-
-def make_workflow_library_item_from_bytes(raw: bytes, filename: str, name: str = "") -> Dict[str, Any]:
-    if not raw:
-        raise HTTPException(status_code=400, detail="工作流文件为空")
-    safe_filename = sanitize_export_filename(filename or "canvas-workflow.zip", "canvas-workflow.zip")
-    ext = os.path.splitext(safe_filename)[1].lower()
-    if ext not in {".json", ".zip"}:
-        safe_filename += ".zip"
-        ext = ".zip"
-    dest_name = f"workflow_{uuid.uuid4().hex[:12]}_{safe_filename}"
-    dest_path = os.path.join(ASSET_LIBRARY_DIR, dest_name)
-    os.makedirs(ASSET_LIBRARY_DIR, exist_ok=True)
-    with open(dest_path, "wb") as f:
-        f.write(raw)
-    display_name = sanitize_asset_name(name or os.path.splitext(safe_filename)[0], "工作流")
-    return {
-        "id": f"wf_{uuid.uuid4().hex[:12]}",
-        "name": display_name[:120],
-        "url": f"/assets/library/{dest_name}",
-        "kind": "workflow",
-        "type": "workflow",
-        "format": "zip" if ext == ".zip" else "json",
-        "size": len(raw),
-        "created_at": now_ms(),
-    }
 
 def make_workflow_library_item_from_stream(stream, size: int, filename: str, name: str = "") -> Dict[str, Any]:
     if size <= 0:
@@ -8403,10 +8343,6 @@ def volcengine_video_resolution(value: str) -> str:
     text = aliases.get(text, text)
     return text if text in {"480p", "720p", "1080p"} else ""
 
-def is_volcengine_seedance2_model(model: str) -> bool:
-    value = str(model or "").strip().lower().replace("_", "-").replace(".", "-")
-    return "seedance-2-0" in value
-
 def probe_local_audio_duration_seconds(value: str) -> Optional[float]:
     path = output_file_from_url(value)
     if not path or not os.path.isfile(path):
@@ -8673,12 +8609,6 @@ def openai_video_proxy_local_image_path(ref) -> str:
     if not path:
         return ""
     return path if content_type_for_path(path).startswith("image/") else ""
-
-def normalize_apimart_video_reference(value: str) -> str:
-    text = str(value or "").strip()
-    if valid_apimart_video_image_input(text):
-        return text
-    return local_asset_public_url(text)
 
 def apimart_video_reference_error(value: str) -> str:
     text = str(value or "").strip()
@@ -9262,9 +9192,6 @@ def local_media_path_for_cloud_upload(ref_url: str, allowed_prefixes=("image/", 
     if size > max_bytes:
         raise HTTPException(status_code=400, detail=f"媒体文件超过云端上传大小限制：{size} bytes")
     return path
-
-def local_video_path_for_cloud_upload(ref_url: str) -> str:
-    return local_media_path_for_cloud_upload(ref_url, ("video/",))
 
 async def upload_video_to_litterbox(path: str, source_url: str) -> Dict[str, str]:
     upload_url = os.getenv("LITTERBOX_UPLOAD_URL", "https://litterbox.catbox.moe/resources/internals/api.php").strip() or "https://litterbox.catbox.moe/resources/internals/api.php"
@@ -15220,18 +15147,6 @@ async def generate_yuli_openai_video(client, payload, provider, base_url, reques
     local_urls = [await save_remote_video_to_output(url) for url in urls]
     return {"videos": local_urls, "task_id": task_id, "raw": result}
 
-def volcengine_video_prompt_text(prompt, aspect_ratio="", duration=None):
-    text = str(prompt or "").strip()
-    suffixes = []
-    ratio = str(aspect_ratio or "").strip()
-    if ratio:
-        suffixes.append(f"--ratio {ratio}")
-    if not suffixes:
-        return text
-    suffix_text = " ".join(suffixes)
-    return f"{text} {suffix_text}".strip() if text else suffix_text
-
-@app.post("/api/canvas-video")
 async def canvas_video(payload: CanvasVideoRequest):
     provider = get_api_provider(payload.provider_id)
     if is_jimeng_provider(provider):
@@ -16103,36 +16018,6 @@ def canvas_workflow_payload(nodes, connections, resources=None):
         "connections": connections or [],
         "resources": resources or [],
     }
-
-def build_canvas_workflow_archive(payload: CanvasWorkflowExportRequest) -> Tuple[bytes, Dict[str, Any]]:
-    nodes_payload = payload.nodes or []
-    connections_payload = payload.connections or []
-    if not nodes_payload:
-        raise HTTPException(status_code=400, detail="没有可导出的节点")
-    buffer = BytesIO()
-    resources = []
-    used = set()
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        if payload.include_resources:
-            for url in canvas_workflow_collect_resource_refs(nodes_payload):
-                if any(item.get("url") == url for item in resources):
-                    continue
-                path = output_file_from_url(url)
-                if not path or not os.path.isfile(path):
-                    continue
-                archive_name = canvas_workflow_unique_archive_name(os.path.basename(path), used)
-                archive_path = f"resources/{archive_name}"
-                zf.write(path, archive_path)
-                resources.append({
-                    "url": url,
-                    "archive": archive_path,
-                    "name": os.path.basename(path),
-                    "size": os.path.getsize(path),
-                })
-        workflow = canvas_workflow_payload(nodes_payload, connections_payload, resources)
-        zf.writestr("workflow.json", json.dumps(workflow, ensure_ascii=False, indent=2))
-    buffer.seek(0)
-    return buffer.getvalue(), {"resources": resources, "node_count": len(nodes_payload), "connection_count": len(connections_payload)}
 
 def build_canvas_workflow_archive_file(payload: CanvasWorkflowExportRequest) -> Tuple[str, Dict[str, Any]]:
     nodes_payload = payload.nodes or []
@@ -18632,9 +18517,6 @@ def workflow_config_path(name: str) -> str:
 
 def is_builtin_workflow(name: str) -> bool:
     return "/" not in name and os.path.basename(name) in BUILTIN_WORKFLOWS
-
-def runninghub_workflow_store_path() -> str:
-    return RUNNINGHUB_WORKFLOW_STORE_FILE
 
 def load_runninghub_workflow_store():
     if not os.path.exists(RUNNINGHUB_WORKFLOW_STORE_FILE):
